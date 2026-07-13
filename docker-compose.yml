@@ -1,0 +1,13 @@
+services:
+  miseon:
+    build:
+      context: .
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+    ports:
+      - '8080:80'
+    restart: unless-stopped
+
+# Dev local com hot-reload:
+#   docker compose -f docker-compose.dev.yml up

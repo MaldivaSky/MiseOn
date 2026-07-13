@@ -1,0 +1,175 @@
+<div align="center">
+
+<img src="public/logo.png" alt="MiseOn" width="420"/>
+
+### Sistema Inteligente para sua Cozinha
+
+**Cardápio digital · Pedidos em tempo real · Pix na plataforma · Entrega · Estoque com ficha técnica**
+
+[![React](https://img.shields.io/badge/React_19-20232A?style=flat-square&logo=react&logoColor=61DAFB)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_4-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
+[![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com)
+[![PWA](https://img.shields.io/badge/PWA-5A0FC8?style=flat-square&logo=pwa&logoColor=white)](#)
+[![Efí Bank](https://img.shields.io/badge/Efí_Bank-PIX-F36F21?style=flat-square)](https://sejaefi.com.br)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white)](https://vercel.com)
+[![CI/CD](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat-square&logo=github-actions&logoColor=white)](#)
+
+*Multi-tenant desde a primeira linha: uma instância, várias lojas — `/natureba`, `/sua-loja`, cada uma com sua marca, seu cardápio e seu estoque.*
+
+</div>
+
+---
+
+## 📖 Sobre
+
+O **MiseOn** é uma plataforma SaaS para lanchonetes, restaurantes e delivery que substitui sistemas como o Anota AI com um diferencial que eles não entregam bem: **controle de estoque com baixa automática por ficha técnica e visão de custo/lucro por produto**.
+
+O cliente pede pela vitrine (link próprio da loja), o dono recebe em tempo real no painel (PWA instalável no celular, com som e notificação), imprime a comanda térmica, gerencia a entrega — e a cada pedido aceito o estoque de insumos baixa sozinho, alimentando a lista de compras e o custo real de cada item vendido.
+
+> Evolução consolidada de quatro projetos: o motor de custo/ficha técnica do **mise**, o padrão público+admin+Supabase do **lagoon**, o módulo de entrega e o ledger de estoque do **mercadinhosys** e a integração Pix Efí do **MySuperStore**.
+
+## ✨ Funcionalidades
+
+| Módulo | Recursos |
+|---|---|
+| 🛍 **Vitrine** | Banners promocionais, busca, filtros por categoria, "os mais pedidos", grupos de adicionais/extras, combos, horário de funcionamento automático, pedido mínimo |
+| 🛒 **Pedidos** | Carrinho, delivery/retirada, cupons (1ª compra, por método de pagamento), taxa de entrega por bairro, troco, observações por item |
+| 💸 **Pagamentos** | Pix **dentro da plataforma** (Efí Bank: QR Code + copia-e-cola + confirmação automática via webhook), **cartão de crédito online** com tokenização no navegador (PCI-safe, parcelado), fallback Pix estático, dinheiro/cartão na entrega |
+| 🛵 **Entregador** | Login com papel próprio, fila de entregas em tempo real, rota no Google Maps com 1 toque, aviso de cobrança na entrega, baixa de entrega |
+| 📟 **Painel (PWA)** | Pedidos em tempo real (websocket), som de campainha, notificação, fluxo de status (novo → aceito → preparando → pronto → em rota → finalizado), comanda térmica 80mm |
+| 📦 **Estoque** | Insumos com custo por embalagem, ficha técnica por produto, **baixa automática no aceite**, estorno no cancelamento, ledger auditável, lista de compras (estoque mínimo) |
+| 📊 **Inteligência** | Custo, lucro bruto e margem por produto (`vw_custo_produto`), clientes recorrentes por telefone (base p/ fidelidade e recuperação de vendas) |
+| 🤖 **Chat IA** *(fase 2)* | Atendimento websocket na própria vitrine com Gemini function calling — sem custo de API do WhatsApp |
+
+## 🏗️ Arquitetura
+
+```
+              ┌─────────────────────────────────────┐
+              │        Vercel (SPA + PWA)           │
+              │  /:slug vitrine · /admin painel     │
+              └───────────────┬─────────────────────┘
+                              │ supabase-js (REST + Realtime/WS)
+              ┌───────────────▼─────────────────────┐
+              │             Supabase                │
+              │  Postgres (RLS multi-tenant)        │
+              │  Auth · Realtime · Storage          │
+              │  ┌───────────────────────────────┐  │
+              │  │ Edge Functions (Deno)         │  │
+              │  │ pix-criar-cobranca            │◄─┼── Efí Bank (Pix)
+              │  │ pix-webhook (confirmação)     │  │
+              │  └───────────────────────────────┘  │
+              │  Triggers: nº do pedido, baixa de   │
+              │  estoque, estorno, upsert cliente   │
+              └─────────────────────────────────────┘
+```
+
+**Decisões de projeto:** snapshot de preço/nome em `itens_pedido` (integridade histórica), pagamentos separados do pedido (Pix + dinheiro no mesmo pedido), estoque como **ledger** (`movimentacoes_estoque`) com cache em `insumos.quantidade_atual`, RLS por tenant em todas as tabelas via `fn_meu_acesso()`.
+
+## 🚀 Começando
+
+### Pré-requisitos
+Node 22+, conta no [Supabase](https://supabase.com) (free tier atende) e, para Pix na plataforma, conta [Efí Bank](https://sejaefi.com.br) com certificado Pix.
+
+### 1 · Banco de dados
+No SQL Editor do Supabase, execute em ordem:
+
+```
+supabase/schema.sql          # schema completo + RLS + triggers
+supabase/schema_v2.sql       # rastreio de entrega em tempo real + painel SuperAdmin
+supabase/chat_ia.sql         # módulo de chat (opcional na fase 1)
+supabase/seed_natureba.sql   # loja piloto com dados reais
+```
+
+Crie o usuário do lojista em **Authentication → Users** e vincule-o (instrução no fim do seed).
+
+### 2 · Frontend
+
+```bash
+npm install
+cp .env.example .env.local    # VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
+npm run dev
+```
+
+Vitrine: `http://localhost:5173/natureba` · Painel: `http://localhost:5173/admin`
+
+### 3 · Pix na plataforma (Efí Bank)
+
+```bash
+openssl pkcs12 -in producao.p12 -out efi.pem -nodes
+base64 -w0 efi.pem > efi_base64.txt
+
+supabase secrets set EFI_CLIENT_ID=... EFI_CLIENT_SECRET=... \
+  EFI_PIX_KEY=chave-pix EFI_CERT_BASE64="$(cat efi_base64.txt)" EFI_SANDBOX=false
+
+supabase functions deploy pix-criar-cobranca
+supabase functions deploy pix-webhook --no-verify-jwt
+```
+
+Registre o webhook (`PUT /v2/webhook/{chave}` → `.../functions/v1/pix-webhook?ignorar=`). Pagamento confirmado marca o pedido como **ACEITO** e dispara a baixa de estoque automaticamente.
+
+### 4 · Login com Google (opcional)
+
+No [Google Cloud Console](https://console.cloud.google.com/apis/credentials), crie um **OAuth Client ID**
+(tipo "Web application") com origem autorizada `https://SEU-PROJETO.supabase.co` e redirect URI
+`https://SEU-PROJETO.supabase.co/auth/v1/callback`. Cole o Client ID/Secret em Supabase Studio →
+**Authentication → Providers → Google**. O botão "Entrar com Google" em `/admin/login` já funciona
+assim que o provider estiver habilitado — sem precisar mexer no código.
+
+### 5 · Convite de equipe
+
+`supabase functions deploy equipe-convidar` e `supabase functions deploy equipe-listar` — usadas
+pela tela **Equipe** (dentro de "Mais" no painel) pra convidar funcionários por e-mail sem precisar
+mexer no banco na mão.
+
+## 🐳 Docker
+
+```bash
+docker compose up --build              # produção local (nginx) em :8080
+docker compose -f docker-compose.dev.yml up   # dev com hot-reload em :5173
+```
+
+## 🔁 CI/CD
+
+Pipeline em `.github/workflows/ci.yml`:
+
+1. **CI** (todo push/PR): typecheck + build + validação da imagem Docker
+2. **CD** (push na `main`): deploy no Vercel + deploy das Edge Functions no Supabase
+
+Secrets necessários no GitHub: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`.
+
+## 📁 Estrutura
+
+```
+├── supabase/
+│   ├── schema.sql               # schema multi-tenant + RLS + triggers + views
+│   ├── chat_ia.sql              # conversas/mensagens (chat websocket + IA)
+│   ├── seed_natureba.sql        # loja piloto
+│   └── functions/
+│       ├── pix-criar-cobranca/  # Efí: cobrança imediata + QR Code
+│       └── pix-webhook/         # Efí: confirmação automática
+├── src/
+│   ├── pages/
+│   │   ├── Cardapio.tsx         # vitrine: banners, carrinho, checkout, Pix
+│   │   └── admin/               # login, pedidos realtime, estoque
+│   ├── components/Splash.tsx    # abertura de marca (5s, 1x por sessão)
+│   ├── lib/supabase.ts
+│   └── types.ts
+├── Dockerfile · nginx.conf · docker-compose*.yml
+├── vercel.json · .github/workflows/ci.yml
+└── public/                      # logo, ícones PWA, splash.mp4
+```
+
+## 🗺️ Roadmap
+
+- [x] **Fase 1 — MVP**: vitrine, carrinho, cupons, pedidos realtime, comanda, Pix Efí, estoque com ficha técnica
+- [ ] CRUD completo de produtos/ficha técnica no painel · relatório de vendas e lucro
+- [ ] **Fase 2**: chat IA na vitrine (Gemini function calling), Web Push, recuperador de vendas, fidelidade/cashback, painel do entregador
+- [x] Cartão de crédito na plataforma (Efí one-step + tokenização) · tela do entregador com rota no mapa
+- [ ] **Fase 3**: NFC-e, onboarding self-service de novas lojas
+
+## ❤️ Autor
+
+Desenvolvido por **Mald1vas.T4ch** — 2026. Todos os direitos para transformar a gestão gastronômica.
