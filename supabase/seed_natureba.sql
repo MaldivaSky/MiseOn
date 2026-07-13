@@ -3,20 +3,18 @@
 -- Rodar após schema.sql
 -- ============================================================
 
-INSERT INTO lojas (slug, nome, descricao, whatsapp, endereco, pedido_minimo, cor_primaria, cor_secundaria, banner_url)
+-- banner_url fica em branco de propósito: a vitrine já desenha um gradiente
+-- com cor_primaria/cor_secundaria por baixo do cabeçalho quando não há foto —
+-- fica bonito sem precisar de imagem nenhuma. Suba a foto real da loja em
+-- Minha Loja → Aparência quando quiser (upload de verdade, não URL).
+INSERT INTO lojas (slug, nome, descricao, whatsapp, endereco, pedido_minimo, cor_primaria, cor_secundaria)
 VALUES (
   'natureba', '"N" de NATUREBA!',
   'Baguetes artesanais de fermentação natural, saladas e doces.',
   '5511900000000',                       -- TROCAR pelo WhatsApp real
   'Av. Sapopemba, 7750 - Box 2',
-  15.00, '#16a34a', '#f97316',
-  'https://loremflickr.com/1200/400/bakery,sandwich'  -- placeholder — troque em Minha Loja → Aparência
+  15.00, '#16a34a', '#f97316'
 );
-
--- Banner promocional na vitrine (placeholder — troque em Marketing → Banners)
-INSERT INTO banners_destaque (loja_id, imagem_url, titulo, ordem_exibicao)
-SELECT id, 'https://loremflickr.com/1200/400/food,promo', 'Confira nosso cardápio!', 0
-FROM lojas WHERE slug = 'natureba';
 
 -- Horários (seg-sáb 12h28–22h como exemplo — ajustar com o cliente)
 INSERT INTO horarios_funcionamento (loja_id, dia_semana, abre, fecha)

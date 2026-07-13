@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Store, Save, Check, Palette, Type as TypeIcon } from 'lucide-react';
+import { Store, Save, Check, Palette, Type as TypeIcon, Copy, ExternalLink, Share2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { PALETA_CORES, PALETA_TEXTO, fonteFamilia } from '../../lib/personalizacao';
 import ColorSwatchPicker from '../../components/ColorSwatchPicker';
@@ -42,15 +42,18 @@ export default function Loja() {
   const { lojaId } = useOutletContext<CtxLoja>();
   const [aba, setAba] = useState<Aba>('aparencia');
   const [form, setForm] = useState<FormLoja>(vazio);
+  const [slug, setSlug] = useState('');
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [ok, setOk] = useState(false);
+  const [copiado, setCopiado] = useState(false);
   const [erro, setErro] = useState('');
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from('lojas').select('*').eq('id', lojaId).single();
       if (data) {
+        setSlug(data.slug ?? '');
         setForm({
           nome: data.nome ?? '', descricao: data.descricao ?? '',
           logo_url: data.logo_url ?? '', banner_url: data.banner_url ?? '',
@@ -96,6 +99,17 @@ export default function Loja() {
 
   if (carregando) return <div className="p-8 text-center text-gray-400">Carregando…</div>;
 
+  const linkPublico = `${window.location.origin}/${slug}`;
+  const copiarLink = () => {
+    navigator.clipboard.writeText(linkPublico);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  };
+  const compartilharWhatsapp = () => {
+    const msg = `Peça pelo nosso cardápio online: ${linkPublico}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  };
+
   const Campo = ({ label, k, placeholder, textarea }: { label: string; k: keyof FormLoja; placeholder?: string; textarea?: boolean }) => (
     <label className="block">
       <span className="text-xs font-semibold text-gray-500">{label}</span>
@@ -114,6 +128,24 @@ export default function Loja() {
       <div className="mb-4 flex items-center gap-2">
         <Store size={20} className="text-[var(--cor-primaria)]" />
         <h2 className="text-lg font-bold">Minha Loja</h2>
+      </div>
+
+      {/* Link público — o cliente acessa por aqui, sem login */}
+      <div className="mb-5 rounded-2xl bg-white p-3 shadow-sm">
+        <p className="mb-1.5 text-xs font-semibold text-gray-500">Link público da sua loja</p>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 truncate rounded-lg bg-gray-50 px-2.5 py-2 text-xs text-gray-700">{linkPublico}</code>
+          <button onClick={copiarLink} title="Copiar link" className="shrink-0 rounded-lg border p-2 text-gray-500">
+            {copiado ? <Check size={15} className="text-green-600" /> : <Copy size={15} />}
+          </button>
+          <a href={linkPublico} target="_blank" rel="noreferrer" title="Abrir" className="shrink-0 rounded-lg border p-2 text-gray-500">
+            <ExternalLink size={15} />
+          </a>
+          <button onClick={compartilharWhatsapp} title="Compartilhar no WhatsApp" className="shrink-0 rounded-lg border p-2 text-green-600">
+            <Share2 size={15} />
+          </button>
+        </div>
+        {copiado && <p className="mt-1 text-[11px] font-medium text-green-600">Link copiado!</p>}
       </div>
 
       {/* Preview ao vivo da identidade — reflete cada escolha na hora */}

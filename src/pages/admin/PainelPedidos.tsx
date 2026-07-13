@@ -127,31 +127,52 @@ export default function PainelPedidos() {
         {pedidos.length === 0 && <p className="py-10 text-center text-sm text-gray-400">Nenhum pedido nas últimas 24h.</p>}
       </div>
 
-      {/* Comanda térmica 80mm */}
+      {/* Comanda térmica 80mm — 2 vias: cozinha (sem preço) + cliente (com preço) */}
       {imprimir && (
-        <div className="comanda-print hidden print:block">
-          <p style={{ textAlign: 'center', fontWeight: 'bold' }}>PEDIDO #{imprimir.numero}</p>
-          <p style={{ textAlign: 'center' }}>{new Date(imprimir.criado_em).toLocaleString('pt-BR')}</p>
-          <hr />
-          <p>{imprimir.identificador_cliente} — {imprimir.telefone_contato}</p>
-          <p>{imprimir.tipo_pedido === 'DELIVERY' ? `ENTREGA: ${imprimir.endereco_entrega} ${imprimir.bairro ?? ''}` : 'RETIRADA NO BALCAO'}</p>
-          <hr />
-          {imprimir.itens_pedido?.map((i) => (
-            <div key={i.id}>
-              <p><b>{i.quantidade}x {i.nome_produto}</b> — {fmt(Number(i.preco_unitario) * i.quantidade)}</p>
-              {i.itens_pedido_opcoes?.map((o, x) => <p key={x}>&nbsp;&nbsp;+ {o.nome_opcao}</p>)}
-              {i.observacao && <p>&nbsp;&nbsp;OBS: {i.observacao}</p>}
-            </div>
-          ))}
-          <hr />
-          <p>Subtotal: {fmt(Number(imprimir.subtotal))}</p>
-          {Number(imprimir.taxa_entrega) > 0 && <p>Entrega: {fmt(Number(imprimir.taxa_entrega))}</p>}
-          {Number(imprimir.desconto) > 0 && <p>Desconto: -{fmt(Number(imprimir.desconto))}</p>}
-          <p style={{ fontWeight: 'bold' }}>TOTAL: {fmt(Number(imprimir.valor_total))}</p>
-          <p>Pgto: {imprimir.pagamentos?.[0]?.metodo}{imprimir.troco_para ? ` (troco p/ ${fmt(Number(imprimir.troco_para))})` : ''}</p>
-          <hr />
-          <p style={{ textAlign: 'center' }}>MiseOn · pedido online</p>
-        </div>
+        <>
+          <div className="comanda-print hidden print:block">
+            <p style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 15 }}>VIA COZINHA</p>
+            <p style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 18 }}>PEDIDO #{imprimir.numero}</p>
+            <p style={{ textAlign: 'center' }}>{new Date(imprimir.criado_em).toLocaleString('pt-BR')}</p>
+            <hr />
+            <p style={{ fontWeight: 'bold' }}>{imprimir.tipo_pedido === 'DELIVERY' ? '🛵 ENTREGA' : '🏪 RETIRADA NO BALCAO'}</p>
+            <hr />
+            {imprimir.itens_pedido?.map((i) => (
+              <div key={i.id} style={{ marginBottom: 6 }}>
+                <p style={{ fontWeight: 'bold', fontSize: 14 }}>{i.quantidade}x {i.nome_produto}</p>
+                {i.itens_pedido_opcoes?.map((o, x) => <p key={x}>&nbsp;&nbsp;+ {o.nome_opcao}</p>)}
+                {i.observacao && <p style={{ fontWeight: 'bold' }}>&nbsp;&nbsp;OBS: {i.observacao}</p>}
+              </div>
+            ))}
+            <hr />
+            <p style={{ textAlign: 'center' }}>MiseOn · pedido online</p>
+          </div>
+
+          <div className="comanda-print hidden print:block">
+            <p style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 15 }}>VIA CLIENTE</p>
+            <p style={{ textAlign: 'center', fontWeight: 'bold' }}>PEDIDO #{imprimir.numero}</p>
+            <p style={{ textAlign: 'center' }}>{new Date(imprimir.criado_em).toLocaleString('pt-BR')}</p>
+            <hr />
+            <p>{imprimir.identificador_cliente} — {imprimir.telefone_contato}</p>
+            <p>{imprimir.tipo_pedido === 'DELIVERY' ? `ENTREGA: ${imprimir.endereco_entrega} ${imprimir.bairro ?? ''}` : 'RETIRADA NO BALCAO'}</p>
+            <hr />
+            {imprimir.itens_pedido?.map((i) => (
+              <div key={i.id}>
+                <p><b>{i.quantidade}x {i.nome_produto}</b> — {fmt(Number(i.preco_unitario) * i.quantidade)}</p>
+                {i.itens_pedido_opcoes?.map((o, x) => <p key={x}>&nbsp;&nbsp;+ {o.nome_opcao}</p>)}
+                {i.observacao && <p>&nbsp;&nbsp;OBS: {i.observacao}</p>}
+              </div>
+            ))}
+            <hr />
+            <p>Subtotal: {fmt(Number(imprimir.subtotal))}</p>
+            {Number(imprimir.taxa_entrega) > 0 && <p>Entrega: {fmt(Number(imprimir.taxa_entrega))}</p>}
+            {Number(imprimir.desconto) > 0 && <p>Desconto: -{fmt(Number(imprimir.desconto))}</p>}
+            <p style={{ fontWeight: 'bold' }}>TOTAL: {fmt(Number(imprimir.valor_total))}</p>
+            <p>Pgto: {imprimir.pagamentos?.[0]?.metodo}{imprimir.troco_para ? ` (troco p/ ${fmt(Number(imprimir.troco_para))})` : ''}</p>
+            <hr />
+            <p style={{ textAlign: 'center' }}>MiseOn · pedido online</p>
+          </div>
+        </>
       )}
     </div>
   );

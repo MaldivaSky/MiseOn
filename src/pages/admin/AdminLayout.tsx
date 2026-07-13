@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users } from 'lucide-react';
+import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import ThemeToggle from '../../components/ThemeToggle';
 
 export interface CtxLoja {
   lojaId: string;
@@ -68,38 +69,46 @@ export default function AdminLayout() {
 
   const mais = [
     { to: '/admin/financeiro', icon: <TrendingUp size={18} />, label: 'Financeiro' },
+    { to: '/admin/historico', icon: <History size={18} />, label: 'Histórico' },
     { to: '/admin/marketing', icon: <Megaphone size={18} />, label: 'Marketing' },
     { to: '/admin/equipe', icon: <Users size={18} />, label: 'Equipe' },
     { to: '/admin/loja', icon: <Store size={18} />, label: 'Minha Loja' },
   ];
 
   return (
-    <div className="mx-auto min-h-screen max-w-3xl bg-gray-50 pb-20">
-      <header className="flex items-center justify-between bg-white px-4 py-3 shadow-sm">
-        <div className="flex items-center gap-2">
-          <img src="/icon-192.png" alt="" className="h-8 w-8" />
-          <h1 className="font-bold">{ctx.lojaNome}</h1>
-          {ctx.papel !== 'admin' && (
-            <span className="rounded-full bg-[var(--cor-primaria)]/10 px-2 py-0.5 text-xs font-semibold text-[var(--cor-primaria)] capitalize">
-              {ctx.papel}
-            </span>
-          )}
+    <div className="min-h-screen bg-gray-50 pb-20 dark:bg-gray-950">
+      <header className="sticky top-0 z-30 flex items-center justify-between bg-white px-4 py-3 shadow-sm dark:bg-gray-900">
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-between lg:max-w-5xl">
+          <div className="flex items-center gap-2">
+            <img src="/icon-192.png" alt="" className="h-8 w-8" />
+            <h1 className="font-bold dark:text-gray-100">{ctx.lojaNome}</h1>
+            {ctx.papel !== 'admin' && (
+              <span className="rounded-full bg-[var(--cor-primaria)]/10 px-2 py-0.5 text-xs font-semibold text-[var(--cor-primaria)] capitalize">
+                {ctx.papel}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button onClick={sair} className="text-gray-400 dark:text-gray-500"><LogOut size={18} /></button>
+          </div>
         </div>
-        <button onClick={sair} className="text-gray-400"><LogOut size={18} /></button>
       </header>
 
-      <Outlet context={ctx} />
+      <div className="mx-auto max-w-3xl lg:max-w-5xl">
+        <Outlet context={ctx} />
+      </div>
 
-      <nav className="fixed bottom-0 left-1/2 flex w-full max-w-3xl -translate-x-1/2 justify-around border-t bg-white py-2">
+      <nav className="fixed bottom-0 left-1/2 flex w-full max-w-3xl -translate-x-1/2 justify-around border-t bg-white py-2 dark:border-gray-800 dark:bg-gray-900">
         {principal.map((i) => (
           <NavLink key={i.to} to={i.to}
-            className={({ isActive }) => `flex flex-col items-center gap-0.5 px-4 py-1 text-xs ${isActive ? 'font-semibold text-[var(--cor-primaria)]' : 'text-gray-400'}`}>
+            className={({ isActive }) => `flex flex-col items-center gap-0.5 px-4 py-1 text-xs ${isActive ? 'font-semibold text-[var(--cor-primaria)]' : 'text-gray-400 dark:text-gray-500'}`}>
             {i.icon}
             {i.label}
           </NavLink>
         ))}
         {ctx.papel === 'admin' && (
-          <button onClick={() => setMaisAberto(true)} className="flex flex-col items-center gap-0.5 px-4 py-1 text-xs text-gray-400">
+          <button onClick={() => setMaisAberto(true)} className="flex flex-col items-center gap-0.5 px-4 py-1 text-xs text-gray-400 dark:text-gray-500">
             <MoreHorizontal size={20} />
             Mais
           </button>
@@ -108,15 +117,15 @@ export default function AdminLayout() {
 
       {maisAberto && (
         <div className="fade fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setMaisAberto(false)}>
-          <div className="sheet w-full max-w-lg rounded-t-3xl bg-white p-4 pb-8" onClick={(e) => e.stopPropagation()}>
+          <div className="sheet w-full max-w-lg rounded-t-3xl bg-white p-4 pb-8 dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-lg font-bold">Mais</h3>
-              <button onClick={() => setMaisAberto(false)}><X size={20} /></button>
+              <h3 className="text-lg font-bold dark:text-gray-100">Mais</h3>
+              <button onClick={() => setMaisAberto(false)} className="dark:text-gray-300"><X size={20} /></button>
             </div>
             <div className="space-y-1">
               {mais.map((i) => (
                 <NavLink key={i.to} to={i.to} onClick={() => setMaisAberto(false)}
-                  className="flex items-center gap-3 rounded-xl p-3 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  className="flex items-center gap-3 rounded-xl p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
                   {i.icon} {i.label}
                 </NavLink>
               ))}

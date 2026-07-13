@@ -70,6 +70,9 @@ O cliente pede pela vitrine (link próprio da loja), o dono recebe em tempo real
 
 ## 🚀 Começando
 
+> Lista completa de toda credencial/conta que o sistema usa, onde pegar cada uma e onde colar:
+> **[CREDENCIAIS.md](CREDENCIAIS.md)**.
+
 ### Pré-requisitos
 Node 22+, conta no [Supabase](https://supabase.com) (free tier atende) e, para Pix na plataforma, conta [Efí Bank](https://sejaefi.com.br) com certificado Pix.
 
@@ -98,6 +101,10 @@ npm run dev
 Vitrine: `http://localhost:5173/natureba` · Painel: `http://localhost:5173/admin`
 
 ### 3 · Pix na plataforma (Efí Bank)
+
+> Se você é o **lojista** (não o dev) e só precisa saber como criar sua conta Efí, chave Pix e
+> credenciais, veja o guia dedicado: **[EFI-SETUP.md](EFI-SETUP.md)**. O passo a passo abaixo é a
+> continuação técnica, depois que você já tem essas 4 informações em mãos.
 
 ```bash
 openssl pkcs12 -in producao.p12 -out efi.pem -nodes

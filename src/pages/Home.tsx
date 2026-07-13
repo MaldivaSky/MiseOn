@@ -43,19 +43,20 @@ export default function Home() {
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <a
-            href={zap('Olá! Quero levar minha cozinha para o MiseOn 🚀')}
+            href="/cadastre-se"
             className="rounded-2xl bg-blue-800 px-8 py-4 font-semibold text-white shadow-lg transition hover:bg-blue-900"
           >
-            Quero minha loja no MiseOn
+            Anuncie e cadastre sua loja
           </a>
           <a
-            href="/natureba"
+            href="/lojas"
             className="rounded-2xl border-2 border-orange-500 px-8 py-4 font-semibold text-orange-500 transition hover:bg-orange-50"
           >
-            Ver uma loja de verdade →
+            Veja as lojas →
           </a>
         </div>
         <p className="mt-3 text-xs text-gray-400">Primeiro mês grátis · sem fidelidade · sem taxa por pedido</p>
+        <a href="/admin/login" className="mt-4 text-xs font-medium text-gray-400 underline">Já tem loja? Acessar o painel</a>
       </header>
 
       {/* Recursos */}

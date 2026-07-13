@@ -4,6 +4,19 @@ export type TipoPedido = 'DELIVERY' | 'SALAO' | 'RETIRADA_BALCAO';
 export type StatusPedido = 'NOVO' | 'ACEITO' | 'PREPARANDO' | 'PRONTO' | 'EM_ROTA' | 'FINALIZADO' | 'CANCELADO';
 export type MetodoPgto = 'PIX' | 'CREDITO' | 'DEBITO' | 'DINHEIRO';
 
+export interface LeadCadastro {
+  id: string;
+  nome_responsavel: string;
+  nome_loja: string;
+  tipo_negocio?: string | null;
+  cidade?: string | null;
+  whatsapp: string;
+  email?: string | null;
+  observacao?: string | null;
+  status: 'novo' | 'contatado' | 'convertido' | 'descartado';
+  criado_em: string;
+}
+
 export interface Loja {
   id: string;
   slug: string;
@@ -87,6 +100,7 @@ export interface Produto {
   vendidos: number;
   grupos_opcoes?: GrupoOpcoes[];
   fichas_tecnicas?: FichaTecnica[];
+  tem_estoque?: boolean; // calculado no client via fn_produtos_com_estoque — não existe como coluna
 }
 
 export interface Cupom {
@@ -134,8 +148,23 @@ export interface Pedido {
   troco_para?: number;
   observacao?: string;
   criado_em: string;
+  cliente_user_id?: string | null;
   itens_pedido?: ItemPedido[];
   pagamentos?: { metodo: MetodoPgto; status: string; valor_pago: number }[];
+}
+
+export interface Cliente {
+  id: string;
+  user_id?: string | null;
+  telefone: string;
+  nome?: string;
+  email?: string | null;
+  endereco?: string;
+  bairro?: string;
+  forma_pagamento_preferida?: MetodoPgto | null;
+  total_pedidos: number;
+  ultimo_pedido?: string | null;
+  criado_em: string;
 }
 
 export interface ItemPedido {

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Plus, Trash2, X, Save, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, X, Save, ChevronUp, ChevronDown, MessageCircle, Search } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { Cupom, Banner, TaxaEntrega, HorarioFuncionamento, MetodoPgto, fmt } from '../../types';
+import { Cupom, Banner, TaxaEntrega, HorarioFuncionamento, MetodoPgto, Cliente, fmt } from '../../types';
 import ImageUpload from '../../components/ImageUpload';
 import type { CtxLoja } from './AdminLayout';
 
-type Tab = 'cupons' | 'banners' | 'taxas' | 'horarios';
+type Tab = 'cupons' | 'banners' | 'taxas' | 'horarios' | 'clientes';
 const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
 export default function Marketing() {
@@ -16,10 +16,10 @@ export default function Marketing() {
   return (
     <div className="p-4">
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-        {(['cupons', 'banners', 'taxas', 'horarios'] as Tab[]).map((t) => (
+        {(['cupons', 'banners', 'taxas', 'horarios', 'clientes'] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${tab === t ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm'}`}>
-            {{ cupons: 'Cupons', banners: 'Banners', taxas: 'Taxas de entrega', horarios: 'Horários' }[t]}
+            {{ cupons: 'Cupons', banners: 'Banners', taxas: 'Taxas de entrega', horarios: 'Horários', clientes: 'Clientes' }[t]}
           </button>
         ))}
       </div>
@@ -28,6 +28,7 @@ export default function Marketing() {
       {tab === 'banners' && <BannersTab lojaId={lojaId} />}
       {tab === 'taxas' && <TaxasTab lojaId={lojaId} />}
       {tab === 'horarios' && <HorariosTab lojaId={lojaId} />}
+      {tab === 'clientes' && <ClientesTab lojaId={lojaId} />}
     </div>
   );
 }
@@ -331,6 +332,68 @@ function HorariosTab({ lojaId }: { lojaId: string }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ── Clientes (CRM) ────────────────────────────────────────────
+function ClientesTab({ lojaId }: { lojaId: string }) {
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [busca, setBusca] = useState('');
+  const [mensagem, setMensagem] = useState('');
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('clientes').select('*').eq('loja_id', lojaId).order('ultimo_pedido', { ascending: false });
+      setClientes((data as Cliente[]) ?? []);
+      setCarregando(false);
+    })();
+  }, [lojaId]);
+
+  const enviarMensagem = (c: Cliente) => {
+    const texto = mensagem.trim() || `Oi ${c.nome ?? ''}! Temos novidades no cardápio, dá uma olhada 😉`;
+    window.open(`https://wa.me/${c.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(texto)}`, '_blank');
+  };
+
+  const visiveis = clientes.filter((c) =>
+    !busca || c.nome?.toLowerCase().includes(busca.toLowerCase()) || c.telefone.includes(busca));
+
+  if (carregando) return <p className="py-10 text-center text-sm text-gray-400">Carregando…</p>;
+
+  return (
+    <div>
+      <p className="mb-3 text-xs text-gray-500">
+        Toda pessoa que fez login pra pedir vira um contato aqui — use pra reativar quem sumiu ou avisar de promoção.
+      </p>
+
+      <textarea value={mensagem} onChange={(e) => setMensagem(e.target.value)}
+        placeholder="Mensagem padrão pra usar no botão de WhatsApp (opcional — se vazio, manda uma saudação genérica)"
+        rows={2} className="mb-3 w-full rounded-xl border p-2.5 text-sm" />
+
+      <div className="mb-3 flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm">
+        <Search size={16} className="text-gray-400" />
+        <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou telefone…"
+          className="w-full bg-transparent text-sm outline-none" />
+      </div>
+
+      <div className="space-y-2">
+        {visiveis.map((c) => (
+          <div key={c.id} className="flex items-center justify-between rounded-xl bg-white p-3 shadow-sm">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{c.nome || '(sem nome)'}</p>
+              <p className="truncate text-xs text-gray-400">{c.telefone}{c.email ? ` · ${c.email}` : ''}</p>
+              <p className="text-xs text-gray-500">
+                {c.total_pedidos} pedido(s){c.ultimo_pedido ? ` · último em ${new Date(c.ultimo_pedido).toLocaleDateString('pt-BR')}` : ''}
+              </p>
+            </div>
+            <button onClick={() => enviarMensagem(c)} className="shrink-0 rounded-lg border p-2 text-green-600">
+              <MessageCircle size={16} />
+            </button>
+          </div>
+        ))}
+        {visiveis.length === 0 && <p className="py-10 text-center text-sm text-gray-400">Nenhum cliente ainda.</p>}
+      </div>
     </div>
   );
 }

@@ -1,19 +1,10 @@
 -- ============================================================
--- Patch: adiciona imagens de placeholder na loja "natureba" que
--- JÁ FOI criada (seed_natureba.sql original não tinha imagem_url).
--- Só UPDATE — idempotente, pode rodar quantas vezes quiser.
--- São fotos de banco de imagens (LoremFlickr) só pra não ficar sem
--- nenhuma imagem; troque pelas fotos reais em Minha Loja → Aparência
--- (logo/banner) e Cardápio → editar produto (foto do produto).
+-- Patch: adiciona foto nos produtos da loja "natureba" que já existia
+-- sem imagem_url. Só UPDATE — idempotente, pode rodar quantas vezes quiser.
+-- Logo e banner NÃO entram aqui de propósito — veja fix_natureba_visual.sql
+-- (usa a foto real em public/natureba_logo.jpg e deixa o banner em branco,
+-- a vitrine já desenha um gradiente com a cor da marca sem precisar de foto).
 -- ============================================================
-
-UPDATE lojas SET banner_url = 'https://loremflickr.com/1200/400/bakery,sandwich'
-WHERE slug = 'natureba' AND banner_url IS NULL;
-
-INSERT INTO banners_destaque (loja_id, imagem_url, titulo, ordem_exibicao)
-SELECT id, 'https://loremflickr.com/1200/400/food,promo', 'Confira nosso cardápio!', 0
-FROM lojas WHERE slug = 'natureba'
-AND NOT EXISTS (SELECT 1 FROM banners_destaque WHERE loja_id = lojas.id);
 
 WITH l AS (SELECT id FROM lojas WHERE slug = 'natureba')
 UPDATE produtos p SET imagem_url = v.imagem

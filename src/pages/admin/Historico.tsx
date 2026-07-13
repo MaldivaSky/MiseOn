@@ -1,0 +1,88 @@
+import { useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
+import { Search } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { Pedido, StatusPedido, fmt } from '../../types';
+import type { CtxLoja } from './AdminLayout';
+
+const STATUS_LABEL: Record<StatusPedido, string> = {
+  NOVO: 'Recebido', ACEITO: 'Aceito', PREPARANDO: 'Preparando',
+  PRONTO: 'Pronto', EM_ROTA: 'Em rota', FINALIZADO: 'Entregue', CANCELADO: 'Cancelado',
+};
+const STATUS_COR: Record<StatusPedido, string> = {
+  NOVO: 'bg-amber-100 text-amber-700', ACEITO: 'bg-blue-100 text-blue-700', PREPARANDO: 'bg-indigo-100 text-indigo-700',
+  PRONTO: 'bg-purple-100 text-purple-700', EM_ROTA: 'bg-cyan-100 text-cyan-700',
+  FINALIZADO: 'bg-green-100 text-green-700', CANCELADO: 'bg-red-100 text-red-600',
+};
+
+export default function Historico() {
+  const { lojaId } = useOutletContext<CtxLoja>();
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [busca, setBusca] = useState('');
+  const [status, setStatus] = useState<StatusPedido | ''>('');
+  const [de, setDe] = useState('');
+  const [ate, setAte] = useState('');
+  const [carregando, setCarregando] = useState(true);
+
+  const carregar = async () => {
+    setCarregando(true);
+    let q = supabase.from('pedidos').select('*, itens_pedido(*), pagamentos(metodo, status, valor_pago)')
+      .eq('loja_id', lojaId).order('criado_em', { ascending: false }).limit(300);
+    if (status) q = q.eq('status', status);
+    if (de) q = q.gte('criado_em', new Date(de).toISOString());
+    if (ate) q = q.lte('criado_em', new Date(new Date(ate).getTime() + 86399999).toISOString());
+    const { data } = await q;
+    setPedidos((data as Pedido[]) ?? []);
+    setCarregando(false);
+  };
+  useEffect(() => { carregar(); }, [lojaId, status, de, ate]);
+
+  const visiveis = pedidos.filter((p) =>
+    !busca || p.identificador_cliente?.toLowerCase().includes(busca.toLowerCase()) || String(p.numero).includes(busca));
+
+  const totalPeriodo = visiveis.filter((p) => p.status !== 'CANCELADO').reduce((s, p) => s + Number(p.valor_total), 0);
+
+  return (
+    <div className="p-4">
+      <h2 className="mb-3 font-bold">Histórico de pedidos</h2>
+
+      <div className="mb-3 flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm">
+        <Search size={16} className="text-gray-400" />
+        <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou número…"
+          className="w-full bg-transparent text-sm outline-none" />
+      </div>
+
+      <div className="mb-3 grid grid-cols-3 gap-2">
+        <input value={de} onChange={(e) => setDe(e.target.value)} type="date" className="rounded-xl border p-2 text-xs" />
+        <input value={ate} onChange={(e) => setAte(e.target.value)} type="date" className="rounded-xl border p-2 text-xs" />
+        <select value={status} onChange={(e) => setStatus(e.target.value as StatusPedido | '')} className="rounded-xl border p-2 text-xs">
+          <option value="">Todo status</option>
+          {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+      </div>
+
+      <p className="mb-3 text-xs text-gray-500">{visiveis.length} pedido(s) · faturamento no filtro: <b className="text-gray-700">{fmt(totalPeriodo)}</b></p>
+
+      {carregando ? (
+        <p className="py-10 text-center text-sm text-gray-400">Carregando…</p>
+      ) : (
+        <div className="space-y-2">
+          {visiveis.map((p) => (
+            <div key={p.id} className="rounded-xl bg-white p-3 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="font-bold">#{p.numero}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_COR[p.status]}`}>{STATUS_LABEL[p.status]}</span>
+              </div>
+              <p className="text-sm">{p.identificador_cliente} · {p.telefone_contato}</p>
+              <div className="mt-1 flex items-center justify-between text-xs text-gray-400">
+                <span>{new Date(p.criado_em).toLocaleString('pt-BR')} · {p.itens_pedido?.length ?? 0} item(ns)</span>
+                <span className="font-bold text-gray-700">{fmt(Number(p.valor_total))}</span>
+              </div>
+            </div>
+          ))}
+          {visiveis.length === 0 && <p className="py-10 text-center text-sm text-gray-400">Nenhum pedido encontrado.</p>}
+        </div>
+      )}
+    </div>
+  );
+}

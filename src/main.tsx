@@ -2,7 +2,11 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './index.css';
+import Home from './pages/Home';
+import Lojas from './pages/Lojas';
+import CadastreSuaLoja from './pages/CadastreSuaLoja';
 import Cardapio from './pages/Cardapio';
+import MeusPedidos from './pages/MeusPedidos';
 import AcompanharPedido from './pages/Pedido';
 import Login from './pages/admin/Login';
 import PainelPedidos from './pages/admin/PainelPedidos';
@@ -11,6 +15,7 @@ import Entregas from './pages/admin/Entregas';
 import Loja from './pages/admin/Loja';
 import CardapioAdmin from './pages/admin/Cardapio';
 import Financeiro from './pages/admin/Financeiro';
+import Historico from './pages/admin/Historico';
 import Marketing from './pages/admin/Marketing';
 import Equipe from './pages/admin/Equipe';
 import AdminLayout from './pages/admin/AdminLayout';
@@ -21,21 +26,6 @@ import Onboarding from './pages/superadmin/Onboarding';
 import Churn from './pages/superadmin/Churn';
 import Auditoria from './pages/superadmin/Auditoria';
 import Splash from './components/Splash';
-
-function Home() {
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-white p-8 text-center">
-      <img src="/logo.png" alt="MiseOn" className="w-72 max-w-full" />
-      <p className="mt-6 max-w-md text-sm text-gray-500">
-        Cardápio digital, pedidos em tempo real, entrega, pagamento Pix e controle de estoque
-        com ficha técnica — tudo em um só lugar.
-      </p>
-      <a href="/admin" className="mt-6 rounded-xl bg-blue-800 px-6 py-3 text-sm font-semibold text-white">
-        Acessar o painel
-      </a>
-    </div>
-  );
-}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -50,6 +40,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="cardapio" element={<CardapioAdmin />} />
             <Route path="estoque" element={<Estoque />} />
             <Route path="financeiro" element={<Financeiro />} />
+            <Route path="historico" element={<Historico />} />
             <Route path="marketing" element={<Marketing />} />
             <Route path="equipe" element={<Equipe />} />
             <Route path="loja" element={<Loja />} />
@@ -63,7 +54,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="auditoria" element={<Auditoria />} />
           </Route>
           <Route path="/" element={<Home />} />
+          <Route path="/lojas" element={<Lojas />} />
+          <Route path="/cadastre-se" element={<CadastreSuaLoja />} />
           <Route path="/pedido/:id" element={<AcompanharPedido />} />
+          <Route path="/:slug/meus-pedidos" element={<MeusPedidos />} />
           <Route path="/:slug" element={<Cardapio />} />
           <Route path="*" element={<Home />} />
         </Routes>

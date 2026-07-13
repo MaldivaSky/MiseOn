@@ -21,13 +21,15 @@ export default function CardapioAdmin() {
   const [editando, setEditando] = useState<Produto | 'novo' | null>(null);
 
   const carregar = async () => {
-    const [{ data: c }, { data: p }, { data: i }] = await Promise.all([
+    const [{ data: c }, { data: p }, { data: i }, { data: est }] = await Promise.all([
       supabase.from('categorias').select('*').eq('loja_id', lojaId).order('ordem'),
       supabase.from('produtos').select('*, grupos_opcoes(*, opcoes(*)), fichas_tecnicas(*)').eq('loja_id', lojaId).order('ordem'),
       supabase.from('insumos').select('*').eq('loja_id', lojaId).eq('ativo', true).order('nome'),
+      supabase.rpc('fn_produtos_com_estoque', { p_loja_id: lojaId }),
     ]);
+    const mapaEstoque = new Map<string, boolean>((est ?? []).map((e: any) => [e.produto_id, e.tem_estoque]));
     setCategorias((c as Categoria[]) ?? []);
-    setProdutos((p as Produto[]) ?? []);
+    setProdutos(((p as Produto[]) ?? []).map((prod) => ({ ...prod, tem_estoque: mapaEstoque.get(prod.id) ?? true })));
     setInsumos((i as Insumo[]) ?? []);
   };
   useEffect(() => { carregar(); }, [lojaId]);
@@ -103,7 +105,12 @@ export default function CardapioAdmin() {
                   ? <img src={p.imagem_url} className="h-14 w-14 shrink-0 rounded-lg object-cover" alt="" />
                   : <div className="h-14 w-14 shrink-0 rounded-lg bg-gray-100" />}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{p.nome}</p>
+                  <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+                    {p.nome}
+                    {p.tem_estoque === false && (
+                      <span className="shrink-0 rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-600">SEM INSUMO</span>
+                    )}
+                  </p>
                   <p className="text-xs text-gray-400">{nomeCategoria(p.categoria_id)}</p>
                   <p className="text-sm font-bold text-[var(--cor-primaria)]">{fmt(Number(p.preco))}</p>
                 </div>

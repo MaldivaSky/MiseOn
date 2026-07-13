@@ -58,7 +58,7 @@ npm run dev
 | Admin (dono) | `admin@natureba.local`        | `natureba123` | Painel de pedidos |
 | Operador     | `operador@natureba.local`     | `natureba123` | Painel de pedidos |
 | Entregador   | `entregador@natureba.local`   | `natureba123` | Fila de entregas  |
-| SuperAdmin (dono do SaaS) | `admin@natureba.local` (mesmo usuário) | `natureba123` | `/superadmin` |
+| SuperAdmin (dono do SaaS) | `superadmin@miseon.local` (conta própria, sem loja) | `miseon123` | `/superadmin` |
 
 Cliente (público) não precisa de login.
 

@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star } from 'lucide-react';
+import { useParams, Link } from 'react-router-dom';
+import type { User } from '@supabase/supabase-js';
+import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star, LogIn, LogOut, History } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
-  Loja, Banner, Categoria, Produto, Cupom, TaxaEntrega, ItemCarrinho,
+  Loja, Banner, Categoria, Produto, Cupom, TaxaEntrega, ItemCarrinho, Cliente,
   HorarioFuncionamento, MetodoPgto, fmt, precoItem,
 } from '../types';
 import { fonteFamilia } from '../lib/personalizacao';
+import ThemeToggle from '../components/ThemeToggle';
+
+const entrarComGoogle = (voltarPara: string) =>
+  supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: voltarPara } });
 
 // ── Loja aberta? (horário automático + override manual) ─────
 function lojaAberta(loja: Loja | null, horarios: HorarioFuncionamento[]): boolean {
@@ -35,6 +40,13 @@ export default function Cardapio() {
   const [pedidoId, setPedidoId] = useState<string | null>(null);
   const [pix, setPix] = useState<{ copia_e_cola: string; qr_imagem?: string } | null>(null);
   const [cartao, setCartao] = useState<{ pedidoId: string; numero: number; total: number } | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_ev, session) => setUser(session?.user ?? null));
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (!slug) return;
@@ -42,17 +54,21 @@ export default function Cardapio() {
       const { data: l } = await supabase.from('lojas').select('*').eq('slug', slug).single();
       if (!l) return;
       setLoja(l);
-      const [h, b, c, p, t] = await Promise.all([
+      const [h, b, c, p, t, est] = await Promise.all([
         supabase.from('horarios_funcionamento').select('*').eq('loja_id', l.id),
         supabase.from('banners_destaque').select('*').eq('loja_id', l.id).order('ordem_exibicao'),
         supabase.from('categorias').select('*').eq('loja_id', l.id).order('ordem'),
         supabase.from('produtos').select('*, grupos_opcoes(*, opcoes(*))').eq('loja_id', l.id).order('ordem'),
         supabase.from('taxas_entrega').select('*').eq('loja_id', l.id),
+        supabase.rpc('fn_produtos_com_estoque', { p_loja_id: l.id }),
       ]);
       setHorarios(h.data ?? []);
       setBanners(b.data ?? []);
       setCategorias(c.data ?? []);
-      setProdutos(p.data ?? []);
+      // disponivel = o lojista quer vender; tem_estoque = os insumos da ficha técnica
+      // ainda alcançam pra fazer o produto — os dois juntos decidem se aparece pra compra
+      const mapaEstoque = new Map<string, boolean>((est.data ?? []).map((e: any) => [e.produto_id, e.tem_estoque]));
+      setProdutos((p.data ?? []).map((prod: Produto) => ({ ...prod, tem_estoque: mapaEstoque.get(prod.id) ?? true })));
       setTaxas(t.data ?? []);
       document.title = `${l.nome} — Peça online`;
       document.documentElement.style.setProperty('--cor-primaria', l.cor_primaria);
@@ -90,119 +106,197 @@ export default function Cardapio() {
   if (!loja)
     return <div className="flex h-screen items-center justify-center text-gray-400">Carregando cardápio…</div>;
 
+  const iniciais = loja.nome.trim() ? loja.nome.trim()[0].toUpperCase() : '?';
+
   return (
-    <div className="loja-marca mx-auto min-h-screen max-w-lg bg-gray-50 pb-28">
-      {/* Header */}
+    <div className="loja-marca min-h-screen bg-gray-50 pb-28 dark:bg-gray-950 lg:pb-16">
+      {/* Hero — banner com gradiente da marca, logo/nome sobrepostos */}
       <header className="relative">
-        {loja.banner_url && <img src={loja.banner_url} className="h-36 w-full object-cover" alt="" />}
-        <div className="flex items-center gap-3 bg-white p-4 shadow-sm">
-          {loja.logo_url && <img src={loja.logo_url} className="h-16 w-16 rounded-full border object-cover" alt="" />}
-          <div className="flex-1">
-            <h1 className="text-lg font-bold">{loja.nome}</h1>
-            <p className="flex items-center gap-1 text-xs text-gray-500">
-              <MapPin size={12} /> {loja.endereco}
-            </p>
-            <div className="mt-1 flex items-center gap-2 text-xs">
-              <span
-                className={`flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold ${
-                  aberta ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
-                }`}
-              >
-                <Clock size={11} /> {aberta ? 'Aberto agora' : 'Fechado'}
-              </span>
-              {loja.pedido_minimo > 0 && <span className="text-gray-500">Pedido mín. {fmt(loja.pedido_minimo)}</span>}
+        <div
+          className="relative h-48 w-full overflow-hidden sm:h-64 lg:h-80"
+          style={{ background: `linear-gradient(135deg, ${loja.cor_primaria}, ${loja.cor_secundaria})` }}
+        >
+          {loja.banner_url && <img src={loja.banner_url} className="h-full w-full object-cover" alt="" />}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/25" />
+          <div className="absolute right-3 top-3 flex gap-2 sm:right-6 sm:top-6">
+            <ThemeToggle className="rounded-full border border-white/30 bg-black/20 p-2 text-white backdrop-blur-sm" />
+            {user ? (
+              <>
+                <Link to={`/${slug}/meus-pedidos`} title="Meus pedidos"
+                  className="rounded-full border border-white/30 bg-black/20 p-2 text-white backdrop-blur-sm">
+                  <History size={16} />
+                </Link>
+                <button onClick={() => supabase.auth.signOut()} title="Sair"
+                  className="rounded-full border border-white/30 bg-black/20 p-2 text-white backdrop-blur-sm">
+                  <LogOut size={16} />
+                </button>
+              </>
+            ) : (
+              <button onClick={() => entrarComGoogle(window.location.href)}
+                className="flex items-center gap-1.5 rounded-full border border-white/30 bg-black/20 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm">
+                <LogIn size={14} /> Entrar
+              </button>
+            )}
+          </div>
+          <div className="absolute inset-x-0 bottom-0">
+            <div className="mx-auto flex max-w-6xl items-end gap-4 px-4 pb-4 sm:px-6 sm:pb-6">
+              {loja.logo_url
+                ? <img src={loja.logo_url} className="h-16 w-16 shrink-0 rounded-2xl border-2 border-white/40 object-cover shadow-xl sm:h-24 sm:w-24" alt="" />
+                : <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-2 border-white/40 bg-white/15 text-2xl font-bold text-white shadow-xl backdrop-blur-sm sm:h-24 sm:w-24 sm:text-4xl">
+                    {iniciais}
+                  </div>}
+              <div className="min-w-0 pb-1 text-white">
+                <h1 className="truncate text-xl font-bold drop-shadow sm:text-3xl">{loja.nome}</h1>
+                <p className="flex items-center gap-1 truncate text-xs text-white/85 sm:text-sm">
+                  <MapPin size={12} /> {loja.endereco}
+                </p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                  <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold backdrop-blur-sm ${aberta ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
+                    <Clock size={11} /> {aberta ? 'Aberto agora' : 'Fechado'}
+                  </span>
+                  {loja.pedido_minimo > 0 && (
+                    <span className="rounded-full bg-white/15 px-2 py-0.5 text-white/90 backdrop-blur-sm">Pedido mín. {fmt(loja.pedido_minimo)}</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Carrossel de banners */}
+      {/* Carrossel de banners promocionais */}
       {banners.length > 0 && (
-        <div className="flex snap-x gap-3 overflow-x-auto p-4">
-          {banners.map((b) => (
-            <img key={b.id} src={b.imagem_url} alt={b.titulo ?? ''} className="h-32 w-72 shrink-0 snap-center rounded-xl object-cover shadow" />
-          ))}
+        <div className="mx-auto max-w-6xl">
+          <div className="flex snap-x gap-3 overflow-x-auto p-4 sm:px-6">
+            {banners.map((b) => (
+              <img key={b.id} src={b.imagem_url} alt={b.titulo ?? ''} className="h-32 w-72 shrink-0 snap-center rounded-xl object-cover shadow sm:h-40 sm:w-96" />
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Busca */}
-      <div className="px-4 pt-2">
-        <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm">
-          <Search size={16} className="text-gray-400" />
-          <input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar no cardápio…"
-            className="w-full bg-transparent text-sm outline-none"
-          />
-        </div>
-      </div>
+      <div className="mx-auto max-w-6xl lg:grid lg:grid-cols-[1fr_360px] lg:items-start lg:gap-6 lg:px-6 lg:pt-4">
+        <main className="min-w-0">
+          {/* Busca */}
+          <div className="px-4 pt-2 lg:px-0">
+            <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm dark:bg-gray-900">
+              <Search size={16} className="text-gray-400" />
+              <input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar no cardápio…"
+                className="w-full bg-transparent text-sm outline-none dark:text-gray-100"
+              />
+            </div>
+          </div>
 
-      {/* Filtros de categoria */}
-      <div className="flex gap-2 overflow-x-auto px-4 py-3">
-        <button
-          onClick={() => setCatAtiva(null)}
-          className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${!catAtiva ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm'}`}
-        >
-          Tudo
-        </button>
-        {categorias.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => setCatAtiva(c.id === catAtiva ? null : c.id)}
-            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${catAtiva === c.id ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm'}`}
-          >
-            {c.nome}
-          </button>
-        ))}
-      </div>
-
-      {/* Os mais pedidos */}
-      {!busca && !catAtiva && maisPedidos.length > 0 && (
-        <section className="px-4">
-          <h2 className="mb-2 flex items-center gap-1 font-bold"><Star size={16} className="text-amber-500" /> Os mais pedidos</h2>
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {maisPedidos.map((p) => (
-              <button key={p.id} onClick={() => setProdutoAberto(p)} className="w-36 shrink-0 rounded-xl bg-white p-2 text-left shadow-sm">
-                {p.imagem_url && <img src={p.imagem_url} className="mb-1 h-20 w-full rounded-lg object-cover" alt="" />}
-                <p className="line-clamp-2 text-xs font-medium">{p.nome}</p>
-                <p className="text-sm font-bold text-[var(--cor-primaria)]">{fmt(Number(p.preco))}</p>
+          {/* Filtros de categoria */}
+          <div className="flex gap-2 overflow-x-auto px-4 py-3 lg:px-0">
+            <button
+              onClick={() => setCatAtiva(null)}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${!catAtiva ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm dark:bg-gray-900 dark:text-gray-300'}`}
+            >
+              Tudo
+            </button>
+            {categorias.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setCatAtiva(c.id === catAtiva ? null : c.id)}
+                className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${catAtiva === c.id ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm dark:bg-gray-900 dark:text-gray-300'}`}
+              >
+                {c.nome}
               </button>
             ))}
           </div>
-        </section>
-      )}
 
-      {/* Lista por categoria */}
-      {categorias
-        .filter((c) => !catAtiva || c.id === catAtiva)
-        .map((c) => {
-          const doGrupo = visiveis.filter((p) => p.categoria_id === c.id);
-          if (!doGrupo.length) return null;
-          return (
-            <section key={c.id} className="px-4 pt-4">
-              <h2 className="mb-2 font-bold">{c.nome}</h2>
-              <div className="space-y-2">
-                {doGrupo.map((p) => (
-                  <button key={p.id} onClick={() => setProdutoAberto(p)} className="card-hover flex w-full gap-3 rounded-xl bg-white p-3 text-left shadow-sm">
-                    <div className="flex-1">
-                      <p className="font-medium">{p.nome}</p>
-                      {p.descricao && <p className="line-clamp-2 text-xs text-gray-500">{p.descricao}</p>}
-                      <p className="mt-1 font-bold text-[var(--cor-primaria)]">{fmt(Number(p.preco))}</p>
-                    </div>
-                    {p.imagem_url && <img src={p.imagem_url} className="h-20 w-20 rounded-lg object-cover" alt="" />}
+          {/* Os mais pedidos */}
+          {!busca && !catAtiva && maisPedidos.length > 0 && (
+            <section className="px-4 lg:px-0">
+              <h2 className="mb-2 flex items-center gap-1 font-bold dark:text-gray-100"><Star size={16} className="text-amber-500" /> Os mais pedidos</h2>
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {maisPedidos.map((p) => (
+                  <button key={p.id} onClick={() => p.tem_estoque !== false && setProdutoAberto(p)}
+                    disabled={p.tem_estoque === false}
+                    className={`relative w-36 shrink-0 rounded-xl bg-white p-2 text-left shadow-sm dark:bg-gray-900 ${p.tem_estoque === false ? 'opacity-50' : ''}`}>
+                    {p.imagem_url && <img src={p.imagem_url} className="mb-1 h-20 w-full rounded-lg object-cover" alt="" />}
+                    {p.tem_estoque === false && (
+                      <span className="absolute right-3 top-3 rounded-full bg-gray-800 px-2 py-0.5 text-[9px] font-bold text-white">ESGOTADO</span>
+                    )}
+                    <p className="line-clamp-2 text-xs font-medium dark:text-gray-100">{p.nome}</p>
+                    <p className="text-sm font-bold text-[var(--cor-primaria)]">{fmt(Number(p.preco))}</p>
                   </button>
                 ))}
               </div>
             </section>
-          );
-        })}
+          )}
 
-      {/* Botão do carrinho */}
+          {/* Lista por categoria — grid no desktop, lista no mobile */}
+          {categorias
+            .filter((c) => !catAtiva || c.id === catAtiva)
+            .map((c) => {
+              const doGrupo = visiveis.filter((p) => p.categoria_id === c.id);
+              if (!doGrupo.length) return null;
+              return (
+                <section key={c.id} className="px-4 pt-4 lg:px-0">
+                  <h2 className="mb-2 font-bold dark:text-gray-100">{c.nome}</h2>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {doGrupo.map((p) => (
+                      <button key={p.id} onClick={() => p.tem_estoque !== false && setProdutoAberto(p)}
+                        disabled={p.tem_estoque === false}
+                        className={`card-hover flex w-full gap-3 overflow-hidden rounded-xl bg-white text-left shadow-sm dark:bg-gray-900 ${p.tem_estoque === false ? 'opacity-50' : ''}`}>
+                        {p.imagem_url && <img src={p.imagem_url} className="h-24 w-24 shrink-0 object-cover" alt="" />}
+                        <div className="min-w-0 flex-1 py-3 pr-3">
+                          <p className="flex flex-wrap items-center gap-2 font-medium dark:text-gray-100">
+                            {p.nome}
+                            {p.tem_estoque === false && (
+                              <span className="rounded-full bg-gray-800 px-2 py-0.5 text-[9px] font-bold text-white">ESGOTADO</span>
+                            )}
+                          </p>
+                          {p.descricao && <p className="line-clamp-2 text-xs text-gray-500 dark:text-gray-400">{p.descricao}</p>}
+                          <p className="mt-1 font-bold text-[var(--cor-primaria)]">{fmt(Number(p.preco))}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+        </main>
+
+        {/* Carrinho — barra flutuante no mobile, painel fixo no desktop */}
+        <aside className="hidden lg:sticky lg:top-4 lg:block">
+          <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-900">
+            <p className="mb-3 flex items-center gap-2 font-bold dark:text-gray-100"><ShoppingBag size={18} /> Seu carrinho</p>
+            {carrinho.length === 0 ? (
+              <p className="py-6 text-center text-sm text-gray-400">Adicione itens do cardápio.</p>
+            ) : (
+              <>
+                <div className="max-h-80 space-y-2 overflow-y-auto">
+                  {carrinho.map((i, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-sm">
+                      <span className="dark:text-gray-200">{i.quantidade}x {i.produto.nome}</span>
+                      <span className="font-semibold dark:text-gray-100">{fmt(precoItem(i))}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex items-center justify-between border-t pt-3 font-bold dark:border-gray-800 dark:text-gray-100">
+                  <span>Total</span><span>{fmt(totalCarrinho)}</span>
+                </div>
+                <button onClick={() => setCheckoutAberto(true)}
+                  className="mt-3 w-full rounded-xl bg-[var(--cor-primaria)] py-3 font-semibold text-white">
+                  Finalizar pedido
+                </button>
+              </>
+            )}
+          </div>
+        </aside>
+      </div>
+
+      {/* Botão do carrinho — só no mobile */}
       {qtdCarrinho > 0 && (
         <button
           onClick={() => setCheckoutAberto(true)}
-          className="fixed bottom-4 left-1/2 flex w-[92%] max-w-md -translate-x-1/2 items-center justify-between rounded-2xl bg-[var(--cor-primaria)] px-5 py-3.5 font-semibold text-white shadow-lg"
+          className="fixed bottom-4 left-1/2 flex w-[92%] max-w-md -translate-x-1/2 items-center justify-between rounded-2xl bg-[var(--cor-primaria)] px-5 py-3.5 font-semibold text-white shadow-lg lg:hidden"
         >
           <span className="flex items-center gap-2"><ShoppingBag size={18} /> {qtdCarrinho} item(ns)</span>
           <span>{fmt(totalCarrinho)}</span>
@@ -219,6 +313,7 @@ export default function Cardapio() {
           aberta={aberta}
           carrinho={carrinho}
           taxas={taxas}
+          user={user}
           setCarrinho={setCarrinho}
           onClose={() => setCheckoutAberto(false)}
           onSucesso={(n, id, pixInfo) => { setPedidoNumero(n); setPedidoId(id); setPix(pixInfo ?? null); setCarrinho([]); setCheckoutAberto(false); }}
@@ -237,14 +332,14 @@ export default function Cardapio() {
 
       {pedidoNumero !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center dark:bg-gray-900">
             <p className="text-4xl">✅</p>
-            <h3 className="mt-2 text-lg font-bold">Pedido #{pedidoNumero} enviado!</h3>
+            <h3 className="mt-2 text-lg font-bold dark:text-gray-100">Pedido #{pedidoNumero} enviado!</h3>
             {pix ? (
               <div className="mt-3 text-left">
-                <p className="text-center text-sm font-semibold">Pague com Pix para confirmar:</p>
+                <p className="text-center text-sm font-semibold dark:text-gray-200">Pague com Pix para confirmar:</p>
                 {pix.qr_imagem && <img src={pix.qr_imagem} alt="QR Code Pix" className="mx-auto mt-2 h-44 w-44" />}
-                <div className="mt-2 break-all rounded-lg bg-gray-100 p-2 text-[10px] text-gray-600">{pix.copia_e_cola}</div>
+                <div className="mt-2 break-all rounded-lg bg-gray-100 p-2 text-[10px] text-gray-600 dark:bg-gray-800 dark:text-gray-300">{pix.copia_e_cola}</div>
                 <button
                   onClick={() => navigator.clipboard.writeText(pix.copia_e_cola)}
                   className="mt-2 w-full rounded-xl border border-[var(--cor-primaria)] py-2 text-sm font-semibold text-[var(--cor-primaria)]"
@@ -254,13 +349,13 @@ export default function Cardapio() {
                 <p className="mt-2 text-center text-xs text-gray-400">Confirmação automática após o pagamento.</p>
               </div>
             ) : (
-              <p className="mt-1 text-sm text-gray-500">A loja já recebeu seu pedido.</p>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">A loja já recebeu seu pedido.</p>
             )}
             <a href={`/pedido/${pedidoId}`}
               className="mt-4 flex w-full items-center justify-center rounded-xl bg-[var(--cor-primaria)] py-3 font-semibold text-white">
               Acompanhar meu pedido
             </a>
-            <button onClick={() => { setPedidoNumero(null); setPix(null); setPedidoId(null); }} className="mt-2 w-full rounded-xl border py-3 text-sm font-medium text-gray-500">
+            <button onClick={() => { setPedidoNumero(null); setPix(null); setPedidoId(null); }} className="mt-2 w-full rounded-xl border py-3 text-sm font-medium text-gray-500 dark:border-gray-700 dark:text-gray-400">
               Fechar
             </button>
           </div>
@@ -296,18 +391,18 @@ function ModalProduto({ produto, onClose, onAdd }: {
 
   return (
     <div className="fade fixed inset-0 z-40 flex items-end justify-center bg-black/50" onClick={onClose}>
-      <div className="sheet max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
         {produto.imagem_url && <img src={produto.imagem_url} className="h-44 w-full object-cover" alt="" />}
         <div className="p-4">
           <div className="flex items-start justify-between">
-            <h3 className="text-lg font-bold">{produto.nome}</h3>
-            <button onClick={onClose}><X size={20} /></button>
+            <h3 className="text-lg font-bold dark:text-gray-100">{produto.nome}</h3>
+            <button onClick={onClose} className="dark:text-gray-300"><X size={20} /></button>
           </div>
-          {produto.descricao && <p className="mt-1 whitespace-pre-line text-sm text-gray-500">{produto.descricao}</p>}
+          {produto.descricao && <p className="mt-1 whitespace-pre-line text-sm text-gray-500 dark:text-gray-400">{produto.descricao}</p>}
 
           {grupos.map((g) => (
             <div key={g.id} className="mt-4">
-              <p className="text-sm font-semibold">
+              <p className="text-sm font-semibold dark:text-gray-200">
                 {g.nome}{' '}
                 <span className="font-normal text-gray-400">
                   ({g.min_escolhas > 0 ? `obrigatório · ` : ''}até {g.max_escolhas})
@@ -315,7 +410,7 @@ function ModalProduto({ produto, onClose, onAdd }: {
               </p>
               <div className="mt-1 space-y-1">
                 {g.opcoes.filter((o) => o.disponivel).map((o) => (
-                  <label key={o.id} className="flex items-center justify-between rounded-lg border p-2 text-sm">
+                  <label key={o.id} className="flex items-center justify-between rounded-lg border p-2 text-sm dark:border-gray-700 dark:text-gray-200">
                     <span className="flex items-center gap-2">
                       <input
                         type="checkbox"
@@ -324,7 +419,7 @@ function ModalProduto({ produto, onClose, onAdd }: {
                       />
                       {o.nome}
                     </span>
-                    {Number(o.preco_adicional) > 0 && <span className="text-gray-500">+{fmt(Number(o.preco_adicional))}</span>}
+                    {Number(o.preco_adicional) > 0 && <span className="text-gray-500 dark:text-gray-400">+{fmt(Number(o.preco_adicional))}</span>}
                   </label>
                 ))}
               </div>
@@ -335,12 +430,12 @@ function ModalProduto({ produto, onClose, onAdd }: {
             value={obs}
             onChange={(e) => setObs(e.target.value)}
             placeholder="Alguma observação? Ex: sem cebola…"
-            className="mt-4 w-full rounded-xl border p-2 text-sm"
+            className="mt-4 w-full rounded-xl border p-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
             rows={2}
           />
 
           <div className="mt-4 flex items-center gap-3">
-            <div className="flex items-center gap-3 rounded-xl border px-3 py-2">
+            <div className="flex items-center gap-3 rounded-xl border px-3 py-2 dark:border-gray-700 dark:text-gray-200">
               <button onClick={() => setQtd((q) => Math.max(1, q - 1))}><Minus size={16} /></button>
               <span className="w-5 text-center font-semibold">{qtd}</span>
               <button onClick={() => setQtd((q) => q + 1)}><Plus size={16} /></button>
@@ -432,26 +527,26 @@ function CartaoModal({ loja, info, onFechar, onAprovado }: {
 
   return (
     <div className="fade fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={onFechar}>
-      <div className="sheet w-full max-w-lg rounded-t-3xl bg-white p-4" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet w-full max-w-lg rounded-t-3xl bg-white p-4 dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold">💳 Pagar com cartão · {fmt(info.total)}</h3>
-          <button onClick={onFechar}><X size={20} /></button>
+          <h3 className="text-lg font-bold dark:text-gray-100">💳 Pagar com cartão · {fmt(info.total)}</h3>
+          <button onClick={onFechar} className="dark:text-gray-300"><X size={20} /></button>
         </div>
         <div className="mt-3 space-y-2">
           <input value={numero} onChange={(e) => setNumero(e.target.value)} inputMode="numeric"
-            placeholder="Número do cartão" className="w-full rounded-xl border p-2.5 text-sm" />
+            placeholder="Número do cartão" className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
           <input value={nome} onChange={(e) => setNome(e.target.value)}
-            placeholder="Nome impresso no cartão" className="w-full rounded-xl border p-2.5 text-sm" />
+            placeholder="Nome impresso no cartão" className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
           <input value={cpf} onChange={(e) => setCpf(e.target.value)} inputMode="numeric"
-            placeholder="CPF do titular" className="w-full rounded-xl border p-2.5 text-sm" />
+            placeholder="CPF do titular" className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
           <div className="flex gap-2">
             <input value={validade} onChange={(e) => setValidade(e.target.value)}
-              placeholder="Validade (MM/AA)" className="w-1/2 rounded-xl border p-2.5 text-sm" />
+              placeholder="Validade (MM/AA)" className="w-1/2 rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
             <input value={cvv} onChange={(e) => setCvv(e.target.value)} inputMode="numeric"
-              placeholder="CVV" className="w-1/2 rounded-xl border p-2.5 text-sm" />
+              placeholder="CVV" className="w-1/2 rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
           </div>
           <select value={parcelas} onChange={(e) => setParcelas(Number(e.target.value))}
-            className="w-full rounded-xl border p-2.5 text-sm">
+            className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
             {[1, 2, 3].map((n) => (
               <option key={n} value={n}>{n}x de {fmt(info.total / n)}{n === 1 ? ' (à vista)' : ''}</option>
             ))}
@@ -471,11 +566,12 @@ function CartaoModal({ loja, info, onFechar, onAprovado }: {
 }
 
 // ── Checkout (delivery/retirada, cupom, pagamento, wa.me) ───
-function Checkout({ loja, aberta, carrinho, taxas, setCarrinho, onClose, onSucesso, onCartao }: {
+function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, onSucesso, onCartao }: {
   loja: Loja;
   aberta: boolean;
   carrinho: ItemCarrinho[];
   taxas: TaxaEntrega[];
+  user: User | null;
   setCarrinho: (c: ItemCarrinho[]) => void;
   onClose: () => void;
   onSucesso: (numero: number, pedidoId: string, pix?: { copia_e_cola: string; qr_imagem?: string } | null) => void;
@@ -492,6 +588,26 @@ function Checkout({ loja, aberta, carrinho, taxas, setCarrinho, onClose, onSuces
   const [cupom, setCupom] = useState<Cupom | null>(null);
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [perfilCarregado, setPerfilCarregado] = useState(false);
+
+  useEffect(() => {
+    if (!user) { setPerfilCarregado(true); return; }
+    (async () => {
+      const { data } = await supabase.from('clientes').select('*')
+        .eq('loja_id', loja.id).eq('user_id', user.id).maybeSingle();
+      const c = data as Cliente | null;
+      if (c) {
+        setNome(c.nome ?? '');
+        setTelefone(c.telefone ?? '');
+        setEndereco(c.endereco ?? '');
+        setBairro(c.bairro ?? '');
+        if (c.forma_pagamento_preferida) setMetodo(c.forma_pagamento_preferida);
+      } else if (user.user_metadata?.full_name || user.user_metadata?.name) {
+        setNome(user.user_metadata.full_name ?? user.user_metadata.name);
+      }
+      setPerfilCarregado(true);
+    })();
+  }, [user, loja.id]);
 
   const subtotal = carrinho.reduce((s, i) => s + precoItem(i), 0);
   const taxa = tipo === 'DELIVERY' ? Number(taxas.find((t) => t.bairro === bairro)?.valor ?? taxas[0]?.valor ?? 0) : 0;
@@ -514,11 +630,23 @@ function Checkout({ loja, aberta, carrinho, taxas, setCarrinho, onClose, onSuces
 
   const enviar = async () => {
     setErro('');
+    if (!user) return setErro('Entre com sua conta Google pra finalizar o pedido.');
     if (!aberta) return setErro('A loja está fechada no momento.');
     if (!nome || !telefone) return setErro('Preencha nome e telefone.');
     if (tipo === 'DELIVERY' && !endereco) return setErro('Preencha o endereço de entrega.');
     if (subtotal < Number(loja.pedido_minimo)) return setErro(`Pedido mínimo: ${fmt(Number(loja.pedido_minimo))}.`);
     setEnviando(true);
+
+    // perfil do cliente autenticado — vira o "lead" que o lojista consulta depois
+    const { data: clienteRow } = await supabase.from('clientes').upsert({
+      loja_id: loja.id,
+      user_id: user.id,
+      telefone, nome,
+      email: user.email ?? null,
+      endereco: tipo === 'DELIVERY' ? endereco : null,
+      bairro: tipo === 'DELIVERY' ? bairro : null,
+      forma_pagamento_preferida: metodo,
+    }, { onConflict: 'loja_id,user_id' }).select('id').single();
 
     const { data: pedido, error } = await supabase
       .from('pedidos')
@@ -527,6 +655,8 @@ function Checkout({ loja, aberta, carrinho, taxas, setCarrinho, onClose, onSuces
         tipo_pedido: tipo,
         identificador_cliente: nome,
         telefone_contato: telefone,
+        cliente_id: clienteRow?.id ?? null,
+        cliente_user_id: user.id,
         endereco_entrega: tipo === 'DELIVERY' ? endereco : null,
         bairro: tipo === 'DELIVERY' ? bairro : null,
         subtotal, taxa_entrega: taxa, desconto,
@@ -602,84 +732,103 @@ function Checkout({ loja, aberta, carrinho, taxas, setCarrinho, onClose, onSuces
 
   return (
     <div className="fade fixed inset-0 z-40 flex items-end justify-center bg-black/50" onClick={onClose}>
-      <div className="sheet max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-4" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-4 dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold">Seu pedido</h3>
-          <button onClick={onClose}><X size={20} /></button>
+          <h3 className="text-lg font-bold dark:text-gray-100">Seu pedido</h3>
+          <button onClick={onClose} className="dark:text-gray-300"><X size={20} /></button>
         </div>
 
         <div className="mt-3 space-y-2">
           {carrinho.map((i, idx) => (
-            <div key={idx} className="flex items-center justify-between rounded-xl border p-2 text-sm">
+            <div key={idx} className="flex items-center justify-between rounded-xl border p-2 text-sm dark:border-gray-700">
               <div>
-                <p className="font-medium">{i.quantidade}x {i.produto.nome}</p>
-                {i.opcoesSelecionadas.map((o) => <p key={o.id} className="text-xs text-gray-500">+ {o.nome}</p>)}
+                <p className="font-medium dark:text-gray-100">{i.quantidade}x {i.produto.nome}</p>
+                {i.opcoesSelecionadas.map((o) => <p key={o.id} className="text-xs text-gray-500 dark:text-gray-400">+ {o.nome}</p>)}
                 {i.observacao && <p className="text-xs italic text-gray-400">{i.observacao}</p>}
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-semibold">{fmt(precoItem(i))}</span>
+                <span className="font-semibold dark:text-gray-100">{fmt(precoItem(i))}</span>
                 <button onClick={() => setCarrinho(carrinho.filter((_, x) => x !== idx))} className="text-red-400"><X size={15} /></button>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          {(['DELIVERY', 'RETIRADA_BALCAO'] as const).map((t) => (
-            <button key={t} onClick={() => setTipo(t)}
-              className={`rounded-xl border py-2 text-sm font-medium ${tipo === t ? 'border-[var(--cor-primaria)] bg-green-50 text-[var(--cor-primaria)]' : ''}`}>
-              {t === 'DELIVERY' ? '🛵 Entrega' : '🏪 Retirada'}
+        {!user ? (
+          <div className="mt-5 rounded-2xl border border-dashed p-5 text-center dark:border-gray-700">
+            <p className="text-sm font-semibold dark:text-gray-100">Entre com sua conta pra finalizar</p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Usamos sua conta Google só pra guardar seus dados de entrega e seu histórico de pedidos — não postamos nada.
+            </p>
+            <button
+              onClick={() => entrarComGoogle(window.location.href)}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--cor-primaria)] py-3 text-sm font-semibold text-white"
+            >
+              <LogIn size={16} /> Entrar com Google
             </button>
-          ))}
-        </div>
+          </div>
+        ) : !perfilCarregado ? (
+          <p className="mt-5 text-center text-sm text-gray-400">Carregando seus dados…</p>
+        ) : (
+          <>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {(['DELIVERY', 'RETIRADA_BALCAO'] as const).map((t) => (
+                <button key={t} onClick={() => setTipo(t)}
+                  className={`rounded-xl border py-2 text-sm font-medium dark:border-gray-700 dark:text-gray-200 ${tipo === t ? 'border-[var(--cor-primaria)] bg-green-50 text-[var(--cor-primaria)] dark:bg-green-950' : ''}`}>
+                  {t === 'DELIVERY' ? '🛵 Entrega' : '🏪 Retirada'}
+                </button>
+              ))}
+            </div>
 
-        <div className="mt-3 space-y-2">
-          <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome" className="w-full rounded-xl border p-2.5 text-sm" />
-          <input value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="WhatsApp (11) 9…" className="w-full rounded-xl border p-2.5 text-sm" />
-          {tipo === 'DELIVERY' && (
-            <>
-              <input value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Endereço completo" className="w-full rounded-xl border p-2.5 text-sm" />
-              {taxas.length > 0 && (
-                <select value={bairro} onChange={(e) => setBairro(e.target.value)} className="w-full rounded-xl border p-2.5 text-sm">
-                  <option value="">Bairro (taxa de entrega)</option>
-                  {taxas.map((t) => <option key={t.id} value={t.bairro}>{t.bairro} — {fmt(Number(t.valor))}</option>)}
-                </select>
+            <div className="mt-3 space-y-2">
+              <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome" className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
+              <input value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="WhatsApp (11) 9…" className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
+              {tipo === 'DELIVERY' && (
+                <>
+                  <input value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Endereço completo" className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
+                  {taxas.length > 0 && (
+                    <select value={bairro} onChange={(e) => setBairro(e.target.value)} className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
+                      <option value="">Bairro (taxa de entrega)</option>
+                      {taxas.map((t) => <option key={t.id} value={t.bairro}>{t.bairro} — {fmt(Number(t.valor))}</option>)}
+                    </select>
+                  )}
+                </>
               )}
-            </>
-          )}
-        </div>
+            </div>
 
-        <div className="mt-3 flex gap-2">
-          <input value={codCupom} onChange={(e) => setCodCupom(e.target.value)} placeholder="Cupom" className="flex-1 rounded-xl border p-2.5 text-sm uppercase" />
-          <button onClick={aplicarCupom} className="rounded-xl border px-4 text-sm font-medium">Aplicar</button>
-        </div>
-        {cupom && <p className="mt-1 text-xs font-medium text-green-600">Cupom {cupom.codigo} aplicado! −{fmt(desconto)}</p>}
+            <div className="mt-3 flex gap-2">
+              <input value={codCupom} onChange={(e) => setCodCupom(e.target.value)} placeholder="Cupom" className="flex-1 rounded-xl border p-2.5 text-sm uppercase dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
+              <button onClick={aplicarCupom} className="rounded-xl border px-4 text-sm font-medium dark:border-gray-700 dark:text-gray-200">Aplicar</button>
+            </div>
+            {cupom && <p className="mt-1 text-xs font-medium text-green-600">Cupom {cupom.codigo} aplicado! −{fmt(desconto)}</p>}
 
-        <div className="mt-3 grid grid-cols-4 gap-2">
-          {(['PIX', 'CREDITO', 'DEBITO', 'DINHEIRO'] as MetodoPgto[]).map((m) => (
-            <button key={m} onClick={() => setMetodo(m)}
-              className={`rounded-xl border py-2 text-xs font-medium ${metodo === m ? 'border-[var(--cor-primaria)] bg-green-50 text-[var(--cor-primaria)]' : ''}`}>
-              {m}
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              {(['PIX', 'CREDITO', 'DEBITO', 'DINHEIRO'] as MetodoPgto[]).map((m) => (
+                <button key={m} onClick={() => setMetodo(m)}
+                  className={`rounded-xl border py-2 text-xs font-medium dark:border-gray-700 dark:text-gray-200 ${metodo === m ? 'border-[var(--cor-primaria)] bg-green-50 text-[var(--cor-primaria)] dark:bg-green-950' : ''}`}>
+                  {m}
+                </button>
+              ))}
+            </div>
+            {metodo === 'DINHEIRO' && (
+              <input value={trocoPara} onChange={(e) => setTrocoPara(e.target.value)} placeholder="Troco para quanto?" type="number" className="mt-2 w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
+            )}
+
+            <div className="mt-4 space-y-1 border-t pt-3 text-sm dark:border-gray-700 dark:text-gray-200">
+              <p className="flex justify-between"><span>Subtotal</span><span>{fmt(subtotal)}</span></p>
+              {tipo === 'DELIVERY' && <p className="flex justify-between"><span>Entrega</span><span>{fmt(taxa)}</span></p>}
+              {desconto > 0 && <p className="flex justify-between text-green-600"><span>Desconto</span><span>−{fmt(desconto)}</span></p>}
+              <p className="flex justify-between text-base font-bold"><span>Total</span><span>{fmt(total)}</span></p>
+            </div>
+
+            {erro && <p className="mt-2 text-sm font-medium text-red-500">{erro}</p>}
+
+            <button onClick={enviar} disabled={enviando || carrinho.length === 0}
+              className="mt-3 w-full rounded-xl bg-[var(--cor-primaria)] py-3.5 font-semibold text-white disabled:opacity-40">
+              {enviando ? 'Enviando…' : `Enviar pedido · ${fmt(total)}`}
             </button>
-          ))}
-        </div>
-        {metodo === 'DINHEIRO' && (
-          <input value={trocoPara} onChange={(e) => setTrocoPara(e.target.value)} placeholder="Troco para quanto?" type="number" className="mt-2 w-full rounded-xl border p-2.5 text-sm" />
+          </>
         )}
-
-        <div className="mt-4 space-y-1 border-t pt-3 text-sm">
-          <p className="flex justify-between"><span>Subtotal</span><span>{fmt(subtotal)}</span></p>
-          {tipo === 'DELIVERY' && <p className="flex justify-between"><span>Entrega</span><span>{fmt(taxa)}</span></p>}
-          {desconto > 0 && <p className="flex justify-between text-green-600"><span>Desconto</span><span>−{fmt(desconto)}</span></p>}
-          <p className="flex justify-between text-base font-bold"><span>Total</span><span>{fmt(total)}</span></p>
-        </div>
-
-        {erro && <p className="mt-2 text-sm font-medium text-red-500">{erro}</p>}
-
-        <button onClick={enviar} disabled={enviando || carrinho.length === 0}
-          className="mt-3 w-full rounded-xl bg-[var(--cor-primaria)] py-3.5 font-semibold text-white disabled:opacity-40">
-          {enviando ? 'Enviando…' : `Enviar pedido · ${fmt(total)}`}
-        </button>
       </div>
     </div>
   );

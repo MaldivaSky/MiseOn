@@ -1,6 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@400;600;700&family=Montserrat:wght@400;600;700&family=Nunito:wght@400;600;700&family=Quicksand:wght@400;600;700&family=Playfair+Display:wght@400;600;700&family=Roboto+Slab:wght@400;600;700&family=Bebas+Neue&display=swap');
 @import 'tailwindcss';
 
+/* modo escuro controlado por classe .dark na <html> (não pelo SO) —
+   ativado pelo ThemeToggle, persistido em localStorage (src/lib/tema.ts) */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --cor-primaria: #16a34a;
   --cor-secundaria: #f97316;
@@ -8,32 +12,44 @@
   --fonte-loja: 'Inter', sans-serif;
 }
 
+.dark {
+  color-scheme: dark;
+}
+
 .loja-marca {
   font-family: var(--fonte-loja);
   color: var(--cor-texto);
+}
+/* cor_texto é escolhida pelo lojista pensando em fundo claro — no escuro,
+   ignora a escolha da marca pra não sumir o texto (usa neutro claro) */
+.dark .loja-marca {
+  color: #f3f4f6;
 }
 
 html {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ── Comanda térmica 80mm ── */
+/* ── Comanda térmica 80mm — suporta múltiplas vias (cozinha + cliente),
+   uma por página física, impressas no mesmo job de impressão ── */
 @media print {
   body * {
-    visibility: hidden;
+    display: none;
   }
   .comanda-print,
   .comanda-print * {
+    display: revert;
     visibility: visible;
   }
   .comanda-print {
-    position: absolute;
-    left: 0;
-    top: 0;
     width: 72mm;
     font-family: 'Courier New', monospace;
     font-size: 11px;
     color: #000;
+    page-break-after: always;
+  }
+  .comanda-print:last-of-type {
+    page-break-after: auto;
   }
   @page {
     size: 80mm auto;
