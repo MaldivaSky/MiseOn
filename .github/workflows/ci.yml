@@ -43,9 +43,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
-      - name: Deploy Edge Functions (Pix Efí)
+      - name: Deploy Edge Functions
         run: |
           supabase functions deploy pix-criar-cobranca --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
           supabase functions deploy pix-webhook --no-verify-jwt --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+          supabase functions deploy cartao-pagar --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+          supabase functions deploy equipe-convidar --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+          supabase functions deploy equipe-listar --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+          supabase functions deploy superadmin-criar-loja --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+          supabase functions deploy superadmin-metricas --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
