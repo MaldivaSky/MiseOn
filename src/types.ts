@@ -13,6 +13,8 @@ export interface Loja {
   banner_url?: string;
   cor_primaria: string;
   cor_secundaria: string;
+  fonte?: string;
+  cor_texto?: string;
   whatsapp: string;
   endereco?: string;
   pedido_minimo: number;

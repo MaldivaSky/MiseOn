@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Categoria, Produto, GrupoOpcoes, Opcao, Insumo, fmt } from '../../types';
+import ImageUpload from '../../components/ImageUpload';
 import type { CtxLoja } from './AdminLayout';
 
 type Tab = 'produtos' | 'categorias';
@@ -333,7 +334,7 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
               {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </div>
-          <input value={imagemUrl} onChange={(e) => setImagemUrl(e.target.value)} placeholder="URL da imagem" className="w-full rounded-xl border p-2.5 text-sm" />
+          <ImageUpload lojaId={lojaId} pasta="produtos" value={imagemUrl} onChange={setImagemUrl} aspecto="aspect-video" label="Foto do produto" />
 
           <div className="flex flex-wrap gap-3 pt-1 text-xs">
             <label className="flex items-center gap-1.5"><input type="checkbox" checked={isCombo} onChange={(e) => setIsCombo(e.target.checked)} /> Combo</label>

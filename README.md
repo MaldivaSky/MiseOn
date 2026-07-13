@@ -77,10 +77,12 @@ Node 22+, conta no [Supabase](https://supabase.com) (free tier atende) e, para P
 No SQL Editor do Supabase, execute em ordem:
 
 ```
-supabase/schema.sql          # schema completo + RLS + triggers
-supabase/schema_v2.sql       # rastreio de entrega em tempo real + painel SuperAdmin
-supabase/chat_ia.sql         # módulo de chat (opcional na fase 1)
-supabase/seed_natureba.sql   # loja piloto com dados reais
+supabase/schema.sql               # schema completo + RLS + triggers
+supabase/schema_v2.sql            # rastreio de entrega em tempo real + painel SuperAdmin
+supabase/schema_v3.sql            # personalização (fonte/cor do texto) + bucket de upload de imagens
+supabase/chat_ia.sql              # módulo de chat (opcional na fase 1)
+supabase/seed_natureba.sql        # loja piloto com dados reais (já inclui imagens de placeholder)
+supabase/seed_natureba_imagens.sql # só se a loja "natureba" já existia sem imagem_url (idempotente)
 ```
 
 Crie o usuário do lojista em **Authentication → Users** e vincule-o (instrução no fim do seed).

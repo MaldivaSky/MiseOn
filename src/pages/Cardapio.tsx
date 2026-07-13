@@ -6,6 +6,7 @@ import {
   Loja, Banner, Categoria, Produto, Cupom, TaxaEntrega, ItemCarrinho,
   HorarioFuncionamento, MetodoPgto, fmt, precoItem,
 } from '../types';
+import { fonteFamilia } from '../lib/personalizacao';
 
 // ── Loja aberta? (horário automático + override manual) ─────
 function lojaAberta(loja: Loja | null, horarios: HorarioFuncionamento[]): boolean {
@@ -55,6 +56,9 @@ export default function Cardapio() {
       setTaxas(t.data ?? []);
       document.title = `${l.nome} — Peça online`;
       document.documentElement.style.setProperty('--cor-primaria', l.cor_primaria);
+      document.documentElement.style.setProperty('--cor-secundaria', l.cor_secundaria);
+      document.documentElement.style.setProperty('--fonte-loja', fonteFamilia(l.fonte));
+      document.documentElement.style.setProperty('--cor-texto', l.cor_texto || '#111827');
     })();
   }, [slug]);
 
@@ -87,7 +91,7 @@ export default function Cardapio() {
     return <div className="flex h-screen items-center justify-center text-gray-400">Carregando cardápio…</div>;
 
   return (
-    <div className="mx-auto min-h-screen max-w-lg bg-gray-50 pb-28">
+    <div className="loja-marca mx-auto min-h-screen max-w-lg bg-gray-50 pb-28">
       {/* Header */}
       <header className="relative">
         {loja.banner_url && <img src={loja.banner_url} className="h-36 w-full object-cover" alt="" />}

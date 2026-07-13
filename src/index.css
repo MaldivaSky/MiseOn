@@ -1,8 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@400;600;700&family=Montserrat:wght@400;600;700&family=Nunito:wght@400;600;700&family=Quicksand:wght@400;600;700&family=Playfair+Display:wght@400;600;700&family=Roboto+Slab:wght@400;600;700&family=Bebas+Neue&display=swap');
 @import 'tailwindcss';
 
 :root {
   --cor-primaria: #16a34a;
   --cor-secundaria: #f97316;
+  --cor-texto: #111827;
+  --fonte-loja: 'Inter', sans-serif;
+}
+
+.loja-marca {
+  font-family: var(--fonte-loja);
+  color: var(--cor-texto);
 }
 
 html {

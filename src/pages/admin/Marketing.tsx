@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { Plus, Trash2, X, Save, ChevronUp, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Cupom, Banner, TaxaEntrega, HorarioFuncionamento, MetodoPgto, fmt } from '../../types';
+import ImageUpload from '../../components/ImageUpload';
 import type { CtxLoja } from './AdminLayout';
 
 type Tab = 'cupons' | 'banners' | 'taxas' | 'horarios';
@@ -219,7 +220,7 @@ function BannersTab({ lojaId }: { lojaId: string }) {
 
       <div className="space-y-2 rounded-xl bg-white p-3 shadow-sm">
         <p className="text-sm font-semibold">Novo banner</p>
-        <input value={novo.imagem_url} onChange={(e) => setNovo({ ...novo, imagem_url: e.target.value })} placeholder="URL da imagem" className="w-full rounded-lg border p-2 text-sm" />
+        <ImageUpload lojaId={lojaId} pasta="banners" value={novo.imagem_url} onChange={(u) => setNovo({ ...novo, imagem_url: u })} aspecto="aspect-[2/1]" />
         <input value={novo.titulo} onChange={(e) => setNovo({ ...novo, titulo: e.target.value })} placeholder="Título (opcional)" className="w-full rounded-lg border p-2 text-sm" />
         <input value={novo.link_redirecionamento} onChange={(e) => setNovo({ ...novo, link_redirecionamento: e.target.value })} placeholder="Link ao clicar (opcional)" className="w-full rounded-lg border p-2 text-sm" />
         <button onClick={criar} className="w-full rounded-lg bg-[var(--cor-primaria)] py-2 text-sm font-semibold text-white">Adicionar</button>

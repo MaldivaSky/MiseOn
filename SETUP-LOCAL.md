@@ -32,7 +32,8 @@ Rode os três SQLs no Postgres local. Pelo terminal:
 DB="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
 psql "$DB" -f supabase/schema.sql          # tabelas + RLS + triggers + views
 psql "$DB" -f supabase/schema_v2.sql       # rastreio de entrega + painel SuperAdmin
-psql "$DB" -f supabase/seed_natureba.sql   # loja piloto Natureba + cardápio real
+psql "$DB" -f supabase/schema_v3.sql       # personalização (fonte/cor) + bucket de upload
+psql "$DB" -f supabase/seed_natureba.sql   # loja piloto Natureba + cardápio real (com imagens)
 psql "$DB" -f supabase/seed_auth.sql        # >>> LOGINS DE TESTE (+ superadmin) <<<
 ```
 
