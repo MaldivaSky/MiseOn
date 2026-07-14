@@ -13,20 +13,52 @@ const RECURSOS = [
     texto: 'Experiência de autoatendimento fluida com integração direta ao Kitchen Display System (KDS).',
     detalhe: 'Elimine atritos operacionais. Cada pedido feito no celular do cliente ou no PDV cai instantaneamente na tela da cozinha, cronometrado e organizado por prioridade.',
     mockup: (
-      <div className="flex flex-col gap-3 p-4 bg-[#070C18] rounded-xl h-full border border-gray-800">
+      <div className="flex flex-col gap-3 p-4 bg-[#070C18] rounded-xl h-full border border-gray-800 shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between border-b border-gray-800 pb-3">
-          <div className="font-bold text-white text-sm">Cozinha · KDS</div>
-          <div className="text-xs bg-green-900/30 text-green-500 px-2 py-1 rounded">2 Pedidos Novos</div>
-        </div>
-        <div className="flex gap-3">
-          <div className="flex-1 bg-gray-900/50 border border-orange-500/30 rounded-lg p-3">
-            <div className="text-orange-500 text-xs font-bold mb-2">#1042 · PREPARANDO (04:12)</div>
-            <div className="text-sm text-gray-300">1x Combo Baguete 30cm</div>
-            <div className="text-xs text-gray-500 mt-1">Sem cebola, molho extra</div>
+          <div className="font-bold text-white text-sm flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            Painel KDS
           </div>
-          <div className="flex-1 bg-gray-900/50 border border-gray-800 rounded-lg p-3">
-            <div className="text-blue-500 text-xs font-bold mb-2">#1043 · NOVO (00:45)</div>
-            <div className="text-sm text-gray-300">2x Coca Cola 600ml</div>
+          <div className="text-[10px] uppercase font-bold tracking-widest bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-1 rounded-full">
+            2 PREPARANDO
+          </div>
+        </div>
+        <div className="flex gap-4 h-full">
+          {/* Coluna Novo */}
+          <div className="flex-1 bg-[#0f172a] rounded-lg p-2 border border-gray-800/50">
+            <div className="text-[10px] font-bold text-gray-500 mb-2 px-1">NOVO (1)</div>
+            <div className="bg-gray-800/80 rounded border border-gray-700 p-2 shadow-sm relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+              <div className="flex justify-between items-start mb-1 ml-2">
+                <span className="text-blue-400 text-[10px] font-black">#1044</span>
+                <span className="text-gray-400 text-[9px] flex items-center gap-1"><span className="text-blue-400">●</span> 00:12</span>
+              </div>
+              <div className="text-gray-200 text-xs ml-2 font-medium">1x Combo Duplo</div>
+              <div className="text-gray-500 text-[10px] ml-2 mt-1">Retirada</div>
+            </div>
+          </div>
+          {/* Coluna Preparando */}
+          <div className="flex-1 bg-[#0f172a] rounded-lg p-2 border border-gray-800/50 relative">
+            <div className="text-[10px] font-bold text-gray-500 mb-2 px-1">PREPARANDO (2)</div>
+            
+            <div className="bg-gray-800/80 rounded border border-gray-700 p-2 shadow-sm relative overflow-hidden mb-2">
+              <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
+              <div className="flex justify-between items-start mb-1 ml-2">
+                <span className="text-orange-400 text-[10px] font-black">#1042</span>
+                <span className="text-orange-400 text-[9px] animate-pulse">04:12</span>
+              </div>
+              <div className="text-gray-200 text-xs ml-2 font-medium">1x Baguete 30cm</div>
+              <div className="text-red-400 text-[10px] ml-2 mt-1 font-bold">- Sem cebola</div>
+            </div>
+
+            <div className="bg-gray-800/80 rounded border border-gray-700 p-2 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
+              <div className="flex justify-between items-start mb-1 ml-2">
+                <span className="text-orange-400 text-[10px] font-black">#1043</span>
+                <span className="text-gray-400 text-[9px]">02:45</span>
+              </div>
+              <div className="text-gray-200 text-xs ml-2 font-medium">2x Hambúrguer Artesanal</div>
+            </div>
           </div>
         </div>
       </div>
@@ -39,23 +71,66 @@ const RECURSOS = [
     texto: 'Gestão de inventário preditiva baseada em Engenharia de Cardápio.',
     detalhe: 'Controle de insumos via Ficha Técnica com precisão milimétrica. Vendeu um combo? O sistema dá baixa no pão, na carne e na embalagem automaticamente.',
     mockup: (
-      <div className="flex flex-col gap-3 p-4 bg-[#070C18] rounded-xl h-full border border-gray-800">
-        <div className="flex items-center justify-between border-b border-gray-800 pb-3">
-          <div className="font-bold text-white text-sm">Estoque · Insumos</div>
-          <Activity size={16} className="text-gray-500" />
+      <div className="flex flex-col p-4 bg-[#070C18] rounded-xl h-full border border-gray-800 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-gray-800 pb-3 mb-3">
+          <div className="font-bold text-white text-sm">Motor de Compras</div>
+          <button className="bg-[var(--cor-primaria)] text-white text-[10px] px-3 py-1 rounded-lg font-bold shadow-lg shadow-[var(--cor-primaria)]/30">
+            Gerar Lista Automática
+          </button>
         </div>
-        <div className="space-y-2 mt-2">
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-300">Pão Baguete 30cm</span>
-            <span className="text-orange-500 font-bold">12 unid. (Baixo)</span>
+        
+        {/* Tabela de Insumos */}
+        <div className="border border-gray-800 rounded-lg overflow-hidden bg-[#0a0f1c]">
+          <div className="grid grid-cols-4 gap-2 p-2 border-b border-gray-800 text-[10px] font-bold text-gray-500 uppercase">
+            <div className="col-span-2">Insumo</div>
+            <div className="text-center">Estoque</div>
+            <div className="text-right">Ação</div>
           </div>
-          <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden"><div className="bg-orange-500 w-[15%] h-full"></div></div>
           
-          <div className="flex justify-between items-center text-sm mt-3">
-            <span className="text-gray-300">Hambúrguer 180g</span>
-            <span className="text-green-500 font-bold">142 unid.</span>
+          <div className="grid grid-cols-4 gap-2 p-2 border-b border-gray-800/50 items-center">
+            <div className="col-span-2 flex flex-col">
+              <span className="text-gray-200 text-xs font-medium">Pão Baguete 30cm</span>
+              <span className="text-gray-500 text-[9px]">Mín: 50 | Pacote c/ 5</span>
+            </div>
+            <div className="text-center">
+              <span className="inline-flex items-center justify-center bg-red-500/10 text-red-400 border border-red-500/20 rounded px-1.5 py-0.5 text-[10px] font-bold animate-pulse">
+                12 un
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-white text-[10px] bg-gray-800 px-2 py-1 rounded">Comprar 8 pct</span>
+            </div>
           </div>
-          <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden"><div className="bg-green-500 w-[75%] h-full"></div></div>
+
+          <div className="grid grid-cols-4 gap-2 p-2 border-b border-gray-800/50 items-center">
+            <div className="col-span-2 flex flex-col">
+              <span className="text-gray-200 text-xs font-medium">Blend Angus 180g</span>
+              <span className="text-gray-500 text-[9px]">Mín: 100 | Cx c/ 20</span>
+            </div>
+            <div className="text-center">
+              <span className="inline-flex items-center justify-center bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded px-1.5 py-0.5 text-[10px] font-bold">
+                105 un
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-gray-500 text-[10px]">-</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-2 p-2 items-center">
+            <div className="col-span-2 flex flex-col">
+              <span className="text-gray-200 text-xs font-medium">Coca Cola 600ml</span>
+              <span className="text-gray-500 text-[9px]">Mín: 24 | Cx c/ 6</span>
+            </div>
+            <div className="text-center">
+              <span className="inline-flex items-center justify-center bg-green-500/10 text-green-400 border border-green-500/20 rounded px-1.5 py-0.5 text-[10px] font-bold">
+                142 un
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-gray-500 text-[10px]">-</span>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -67,13 +142,50 @@ const RECURSOS = [
     texto: 'Liquidação financeira transparente e automatizada via Efí Bank.',
     detalhe: 'Split de pagamentos nativo. Pix e Cartão caem direto na sua conta oficial, com taxas negociadas e conciliação bancária em tempo real sem intermediários.',
     mockup: (
-      <div className="flex flex-col justify-center items-center gap-3 p-4 bg-[#070C18] rounded-xl h-full border border-gray-800">
-        <TrendingUp size={32} className="text-blue-500 mb-2" />
-        <div className="text-gray-400 text-xs uppercase tracking-widest">Saldo Disponível</div>
-        <div className="text-3xl font-bold text-white mb-4">R$ 14.250,00</div>
-        <div className="w-full bg-green-900/20 border border-green-500/20 rounded-lg p-3 flex justify-between items-center">
-          <span className="text-green-500 text-xs">Último Pix Recebido</span>
-          <span className="text-green-400 font-bold text-sm">+ R$ 38,90</span>
+      <div className="flex flex-col p-4 bg-[#070C18] rounded-xl h-full border border-gray-800 shadow-2xl relative overflow-hidden">
+        {/* Gráfico de Fundo */}
+        <div className="absolute bottom-0 left-0 w-full h-1/2 opacity-20 flex items-end">
+          <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="w-full h-full text-blue-500 fill-current">
+             <path d="M0,40 L0,20 L10,15 L20,25 L30,10 L40,30 L50,5 L60,20 L70,10 L80,25 L90,15 L100,5 L100,40 Z" />
+          </svg>
+        </div>
+        
+        <div className="relative z-10 flex items-center justify-between border-b border-gray-800 pb-3 mb-4">
+          <div className="font-bold text-white text-sm flex items-center gap-2">
+            <div className="bg-[#00B4D8] p-1 rounded"><QrCode size={14} className="text-white" /></div>
+            Efí Bank
+          </div>
+          <div className="text-[10px] text-gray-400 border border-gray-700 px-2 py-1 rounded-lg">
+            Conta Conectada
+          </div>
+        </div>
+
+        <div className="relative z-10 text-center mb-6">
+          <div className="text-gray-400 text-[10px] uppercase tracking-widest mb-1">Lucro Líquido Real</div>
+          <div className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-[#00B4D8]">
+            R$ 14.250,00
+          </div>
+        </div>
+
+        <div className="relative z-10 space-y-2 mt-auto">
+          <div className="bg-gray-900/80 border border-gray-800 rounded-lg p-2.5 flex justify-between items-center backdrop-blur-md">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
+                <span className="text-green-500 text-[10px]">PIX</span>
+              </div>
+              <span className="text-gray-300 text-xs">Pedido #1042</span>
+            </div>
+            <span className="text-green-400 font-bold text-xs">+ R$ 38,90</span>
+          </div>
+          <div className="bg-gray-900/80 border border-gray-800 rounded-lg p-2.5 flex justify-between items-center backdrop-blur-md">
+             <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
+                <span className="text-blue-500 text-[10px]">CRT</span>
+              </div>
+              <span className="text-gray-300 text-xs">Pedido #1041</span>
+            </div>
+            <span className="text-green-400 font-bold text-xs">+ R$ 112,00</span>
+          </div>
         </div>
       </div>
     )
@@ -85,21 +197,48 @@ const RECURSOS = [
     texto: 'Orquestração completa de frota com roteirização inteligente.',
     detalhe: 'Acompanhamento em tempo real (Live Tracking) para elevar a experiência do seu cliente final. Despache pedidos com um clique para a tela do seu motoboy.',
     mockup: (
-      <div className="flex flex-col gap-3 p-4 bg-[#070C18] rounded-xl h-full border border-gray-800 relative overflow-hidden">
-        {/* Fake Map Background */}
-        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, #0A5CC4 1px, transparent 1px)', backgroundSize: '16px 16px' }}></div>
-        <div className="relative z-10 flex items-center justify-between bg-black/60 backdrop-blur-md border border-gray-800 rounded-lg p-3 mb-auto">
+      <div className="flex flex-col gap-3 p-4 bg-[#070C18] rounded-xl h-full border border-gray-800 relative overflow-hidden shadow-2xl">
+        {/* Mapa Dinâmico Mockado via SVG e CSS */}
+        <div className="absolute inset-0 bg-[#0f172a] opacity-60">
+           {/* Ruas (grid) */}
+           <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+           
+           {/* Rota */}
+           <svg className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(0 0 4px rgba(252,91,36,0.5))' }}>
+              <path d="M 40,200 L 40,100 L 150,100 L 150,50 L 250,50" stroke="#FC5B24" strokeWidth="3" fill="none" strokeDasharray="6,4" />
+           </svg>
+           
+           {/* Marcador Motoboy (Movendo) */}
+           <div className="absolute w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center shadow-[0_0_15px_#FC5B24] transition-all duration-[3000ms] top-[80px] left-[138px]">
+              <span className="text-white text-[10px]">🛵</span>
+           </div>
+           
+           {/* Marcador Cliente */}
+           <div className="absolute top-[40px] left-[240px] w-4 h-4 bg-blue-500 border-2 border-white rounded-full shadow-[0_0_10px_#3b82f6]"></div>
+        </div>
+
+        {/* UI Overlay */}
+        <div className="relative z-10 flex items-center justify-between bg-black/70 backdrop-blur-md border border-gray-700 rounded-xl p-3 shadow-lg">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white"><Bike size={16} /></div>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-500 to-orange-400 flex items-center justify-center text-white shadow-md">
+              <Bike size={20} />
+            </div>
             <div>
-              <div className="text-white text-sm font-bold">Motoboy Carlos</div>
-              <div className="text-gray-400 text-xs">A caminho · 2 min</div>
+              <div className="text-white text-xs font-black">Motoboy Carlos</div>
+              <div className="text-orange-400 text-[10px] font-bold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"></span>
+                Em rota (3 min)
+              </div>
             </div>
           </div>
         </div>
-        <div className="relative z-10 bg-black/60 backdrop-blur-md border border-gray-800 rounded-lg p-3">
-          <div className="text-gray-300 text-sm">Pedido #1042</div>
-          <div className="text-gray-500 text-xs truncate">Rua das Flores, 123 - Centro</div>
+        
+        <div className="relative z-10 mt-auto bg-black/70 backdrop-blur-md border border-gray-700 rounded-xl p-3 shadow-lg">
+          <div className="flex justify-between items-center mb-1">
+            <div className="text-white text-xs font-bold">Entrega #1042</div>
+            <div className="text-gray-400 text-[10px]">1.2 km</div>
+          </div>
+          <div className="text-gray-400 text-[10px] truncate">Av. Paulista, 1578 - Bela Vista</div>
         </div>
       </div>
     )
