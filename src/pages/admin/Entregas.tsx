@@ -1,9 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { MapPin, Navigation, CheckCircle2, Phone, Bike, MessageCircle, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Pedido, fmt } from '../../types';
 import type { CtxLoja } from './AdminLayout';
+
+const iconeMoto = L.divIcon({
+  html: '<div style="font-size:26px;line-height:1">🛵</div>',
+  className: '', iconSize: [26, 26], iconAnchor: [13, 13],
+});
+const iconeCasa = L.divIcon({
+  html: '<div style="font-size:24px;line-height:1">📍</div>',
+  className: '', iconSize: [24, 24], iconAnchor: [12, 24],
+});
 
 /**
  * Tela do ENTREGADOR — versão enxuta do módulo de logística do mercadinhosys.
@@ -23,6 +35,7 @@ export default function Entregas() {
   const { lojaId } = useOutletContext<CtxLoja>();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [mensagemPara, setMensagemPara] = useState<Pedido | null>(null);
+  const [minhaPosicao, setMinhaPosicao] = useState<{lat: number, lng: number} | null>(null);
   const watchIds = useRef<Record<string, number>>({});
 
   const carregar = async () => {
@@ -72,6 +85,7 @@ export default function Entregas() {
     const id = navigator.geolocation.watchPosition(
       (pos) => {
         const agora = Date.now();
+        setMinhaPosicao({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         if (agora - ultimoEnvio < 8000) return; // throttle ~8s
         ultimoEnvio = agora;
         supabase.from('localizacao_entregador')
@@ -172,12 +186,50 @@ export default function Entregas() {
   };
 
   return (
-    <div className="p-4">
-      <h2 className="mb-3 font-bold flex items-center gap-2"><Bike size={20} className="text-[var(--cor-primaria)]" /> Em rota ({emRota.length})</h2>
-      <div className="space-y-3">{emRota.map((p) => <Card key={p.id} p={p} />)}</div>
+    <div className="p-4 max-w-4xl mx-auto pb-24">
+      {/* Mapa do Entregador */}
+      <div className="mb-6 rounded-2xl overflow-hidden border shadow-sm dark:border-gray-800 bg-gray-100 dark:bg-gray-900 relative">
+        {!minhaPosicao && (
+           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
+             <Bike size={32} className="text-gray-400 mb-2 animate-bounce" />
+             <p className="text-sm font-bold text-gray-500">Aguardando sinal do GPS...</p>
+             <p className="text-xs text-gray-400 mt-1">Inicie uma rota para compartilhar sua localização</p>
+           </div>
+        )}
+        {minhaPosicao ? (
+          <MapContainer center={[minhaPosicao.lat, minhaPosicao.lng]} zoom={14} style={{ height: 300, width: '100%', zIndex: 1 }}>
+            <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            
+            {/* O próprio entregador */}
+            <Marker position={[minhaPosicao.lat, minhaPosicao.lng]} icon={iconeMoto}>
+              <Popup>Você está aqui</Popup>
+            </Marker>
 
-      <h2 className="mb-3 mt-6 font-bold flex items-center gap-2"><CheckCircle2 size={20} className="text-gray-500" /> Prontos para sair ({aguardando.length})</h2>
-      <div className="space-y-3">{aguardando.map((p) => <Card key={p.id} p={p} />)}</div>
+            {/* Marcadores dos destinos em rota */}
+            {emRota.map(p => {
+               // Uma aproximação grosseira pro marcador se não tiver geocoding na DB.
+               // Como não temos a Lat/Lng exata do cliente no BD (precisaria do Google Geocoding API ao criar o pedido),
+               // nós exibimos apenas o mapa com a posição do motoboy no momento.
+               // (Se tivéssemos latitude/longitude do endereço_entrega, renderizaríamos iconeCasa aqui).
+               return null;
+            })}
+          </MapContainer>
+        ) : (
+          <div style={{ height: 300, width: '100%' }} />
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h2 className="mb-3 font-bold flex items-center gap-2"><Bike size={20} className="text-[var(--cor-primaria)]" /> Em rota ({emRota.length})</h2>
+          <div className="space-y-3">{emRota.map((p) => <Card key={p.id} p={p} />)}</div>
+        </div>
+
+        <div>
+          <h2 className="mb-3 font-bold flex items-center gap-2"><CheckCircle2 size={20} className="text-gray-500" /> Prontos para sair ({aguardando.length})</h2>
+          <div className="space-y-3">{aguardando.map((p) => <Card key={p.id} p={p} />)}</div>
+        </div>
+      </div>
 
       {pedidos.length === 0 && (
         <p className="py-10 text-center text-sm text-gray-400">Nenhuma entrega pendente. 🎉</p>

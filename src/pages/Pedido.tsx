@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Check, Clock, ChefHat, Package, Bike, PartyPopper, XCircle, Download, AlertTriangle } from 'lucide-react';
@@ -35,6 +35,14 @@ const iconeCasa = L.divIcon({
   html: '<div style="font-size:24px;line-height:1">📍</div>',
   className: '', iconSize: [24, 24], iconAnchor: [12, 24],
 });
+
+function MapUpdater({ posicao }: { posicao: {lat: number, lng: number} }) {
+  const map = useMap();
+  useEffect(() => {
+    map.flyTo([posicao.lat, posicao.lng], map.getZoom(), { animate: true, duration: 1.5 });
+  }, [posicao.lat, posicao.lng, map]);
+  return null;
+}
 
 export default function AcompanharPedido() {
   const { id } = useParams();
@@ -173,6 +181,7 @@ export default function AcompanharPedido() {
             <div className="mt-4 overflow-hidden rounded-2xl border shadow-sm dark:border-gray-800 lg:mt-0">
               <MapContainer center={[posicao.lat, posicao.lng]} zoom={15} style={{ height: 260, width: '100%' }}>
                 <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <MapUpdater posicao={posicao} />
                 <Marker position={[posicao.lat, posicao.lng]} icon={iconeMoto}>
                   <Popup>Seu entregador está aqui 🛵</Popup>
                 </Marker>
