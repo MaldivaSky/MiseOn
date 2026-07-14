@@ -25,6 +25,8 @@ interface FormLoja {
   whatsapp: string;
   telefone: string;
   endereco: string;
+  cnpj: string;
+  razao_social: string;
   pedido_minimo: string;
   pix_chave: string;
   efi_payee_code: string;
@@ -34,7 +36,7 @@ const vazio: FormLoja = {
   nome: '', descricao: '', logo_url: '', banner_url: '',
   cor_primaria: PALETA_CORES[5], cor_secundaria: PALETA_CORES[1],
   fonte: 'Inter', cor_texto: PALETA_TEXTO[0],
-  whatsapp: '', telefone: '', endereco: '', pedido_minimo: '0', pix_chave: '', efi_payee_code: '',
+  whatsapp: '', telefone: '', endereco: '', cnpj: '', razao_social: '', pedido_minimo: '0', pix_chave: '', efi_payee_code: '',
 };
 
 type Aba = 'aparencia' | 'identidade' | 'pagamentos';
@@ -63,6 +65,7 @@ export default function Loja() {
           fonte: data.fonte ?? 'Inter',
           cor_texto: data.cor_texto ?? vazio.cor_texto,
           whatsapp: data.whatsapp ?? '', telefone: data.telefone ?? '', endereco: data.endereco ?? '',
+          cnpj: data.cnpj ?? '', razao_social: data.razao_social ?? '',
           pedido_minimo: String(data.pedido_minimo ?? 0), pix_chave: data.pix_chave ?? '',
           efi_payee_code: data.efi_payee_code ?? '',
         });
@@ -89,6 +92,8 @@ export default function Loja() {
       whatsapp: form.whatsapp,
       telefone: form.telefone || null,
       endereco: form.endereco || null,
+      cnpj: form.cnpj || null,
+      razao_social: form.razao_social || null,
       pedido_minimo: Number(form.pedido_minimo || 0),
       pix_chave: form.pix_chave || null,
       efi_payee_code: form.efi_payee_code || null,
@@ -220,6 +225,14 @@ export default function Loja() {
           <Campo label="WhatsApp (destino dos pedidos)" k="whatsapp" placeholder="5511999999999" />
           <Campo label="Telefone" k="telefone" placeholder="(11) 3333-3333" />
           <Campo label="Endereço" k="endereco" placeholder="Av. Sapopemba, 7750 - Box 2" />
+          <div className="rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 p-3">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">Dados no cupom do cliente (opcional)</p>
+            <div className="space-y-3">
+              <Campo label="Razão social" k="razao_social" placeholder="Lanche do Paulista Ltda" />
+              <Campo label="CNPJ" k="cnpj" placeholder="12.345.678/0001-90" />
+            </div>
+            <p className="mt-2 text-[11px] text-gray-400">Aparecem no cabeçalho da Nota do Cliente. Deixe em branco se não quiser exibir.</p>
+          </div>
           <Campo label="Pedido mínimo (R$)" k="pedido_minimo" placeholder="15" />
           <Campo label="Chave Pix (estático)" k="pix_chave" placeholder="chave-pix@email.com" />
         </div>
