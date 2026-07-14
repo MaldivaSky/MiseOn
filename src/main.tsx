@@ -1,3 +1,4 @@
+/// <reference types="vite-plugin-pwa/client" />
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
