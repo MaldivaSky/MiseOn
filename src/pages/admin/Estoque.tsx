@@ -370,8 +370,8 @@ export default function Estoque() {
               <div>
                 <p className="text-sm font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                   {i.nome} 
-                  {i.categoria_insumo && i.categoria_insumo !== 'Ingrediente' && (
-                    <span className="bg-gray-100 dark:bg-gray-800 text-gray-500 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">{i.categoria_insumo}</span>
+                  {i.categoria_insumo && (
+                    <span className="bg-orange-100/50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">{i.categoria_insumo}</span>
                   )}
                 </p>
                 <div className="flex gap-4 mt-1">
