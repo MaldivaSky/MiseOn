@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
-import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star, LogIn, LogOut, History, Lock, ShieldCheck, User as UserIcon } from 'lucide-react';
+import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star, LogIn, LogOut, History, Lock, ShieldCheck, User as UserIcon, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import ModalAuthCliente from '../components/ModalAuthCliente';
 import ModalMinhaConta from '../components/ModalMinhaConta';
@@ -184,9 +184,20 @@ export default function Cardapio() {
       {/* Carrossel de banners promocionais */}
       {banners.length > 0 && (
         <div className="mx-auto max-w-6xl">
-          <div className="flex snap-x gap-3 overflow-x-auto p-4 sm:px-6">
+          <div className="flex snap-x gap-4 overflow-x-auto p-4 sm:px-6 pb-6 hide-scrollbar">
             {banners.map((b) => (
-              <img key={b.id} src={b.imagem_url} alt={b.titulo ?? ''} className="h-32 w-72 shrink-0 snap-center rounded-xl object-cover shadow sm:h-40 sm:w-96" />
+              <div key={b.id} className="shrink-0 snap-center flex flex-col gap-2 w-72 sm:w-96">
+                {b.link_redirecionamento ? (
+                  <a href={b.link_redirecionamento} target="_blank" rel="noreferrer" className="block w-full rounded-xl overflow-hidden shadow">
+                    <img src={b.imagem_url} alt={b.titulo ?? ''} className="h-32 w-full object-cover sm:h-40 transition-transform hover:scale-105" />
+                  </a>
+                ) : (
+                  <img src={b.imagem_url} alt={b.titulo ?? ''} className="h-32 w-full rounded-xl object-cover shadow sm:h-40" />
+                )}
+                {b.titulo && (
+                  <p className="text-sm font-bold text-gray-700 dark:text-gray-200 px-1 truncate">{b.titulo}</p>
+                )}
+              </div>
             ))}
           </div>
         </div>
@@ -288,11 +299,26 @@ export default function Cardapio() {
               <p className="py-6 text-center text-sm text-gray-400">Adicione itens do cardápio.</p>
             ) : (
               <>
-                <div className="max-h-80 space-y-2 overflow-y-auto">
+                <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
                   {carrinho.map((i, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-sm">
-                      <span className="dark:text-gray-200">{i.quantidade}x {i.produto.nome}</span>
-                      <span className="font-semibold dark:text-gray-100">{fmt(precoItem(i))}</span>
+                    <div key={idx} className="flex flex-col gap-1 border-b border-gray-100 dark:border-gray-800/60 pb-3 last:border-0 last:pb-0">
+                      <div className="flex items-start justify-between text-sm leading-tight">
+                        <span className="font-medium dark:text-gray-200 pr-2">{i.produto.nome}</span>
+                        <span className="font-semibold dark:text-gray-100">{fmt(precoItem(i))}</span>
+                      </div>
+                      {i.opcoesSelecionadas && i.opcoesSelecionadas.length > 0 && (
+                        <p className="text-[11px] text-gray-400 dark:text-gray-500 line-clamp-1">{i.opcoesSelecionadas.map(o => o.nome).join(', ')}</p>
+                      )}
+                      <div className="mt-1 flex items-center justify-between">
+                        <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 dark:border-gray-700/50 dark:bg-gray-800/50">
+                          <button onClick={() => i.quantidade > 1 ? setCarrinho(carrinho.map((x, y) => y === idx ? { ...x, quantidade: x.quantidade - 1 } : x)) : setCarrinho(carrinho.filter((_, y) => y !== idx))} className="text-gray-500 hover:text-red-500 dark:text-gray-400"><Minus size={14} /></button>
+                          <span className="w-4 text-center text-xs font-bold dark:text-gray-200">{i.quantidade}</span>
+                          <button onClick={() => setCarrinho(carrinho.map((x, y) => y === idx ? { ...x, quantidade: x.quantidade + 1 } : x))} className="text-gray-500 hover:text-[var(--cor-primaria)] dark:text-gray-400"><Plus size={14} /></button>
+                        </div>
+                        <button onClick={() => setCarrinho(carrinho.filter((_, y) => y !== idx))} className="text-gray-400 hover:text-red-500 transition-colors">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -404,10 +430,36 @@ function ModalProduto({ produto, onClose, onAdd }: {
     });
   };
 
+  const imgs = produto.galeria?.length ? produto.galeria : (produto.imagem_url ? [produto.imagem_url] : []);
+
   return (
-    <div className="fade fixed inset-0 z-40 flex items-end justify-center bg-black/50" onClick={onClose}>
-      <div className="sheet max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
-        {produto.imagem_url && <img src={produto.imagem_url} className="h-44 w-full object-cover" alt="" />}
+    <div className="fade fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="sheet max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white dark:bg-gray-900 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        
+        {imgs.length > 0 && (
+          <div className="relative w-full bg-gray-100 dark:bg-gray-800">
+            <div className="flex w-full snap-x snap-mandatory overflow-x-auto hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              {imgs.map((url, i) => (
+                <div key={i} className="min-w-full snap-center bg-black/20 flex items-center justify-center">
+                  <img src={url} className="max-h-80 w-full object-contain" alt={`${produto.nome} - foto ${i+1}`} />
+                </div>
+              ))}
+            </div>
+            {imgs.length > 1 && (
+              <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5 pointer-events-none">
+                {imgs.map((_, i) => (
+                   <div key={i} className="h-1.5 w-1.5 rounded-full bg-black/30 dark:bg-white/50 backdrop-blur-sm" />
+                ))}
+              </div>
+            )}
+            {imgs.length > 1 && (
+              <div className="absolute top-2 right-2 rounded-full bg-black/50 px-2 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
+                1/{imgs.length} <span className="opacity-70">(deslize)</span>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="p-4">
           <div className="flex items-start justify-between">
             <h3 className="text-lg font-bold dark:text-gray-100">{produto.nome}</h3>
@@ -757,17 +809,26 @@ function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, o
           <button onClick={onClose} className="dark:text-gray-300"><X size={20} /></button>
         </div>
 
-        <div className="mt-3 space-y-2">
+        <div className="mt-4 max-h-48 space-y-3 overflow-y-auto">
           {carrinho.map((i, idx) => (
-            <div key={idx} className="flex items-center justify-between rounded-xl border p-2 text-sm dark:border-gray-700">
-              <div>
-                <p className="font-medium dark:text-gray-100">{i.quantidade}x {i.produto.nome}</p>
-                {i.opcoesSelecionadas.map((o) => <p key={o.id} className="text-xs text-gray-500 dark:text-gray-400">+ {o.nome}</p>)}
-                {i.observacao && <p className="text-xs italic text-gray-400">{i.observacao}</p>}
-              </div>
-              <div className="flex items-center gap-2">
+            <div key={idx} className="flex flex-col gap-1 border-b border-gray-100 pb-3 last:border-0 dark:border-gray-800/60">
+              <div className="flex items-start justify-between text-sm leading-tight">
+                <span className="font-medium dark:text-gray-200 pr-2">{i.produto.nome}</span>
                 <span className="font-semibold dark:text-gray-100">{fmt(precoItem(i))}</span>
-                <button onClick={() => setCarrinho(carrinho.filter((_, x) => x !== idx))} className="text-red-400"><X size={15} /></button>
+              </div>
+              {i.opcoesSelecionadas && i.opcoesSelecionadas.length > 0 && (
+                <p className="text-[11px] text-gray-400 dark:text-gray-500 line-clamp-1">{i.opcoesSelecionadas.map(o => o.nome).join(', ')}</p>
+              )}
+              {i.observacao && <p className="text-[11px] italic text-gray-500">"{i.observacao}"</p>}
+              <div className="mt-1 flex items-center justify-between">
+                <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 dark:border-gray-700/50 dark:bg-gray-800/50">
+                  <button onClick={() => i.quantidade > 1 ? setCarrinho(carrinho.map((x, y) => y === idx ? { ...x, quantidade: x.quantidade - 1 } : x)) : setCarrinho(carrinho.filter((_, y) => y !== idx))} className="text-gray-500 hover:text-red-500 dark:text-gray-400"><Minus size={14} /></button>
+                  <span className="w-4 text-center text-xs font-bold dark:text-gray-200">{i.quantidade}</span>
+                  <button onClick={() => setCarrinho(carrinho.map((x, y) => y === idx ? { ...x, quantidade: x.quantidade + 1 } : x))} className="text-gray-500 hover:text-[var(--cor-primaria)] dark:text-gray-400"><Plus size={14} /></button>
+                </div>
+                <button onClick={() => setCarrinho(carrinho.filter((_, x) => x !== idx))} className="text-gray-400 hover:text-red-500 transition-colors">
+                  <Trash2 size={15} />
+                </button>
               </div>
             </div>
           ))}

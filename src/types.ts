@@ -92,6 +92,7 @@ export interface Produto {
   descricao?: string;
   preco: number;
   imagem_url?: string;
+  galeria?: string[];
   is_combo: boolean;
   destaque: boolean;
   disponivel: boolean;
