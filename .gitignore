@@ -1,18 +1,30 @@
-node_modules
-dist
-dev-dist
+node_modules/
+dist/
+dev-dist/
+
+# Environment — nunca versionar credenciais
 .env
 .env.local
 .env.*.local
-.env.local.example
+
+# Logs e builds
 *.log
-.vercel
-.DS_Store
 *.tsbuildinfo
+*.local
 
-.vercel
-.env*
+# OS
+.DS_Store
+Thumbs.db
 
-# Supabase
+# IDE
+.vercel/
+.claude/
+
+# Supabase local
 supabase/.temp/
+
+# Scripts temporários e lixo
 scratch/
+capture.js
+*.mp4
+*.mov
