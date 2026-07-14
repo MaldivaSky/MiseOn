@@ -19,15 +19,23 @@ export default function CardapioAdmin() {
   const [busca, setBusca] = useState('');
   const [catAtiva, setCatAtiva] = useState<string | null>(null);
   const [editando, setEditando] = useState<Produto | 'novo' | null>(null);
+  const [rateioFixo, setRateioFixo] = useState(0);
 
   const carregar = async () => {
-    const [{ data: c }, { data: p }, { data: i }, { data: est }] = await Promise.all([
+    const [{ data: c }, { data: p }, { data: i }, { data: est }, { data: config }] = await Promise.all([
       supabase.from('categorias').select('*').eq('loja_id', lojaId).order('ordem'),
       supabase.from('produtos').select('*, grupos_opcoes(*, opcoes(*)), fichas_tecnicas(*)').eq('loja_id', lojaId).order('ordem'),
       supabase.from('insumos').select('*').eq('loja_id', lojaId).eq('ativo', true).order('nome'),
       supabase.rpc('fn_produtos_com_estoque', { p_loja_id: lojaId }),
+      supabase.from('configuracoes_custo').select('*').eq('loja_id', lojaId).maybeSingle(),
     ]);
     const mapaEstoque = new Map<string, boolean>((est ?? []).map((e: any) => [e.produto_id, e.tem_estoque]));
+    
+    if (config) {
+      const totalFixo = Number(config.custo_aluguel) + Number(config.custo_energia) + Number(config.custo_agua) + Number(config.custo_internet) + Number(config.custo_gas) + Number(config.outros_custos_fixos);
+      const vendasMes = Number(config.expectativa_vendas_mes) || 1;
+      setRateioFixo(totalFixo / vendasMes);
+    }
     setCategorias((c as Categoria[]) ?? []);
     setProdutos(((p as Produto[]) ?? []).map((prod) => ({ ...prod, tem_estoque: mapaEstoque.get(prod.id) ?? true })));
     setInsumos((i as Insumo[]) ?? []);
@@ -139,6 +147,7 @@ export default function CardapioAdmin() {
           produto={editando === 'novo' ? null : editando}
           categorias={categorias}
           insumos={insumos}
+          rateioFixo={rateioFixo}
           onClose={() => setEditando(null)}
           onSalvo={() => { setEditando(null); carregar(); }}
         />
@@ -214,11 +223,12 @@ interface OpcaoForm { _key: string; nome: string; preco_adicional: number; dispo
 interface GrupoForm { _key: string; nome: string; min_escolhas: number; max_escolhas: number; opcoes: OpcaoForm[]; }
 interface FichaForm { insumo_id: string; quantidade_consumida: string; }
 
-function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }: {
+function ProdutoModal({ lojaId, produto, categorias, insumos, rateioFixo, onClose, onSalvo }: {
   lojaId: string;
   produto: Produto | null;
   categorias: Categoria[];
   insumos: Insumo[];
+  rateioFixo: number;
   onClose: () => void;
   onSalvo: () => void;
 }) {
@@ -285,7 +295,8 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
     return s + custoUnit * Number(f.quantidade_consumida);
   }, 0);
   const precoNum = Number(preco || 0);
-  const margem = precoNum > 0 ? ((precoNum - custoInsumos) / precoNum) * 100 : 0;
+  const lucroLiquidoReal = precoNum - custoInsumos - rateioFixo;
+  const margemReal = precoNum > 0 ? (lucroLiquidoReal / precoNum) * 100 : 0;
 
   const addGrupo = () => setGrupos((g) => [...g, { _key: crypto.randomUUID(), nome: '', min_escolhas: 0, max_escolhas: 1, opcoes: [] }]);
   const addOpcao = (gKey: string) => setGrupos((g) => g.map((x) => x._key === gKey
@@ -435,9 +446,26 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
             </button>
             {!insumos.length && <p className="mt-1 text-xs text-gray-400">Cadastre insumos em Estoque primeiro.</p>}
             {ficha.length > 0 && (
-              <div className="mt-2 flex justify-between border-t pt-2 text-xs">
-                <span className="text-gray-500 dark:text-gray-400">Custo: {fmt(custoInsumos)}</span>
-                <span className={`font-semibold ${margem < 30 ? 'text-red-500' : 'text-green-600'}`}>Margem: {margem.toFixed(0)}%</span>
+              <div className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-3">
+                 <div className="grid grid-cols-4 gap-2 text-center text-[10px] sm:text-xs">
+                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2 border border-gray-100 dark:border-gray-700">
+                      <p className="uppercase tracking-wide text-gray-400 mb-1">Preço</p>
+                      <p className="font-semibold dark:text-gray-200">{fmt(precoNum)}</p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2 border border-gray-100 dark:border-gray-700">
+                      <p className="uppercase tracking-wide text-gray-400 mb-1">Insumos</p>
+                      <p className="font-semibold text-orange-600 dark:text-orange-400">-{fmt(custoInsumos)}</p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2 border border-gray-100 dark:border-gray-700">
+                      <p className="uppercase tracking-wide text-gray-400 mb-1">Despesas</p>
+                      <p className="font-semibold text-orange-600 dark:text-orange-400">-{fmt(rateioFixo)}</p>
+                    </div>
+                    <div className={`${lucroLiquidoReal < 0 ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/50' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-900/50'} rounded-lg p-2 border`}>
+                      <p className="uppercase tracking-wide text-gray-400 mb-1 flex items-center justify-center gap-1">Líq. Real</p>
+                      <p className={`font-black ${lucroLiquidoReal < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400'}`}>{fmt(lucroLiquidoReal)}</p>
+                      <p className={`text-[9px] font-bold mt-0.5 ${margemReal < 20 ? 'text-red-500' : 'text-green-600'}`}>{margemReal.toFixed(0)}%</p>
+                    </div>
+                 </div>
               </div>
             )}
           </div>

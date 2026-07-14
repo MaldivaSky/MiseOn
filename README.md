@@ -40,8 +40,8 @@ O cliente pede pela vitrine (link próprio da loja), o dono recebe em tempo real
 | 💸 **Pagamentos** | Pix **dentro da plataforma** (Efí Bank: QR Code + copia-e-cola + confirmação automática via webhook), **cartão de crédito online** com tokenização no navegador (PCI-safe, parcelado), fallback Pix estático, dinheiro/cartão na entrega |
 | 🛵 **Entregador** | Login com papel próprio, fila de entregas em tempo real, rota no Google Maps com 1 toque, aviso de cobrança na entrega, baixa de entrega |
 | 📟 **Painel (PWA)** | Pedidos em tempo real (websocket), som de campainha, notificação, fluxo de status (novo → aceito → preparando → pronto → em rota → finalizado), comanda térmica 80mm |
-| 📦 **Estoque** | Insumos com custo por embalagem, ficha técnica por produto, **baixa automática no aceite**, estorno no cancelamento, ledger auditável, lista de compras (estoque mínimo) |
-| 📊 **Inteligência** | Custo, lucro bruto e margem por produto (`vw_custo_produto`), clientes recorrentes por telefone (base p/ fidelidade e recuperação de vendas) |
+| 📦 **Estoque** | Ledger auditável, baixa automática no aceite, estorno no cancelamento, **Calculadora Dinâmica de Rendimento**, e **Central de Compras Massiva** com conversão reversa inteligente |
+| 📊 **Inteligência** | Custo Insumos (CMV), **Motor de Rateio de Despesas Fixas**, Lucro Líquido Real e margem por produto na Ficha Técnica (`vw_custo_produto`) |
 | 🤖 **Chat IA** *(fase 2)* | Atendimento websocket na própria vitrine com Gemini function calling — sem custo de API do WhatsApp |
 
 ## 🏗️ Arquitetura
@@ -174,7 +174,8 @@ Secrets necessários no GitHub: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `
 ## 🗺️ Roadmap
 
 - [x] **Fase 1 — MVP**: vitrine, carrinho, cupons, pedidos realtime, comanda, Pix Efí, estoque com ficha técnica
-- [ ] CRUD completo de produtos/ficha técnica no painel · relatório de vendas e lucro
+- [x] CRUD completo de produtos/ficha técnica no painel · relatório de vendas e lucro líquido (Motor de Custos)
+- [x] **Central de Compras**: módulo dedicado para lojista gerenciar recompra massiva.
 - [ ] **Fase 2**: chat IA na vitrine (Gemini function calling), Web Push, recuperador de vendas, fidelidade/cashback, painel do entregador
 - [x] Cartão de crédito na plataforma (Efí one-step + tokenização) · tela do entregador com rota no mapa
 - [ ] **Fase 3**: NFC-e, onboarding self-service de novas lojas
