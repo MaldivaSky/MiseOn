@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, Store } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import MiseOnLogo from '../components/MiseOnLogo';
 
 const TIPOS_NEGOCIO = ['Lanchonete', 'Restaurante', 'Pizzaria', 'Doceria/Confeitaria', 'Mercado/Conveniência', 'Outro'];
 
@@ -51,39 +52,49 @@ export default function CadastreSuaLoja() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4 py-10">
-      <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-6 shadow">
-        <div className="mb-4 flex items-center gap-2">
-          <Store size={22} className="text-blue-800" />
-          <h1 className="text-lg font-bold">Cadastre sua loja</h1>
+    <div className="flex min-h-screen items-center justify-center p-4 py-10 bg-transparent">
+      <div className="w-full max-w-md rounded-3xl border border-[rgba(10,92,196,0.2)] bg-[#0B1120]/80 backdrop-blur-xl p-8 shadow-[0_0_40px_rgba(10,92,196,0.15)] relative overflow-hidden">
+        {/* Glow de fundo */}
+        <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-[var(--cor-primaria)] opacity-10 blur-3xl" />
+        <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-[var(--cor-secundaria)] opacity-10 blur-3xl" />
+        
+        <div className="mb-8 flex flex-col items-center justify-center text-center relative z-10">
+          <MiseOnLogo size={150} className="mb-4" />
+          <h1 className="text-xl font-bold dark:text-white" style={{ fontFamily: "'Sora', sans-serif" }}>Cadastre sua loja</h1>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Cardápio digital, pedidos, entrega e controle de estoque.
+          </p>
         </div>
-        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-          Cardápio digital, pedidos, entrega e controle de estoque — a gente configura pra você.
-        </p>
-        <div className="space-y-2">
+        
+        <div className="space-y-3 relative z-10">
           <input value={nomeResponsavel} onChange={(e) => setNomeResponsavel(e.target.value)} placeholder="Seu nome"
-            className="w-full rounded-xl border p-2.5 text-sm" />
+            className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 p-3 text-sm dark:text-white" />
           <input value={nomeLoja} onChange={(e) => setNomeLoja(e.target.value)} placeholder="Nome da sua loja"
-            className="w-full rounded-xl border p-2.5 text-sm" />
-          <select value={tipoNegocio} onChange={(e) => setTipoNegocio(e.target.value)} className="w-full rounded-xl border p-2.5 text-sm text-gray-700">
+            className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 p-3 text-sm dark:text-white" />
+          <select value={tipoNegocio} onChange={(e) => setTipoNegocio(e.target.value)} className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 p-3 text-sm text-gray-700 dark:text-gray-300">
             <option value="">Tipo de negócio</option>
             {TIPOS_NEGOCIO.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
           <input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Cidade"
-            className="w-full rounded-xl border p-2.5 text-sm" />
+            className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 p-3 text-sm dark:text-white" />
           <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="WhatsApp (11) 9…"
-            className="w-full rounded-xl border p-2.5 text-sm" />
+            className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 p-3 text-sm dark:text-white" />
           <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="E-mail (opcional)"
-            className="w-full rounded-xl border p-2.5 text-sm" />
+            className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 p-3 text-sm dark:text-white" />
           <textarea value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="Conte um pouco do seu negócio (opcional)" rows={2}
-            className="w-full rounded-xl border p-2.5 text-sm" />
+            className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 p-3 text-sm dark:text-white" />
         </div>
-        {erro && <p className="mt-2 text-sm font-medium text-red-500">{erro}</p>}
+        
+        {erro && <p className="mt-3 text-center text-sm font-medium text-red-500 relative z-10">{erro}</p>}
+        
         <button onClick={enviar} disabled={enviando}
-          className="mt-4 w-full rounded-xl bg-blue-800 py-3 text-sm font-semibold text-white disabled:opacity-50">
+          className="mt-6 w-full rounded-xl bg-[var(--cor-primaria)] hover:bg-[var(--cor-primaria-hover)] transition-colors py-3.5 text-sm font-semibold text-white shadow-lg disabled:opacity-50 relative z-10">
           {enviando ? 'Enviando…' : 'Quero minha loja na MiseOn'}
         </button>
-        <Link to="/" className="mt-3 block text-center text-xs text-gray-400">Voltar</Link>
+        
+        <Link to="/" className="mt-4 block text-center text-xs text-gray-400 hover:text-white transition-colors relative z-10">
+          Voltar para o início
+        </Link>
       </div>
     </div>
   );

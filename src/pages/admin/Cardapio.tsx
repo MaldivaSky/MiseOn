@@ -225,7 +225,7 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
   const [nome, setNome] = useState(produto?.nome ?? '');
   const [descricao, setDescricao] = useState(produto?.descricao ?? '');
   const [preco, setPreco] = useState(String(produto?.preco ?? ''));
-  const [imagemUrl, setImagemUrl] = useState(produto?.imagem_url ?? '');
+  const [galeria, setGaleria] = useState<string[]>(produto?.galeria ?? (produto?.imagem_url ? [produto.imagem_url] : []));
   const [categoriaId, setCategoriaId] = useState(produto?.categoria_id ?? categorias[0]?.id ?? '');
   const [isCombo, setIsCombo] = useState(produto?.is_combo ?? false);
   const [destaque, setDestaque] = useState(produto?.destaque ?? false);
@@ -249,14 +249,28 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
     setErro('');
     try {
       const catNome = categorias.find(c => c.id === categoriaId)?.nome;
-      const { data, error } = await supabase.functions.invoke('magic-copy', {
-        body: { nome, categoria: catNome }
+      const prompt = `Você é um copywriter especialista em gastronomia e food delivery.\n` +
+        `Escreva uma descrição extremamente apetitosa, focada em vender e fazer o cliente "salivar", para um produto chamado "${nome}". ` +
+        (catNome ? `O produto é da categoria: ${catNome}. ` : '') +
+        `A descrição deve ser curta (no máximo 3 linhas), direta, sem emojis exagerados, focando em texturas, sabores e desejo. Não use aspas na resposta.`;
+
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyB1uYiP4zcinQzY4NvprefrF4-ylYFCNYE', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.7 }
+        }),
       });
-      if (error) throw error;
-      if (data?.descricao) setDescricao(data.descricao);
+
+      const aiData = await response.json();
+      if (aiData.error) throw new Error(aiData.error.message || 'Erro no Gemini.');
+      
+      const texto = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (texto) setDescricao(texto);
       else throw new Error('Não foi possível gerar a descrição.');
     } catch (e: any) {
-      setErro('Erro na IA: ' + (e?.message || 'Falha ao conectar com OpenAI.'));
+      setErro('Erro na IA: ' + (e?.message || 'Falha ao conectar com OpenAI/Gemini.'));
     }
     setGerandoIA(false);
   };
@@ -286,7 +300,8 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
         nome: nome.trim(),
         descricao: descricao || null,
         preco: precoNum,
-        imagem_url: imagemUrl || null,
+        imagem_url: galeria[0] || null,
+        galeria,
         categoria_id: categoriaId || null,
         is_combo: isCombo,
         destaque,
@@ -365,7 +380,30 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
               {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </div>
-          <ImageUpload lojaId={lojaId} pasta="produtos" value={imagemUrl} onChange={setImagemUrl} aspecto="aspect-video" label="Foto do produto" />
+          <div>
+            <p className="mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400">Fotos do Produto (até 3)</p>
+            <div className="grid grid-cols-3 gap-2">
+              {[0, 1, 2].map((i) => (
+                (galeria[i] || i === galeria.length) ? (
+                  <ImageUpload 
+                    key={i}
+                    lojaId={lojaId} 
+                    pasta="produtos" 
+                    value={galeria[i]} 
+                    onChange={(url) => {
+                      setGaleria(prev => {
+                        const copy = [...prev];
+                        if (url) copy[i] = url;
+                        else copy.splice(i, 1);
+                        return copy.filter(Boolean);
+                      });
+                    }}
+                    aspecto="aspect-square" 
+                  />
+                ) : <div key={i} className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 dark:border-gray-800 dark:bg-gray-800/50 aspect-square" />
+              ))}
+            </div>
+          </div>
 
           <div className="flex flex-wrap gap-3 pt-1 text-xs dark:text-gray-300">
             <label className="flex items-center gap-1.5"><input type="checkbox" checked={isCombo} onChange={(e) => setIsCombo(e.target.checked)} /> Combo</label>

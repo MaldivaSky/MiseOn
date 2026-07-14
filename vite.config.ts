@@ -22,6 +22,9 @@ export default defineConfig({
           { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
         ],
       },
+      workbox: {
+        maximumFileSizeToCacheInBytes: 5000000
+      }
     }),
   ],
 });

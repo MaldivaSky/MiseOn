@@ -33,7 +33,31 @@ body {
 }
 .dark body {
   color: var(--cor-texto-claro);
-  background-color: var(--cor-fundo-escuro);
+  background: radial-gradient(130% 130% at 50% 10%, #0C1730 0%, #060B18 60%, #03060E 100%) fixed !important;
+}
+
+/* ── Texturas de Fundo Oficiais (Identidade MiseOn) ── */
+.dark body::before {
+  content: '';
+  position: fixed;
+  top: 5%; right: -10%;
+  width: 600px; height: 600px;
+  background: url('/brand/part-mbase.png') center/contain no-repeat;
+  opacity: 0.02;
+  pointer-events: none;
+  z-index: -1;
+  transform: rotate(-15deg);
+}
+.dark body::after {
+  content: '';
+  position: fixed;
+  bottom: 0%; left: -5%;
+  width: 450px; height: 450px;
+  background: url('/brand/part-hat.png') center/contain no-repeat;
+  opacity: 0.02;
+  pointer-events: none;
+  z-index: -1;
+  transform: rotate(20deg);
 }
 
 html { -webkit-tap-highlight-color: transparent; }

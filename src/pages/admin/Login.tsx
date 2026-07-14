@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
+import MiseOnLogo from '../../components/MiseOnLogo';
 import { useNavigate } from 'react-router-dom';
 import { Mail, KeyRound, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -62,7 +64,9 @@ export default function Login() {
       <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white dark:bg-gray-900 dark:border-gray-800 shadow-xl dark:bg-gray-900 dark:border dark:border-gray-800">
         
         <div className="p-8 pb-6 text-center">
-          <img src="/MiseOn brand identity/logo.png" alt="MiseOn" className="mx-auto mb-4 w-48" />
+          <div className="flex justify-center mb-6">
+            <MiseOnLogo size={160} />
+          </div>
           <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">Bem-vindo de volta</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Entre para gerenciar sua operação</p>
         </div>
