@@ -4,6 +4,7 @@ import { Search } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Pedido, StatusPedido, fmt } from '../../types';
 import type { CtxLoja } from './AdminLayout';
+import { Timer } from 'lucide-react';
 
 const STATUS_LABEL: Record<StatusPedido, string> = {
   NOVO: 'Recebido', ACEITO: 'Aceito', PREPARANDO: 'Preparando',
@@ -23,6 +24,32 @@ export default function Historico() {
   const [de, setDe] = useState('');
   const [ate, setAte] = useState('');
   const [carregando, setCarregando] = useState(true);
+  const [tmp, setTmp] = useState<number | null>(null);
+
+  const carregarTMP = async () => {
+    // Busca historico das ultimas 24h
+    const hj = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const { data } = await supabase.from('historico_pedidos')
+      .select('pedido_id, status, criado_em, pedidos!inner(loja_id)')
+      .eq('pedidos.loja_id', lojaId)
+      .in('status', ['ACEITO', 'PRONTO'])
+      .gte('criado_em', hj);
+    
+    if (!data) return;
+    const grupos: Record<string, any> = {};
+    data.forEach((d: any) => {
+      if (!grupos[d.pedido_id]) grupos[d.pedido_id] = {};
+      grupos[d.pedido_id][d.status] = new Date(d.criado_em).getTime();
+    });
+    let soma = 0, qtd = 0;
+    Object.values(grupos).forEach((g) => {
+      if (g.ACEITO && g.PRONTO && g.PRONTO > g.ACEITO) {
+        soma += (g.PRONTO - g.ACEITO);
+        qtd++;
+      }
+    });
+    setTmp(qtd > 0 ? Math.round(soma / qtd / 60000) : null);
+  };
 
   const carregar = async () => {
     setCarregando(true);
@@ -35,7 +62,7 @@ export default function Historico() {
     setPedidos((data as Pedido[]) ?? []);
     setCarregando(false);
   };
-  useEffect(() => { carregar(); }, [lojaId, status, de, ate]);
+  useEffect(() => { carregar(); carregarTMP(); }, [lojaId, status, de, ate]);
 
   const visiveis = pedidos.filter((p) =>
     !busca || p.identificador_cliente?.toLowerCase().includes(busca.toLowerCase()) || String(p.numero).includes(busca));
@@ -46,7 +73,19 @@ export default function Historico() {
     <div className="p-4">
       <h2 className="mb-3 font-bold">Histórico de pedidos</h2>
 
-      <div className="mb-3 flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm">
+      <div className="mb-4 flex items-center justify-between rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 shadow-sm">
+        <div>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Tempo Médio de Preparo (24h)</p>
+          <p className="text-xl font-bold text-gray-800 dark:text-gray-100">
+            {tmp !== null ? `${tmp} min` : '--'}
+          </p>
+        </div>
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
+          <Timer size={20} />
+        </div>
+      </div>
+
+      <div className="mb-3 flex items-center gap-2 rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 px-3 py-2 shadow-sm">
         <Search size={16} className="text-gray-400" />
         <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou número…"
           className="w-full bg-transparent text-sm outline-none" />
@@ -61,14 +100,14 @@ export default function Historico() {
         </select>
       </div>
 
-      <p className="mb-3 text-xs text-gray-500">{visiveis.length} pedido(s) · faturamento no filtro: <b className="text-gray-700">{fmt(totalPeriodo)}</b></p>
+      <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">{visiveis.length} pedido(s) · faturamento no filtro: <b className="text-gray-700">{fmt(totalPeriodo)}</b></p>
 
       {carregando ? (
         <p className="py-10 text-center text-sm text-gray-400">Carregando…</p>
       ) : (
         <div className="space-y-2">
           {visiveis.map((p) => (
-            <div key={p.id} className="rounded-xl bg-white p-3 shadow-sm">
+            <div key={p.id} className="rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="font-bold">#{p.numero}</span>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_COR[p.status]}`}>{STATUS_LABEL[p.status]}</span>
