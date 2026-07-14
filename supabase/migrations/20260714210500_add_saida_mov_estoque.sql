@@ -1,0 +1,11 @@
+-- Adiciona o valor 'SAIDA' ao enum de movimentação de estoque.
+-- O fluxo de Produção de Preparos (EstoquePreparos "Panela no Fogo!" e a nova
+-- KDS de Produção) registra a baixa dos insumos brutos com tipo 'SAIDA'.
+-- Como o enum não possuía esse valor, a inserção da movimentação falhava
+-- silenciosamente (o código não checava o erro do Supabase): o estoque era
+-- atualizado, mas a movimentação de consumo não era gravada no histórico.
+--
+-- Mantido como migração isolada de propósito: ALTER TYPE ... ADD VALUE não pode
+-- usar o novo valor na mesma transação, então não deve ser misturado com DML
+-- que já o utilize.
+ALTER TYPE tipo_mov_estoque ADD VALUE IF NOT EXISTS 'SAIDA';
