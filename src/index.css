@@ -42,14 +42,15 @@ html {
 
 /* ── Comanda térmica 80mm — suporta múltiplas vias (cozinha + cliente),
    uma por página física, impressas no mesmo job de impressão ── */
-@media print {
-  body * {
-    display: none;
+@media screen {
+  .comanda-print {
+    display: none !important;
   }
-  .comanda-print,
-  .comanda-print * {
-    display: revert;
-    visibility: visible;
+}
+
+@media print {
+  body {
+    background-color: white !important;
   }
   .comanda-print {
     width: 72mm;
@@ -58,9 +59,11 @@ html {
     color: #000;
     page-break-after: always;
   }
+  
   .comanda-print:last-of-type {
     page-break-after: auto;
   }
+  
   @page {
     size: 80mm auto;
     margin: 2mm;

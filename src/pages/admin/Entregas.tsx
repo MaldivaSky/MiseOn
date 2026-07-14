@@ -50,9 +50,14 @@ export default function Entregas() {
     };
   }, [lojaId]);
 
-  const abrirRota = (p: Pedido) => {
+  const abrirMaps = (p: Pedido) => {
     const destino = encodeURIComponent(`${p.endereco_entrega ?? ''} ${p.bairro ?? ''}`);
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${destino}&travelmode=driving`, '_blank');
+  };
+
+  const abrirWaze = (p: Pedido) => {
+    const destino = encodeURIComponent(`${p.endereco_entrega ?? ''} ${p.bairro ?? ''}`);
+    window.open(`https://waze.com/ul?q=${destino}&navigate=yes`, '_blank');
   };
 
   const enviarMensagem = (p: Pedido, texto: string) => {
@@ -69,9 +74,13 @@ export default function Entregas() {
         const agora = Date.now();
         if (agora - ultimoEnvio < 8000) return; // throttle ~8s
         ultimoEnvio = agora;
-        supabase.from('entregas')
-          .update({ lat: pos.coords.latitude, lng: pos.coords.longitude, localizacao_atualizada_em: new Date().toISOString() })
-          .eq('pedido_id', pedidoId)
+        supabase.from('localizacao_entregador')
+          .upsert({ 
+            pedido_id: pedidoId, 
+            lat: pos.coords.latitude, 
+            lng: pos.coords.longitude, 
+            atualizado_em: new Date().toISOString() 
+          })
           .then(() => {});
       },
       () => {},
@@ -87,17 +96,14 @@ export default function Entregas() {
 
   const iniciarRota = async (p: Pedido) => {
     await supabase.from('pedidos').update({ status: 'EM_ROTA' }).eq('id', p.id);
-    const { data: e } = await supabase.from('entregas').select('id').eq('pedido_id', p.id).maybeSingle();
-    if (e) await supabase.from('entregas').update({ saiu_em: new Date().toISOString() }).eq('id', e.id);
-    else await supabase.from('entregas').insert({ pedido_id: p.id, saiu_em: new Date().toISOString() });
     transmitirLocalizacao(p.id);
-    abrirRota(p);
+    abrirMaps(p);
   };
 
   const concluir = async (p: Pedido) => {
     pararLocalizacao(p.id);
     await supabase.from('pedidos').update({ status: 'FINALIZADO' }).eq('id', p.id);
-    await supabase.from('entregas').update({ entregue_em: new Date().toISOString() }).eq('pedido_id', p.id);
+    await supabase.from('localizacao_entregador').delete().eq('pedido_id', p.id);
   };
 
   const aguardando = pedidos.filter((p) => p.status === 'PRONTO');
@@ -110,17 +116,17 @@ export default function Entregas() {
     const pgto = p.pagamentos?.[0];
     const cobrarNaEntrega = pgto && pgto.status !== 'PAGO';
     return (
-      <div className="rounded-2xl bg-white p-4 shadow-sm">
+      <div className="rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <span className="text-lg font-bold">#{p.numero}</span>
           <span className="text-sm font-semibold">{fmt(Number(p.valor_total))}</span>
         </div>
         <p className="mt-1 text-sm font-medium">{p.identificador_cliente}</p>
-        <p className="flex items-start gap-1 text-sm text-gray-600">
+        <p className="flex items-start gap-1 text-sm text-gray-600 dark:text-gray-300">
           <MapPin size={14} className="mt-0.5 shrink-0" /> {p.endereco_entrega}{p.bairro ? ` — ${p.bairro}` : ''}
         </p>
 
-        <ul className="mt-2 space-y-0.5 border-t pt-2 text-xs text-gray-600">
+        <ul className="mt-2 space-y-0.5 border-t pt-2 text-xs text-gray-600 dark:text-gray-300">
           {p.itens_pedido?.map((i) => <li key={i.id}>{i.quantidade}x {i.nome_produto}</li>)}
         </ul>
 
@@ -134,7 +140,7 @@ export default function Entregas() {
         )}
         <div className="mt-3 flex gap-2">
           {p.telefone_contato && (
-            <a href={`tel:${p.telefone_contato}`} className="rounded-xl border px-3 py-2.5 text-gray-500">
+            <a href={`tel:${p.telefone_contato}`} className="rounded-xl border px-3 py-2.5 text-gray-500 dark:text-gray-400">
               <Phone size={16} />
             </a>
           )}
@@ -143,7 +149,10 @@ export default function Entregas() {
               <MessageCircle size={16} />
             </button>
           )}
-          <button onClick={() => abrirRota(p)} className="rounded-xl border px-3 py-2.5 text-blue-700">
+          <button onClick={() => abrirMaps(p)} className="rounded-xl border px-3 py-2.5 text-blue-700" title="Google Maps">
+            <MapPin size={16} />
+          </button>
+          <button onClick={() => abrirWaze(p)} className="rounded-xl border px-3 py-2.5 text-blue-500" title="Waze">
             <Navigation size={16} />
           </button>
           {p.status === 'PRONTO' ? (
@@ -164,10 +173,10 @@ export default function Entregas() {
 
   return (
     <div className="p-4">
-      <h2 className="mb-3 font-bold">🛵 Em rota ({emRota.length})</h2>
+      <h2 className="mb-3 font-bold flex items-center gap-2"><Bike size={20} className="text-[var(--cor-primaria)]" /> Em rota ({emRota.length})</h2>
       <div className="space-y-3">{emRota.map((p) => <Card key={p.id} p={p} />)}</div>
 
-      <h2 className="mb-3 mt-6 font-bold">📦 Prontos para sair ({aguardando.length})</h2>
+      <h2 className="mb-3 mt-6 font-bold flex items-center gap-2"><CheckCircle2 size={20} className="text-gray-500" /> Prontos para sair ({aguardando.length})</h2>
       <div className="space-y-3">{aguardando.map((p) => <Card key={p.id} p={p} />)}</div>
 
       {pedidos.length === 0 && (
@@ -176,7 +185,7 @@ export default function Entregas() {
 
       {mensagemPara && (
         <div className="fade fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setMensagemPara(null)}>
-          <div className="sheet w-full max-w-lg rounded-t-3xl bg-white p-4" onClick={(e) => e.stopPropagation()}>
+          <div className="sheet w-full max-w-lg rounded-t-3xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-bold">Mensagem para {mensagemPara.identificador_cliente}</h3>
               <button onClick={() => setMensagemPara(null)}><X size={20} /></button>

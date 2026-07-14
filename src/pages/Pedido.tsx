@@ -97,13 +97,13 @@ export default function AcompanharPedido() {
   useEffect(() => {
     if (!id || pedido?.status !== 'EM_ROTA') return;
     const buscarPosicao = async () => {
-      const { data } = await supabase.from('entregas').select('lat, lng').eq('pedido_id', id).maybeSingle();
+      const { data } = await supabase.from('localizacao_entregador').select('lat, lng').eq('pedido_id', id).maybeSingle();
       if (data?.lat && data?.lng) setPosicao({ lat: Number(data.lat), lng: Number(data.lng) });
     };
     buscarPosicao();
     const canal = supabase
       .channel(`entrega-${id}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'entregas', filter: `pedido_id=eq.${id}` },
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'localizacao_entregador', filter: `pedido_id=eq.${id}` },
         (payload) => {
           const e = payload.new as { lat?: number; lng?: number };
           if (e.lat && e.lng) setPosicao({ lat: Number(e.lat), lng: Number(e.lng) });
@@ -153,16 +153,16 @@ export default function AcompanharPedido() {
             <XCircle size={20} /> <p className="text-sm font-semibold">Pedido cancelado.</p>
           </div>
         ) : (
-          <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-900">
+          <div className="rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 shadow-sm dark:bg-gray-900">
             {ETAPAS.map((e, i) => (
               <div key={e.status} className="flex items-start gap-3 pb-4 last:pb-0">
                 <div className="flex flex-col items-center">
-                  <div className={`flex h-8 w-8 items-center justify-center rounded-full ${i <= idxAtual ? 'bg-[var(--cor-primaria)] text-white' : 'bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600'}`}>
+                  <div className={`flex h-8 w-8 items-center justify-center rounded-full ${i <= idxAtual ? 'bg-[var(--cor-primaria)] text-white' : 'bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600 dark:text-gray-300'}`}>
                     {e.icon}
                   </div>
                   {i < ETAPAS.length - 1 && <div className={`mt-1 h-6 w-0.5 ${i < idxAtual ? 'bg-[var(--cor-primaria)]' : 'bg-gray-100 dark:bg-gray-800'}`} />}
                 </div>
-                <p className={`pt-1.5 text-sm font-medium ${i <= idxAtual ? 'text-gray-800 dark:text-gray-100' : 'text-gray-300 dark:text-gray-600'}`}>{e.label}</p>
+                <p className={`pt-1.5 text-sm font-medium ${i <= idxAtual ? 'text-gray-800 dark:text-gray-100' : 'text-gray-300 dark:text-gray-600 dark:text-gray-300'}`}>{e.label}</p>
               </div>
             ))}
           </div>
@@ -176,7 +176,6 @@ export default function AcompanharPedido() {
                 <Marker position={[posicao.lat, posicao.lng]} icon={iconeMoto}>
                   <Popup>Seu entregador está aqui 🛵</Popup>
                 </Marker>
-                {pedido.endereco_entrega && <Marker position={[posicao.lat, posicao.lng]} icon={iconeCasa} />}
               </MapContainer>
             </div>
           )}
@@ -184,7 +183,7 @@ export default function AcompanharPedido() {
             <p className="mt-3 text-center text-xs text-gray-400">Aguardando o entregador iniciar o compartilhamento de localização…</p>
           )}
 
-          <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-900 lg:mt-4">
+          <div className="mt-4 rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 shadow-sm dark:bg-gray-900 lg:mt-4">
             <p className="mb-2 text-sm font-semibold dark:text-gray-100">Itens</p>
             <ul className="space-y-1 text-sm">
               {pedido.itens_pedido?.map((i) => (
