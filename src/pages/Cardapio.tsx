@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
-import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star, LogIn, LogOut, History, Lock, ShieldCheck } from 'lucide-react';
+import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star, LogIn, LogOut, History, Lock, ShieldCheck, User as UserIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import ModalAuthCliente from '../components/ModalAuthCliente';
+import ModalMinhaConta from '../components/ModalMinhaConta';
 import {
   Loja, Banner, Categoria, Produto, Cupom, TaxaEntrega, ItemCarrinho, Cliente,
   HorarioFuncionamento, MetodoPgto, fmt, precoItem,
@@ -33,6 +35,8 @@ export default function Cardapio() {
   const [taxas, setTaxas] = useState<TaxaEntrega[]>([]);
   const [busca, setBusca] = useState('');
   const [catAtiva, setCatAtiva] = useState<string | null>(null);
+  const [modalAuthAberto, setModalAuthAberto] = useState(false);
+  const [modalContaAberto, setModalContaAberto] = useState(false);
   
   const cartKey = `cart_${slug}`;
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>(() => {
@@ -136,17 +140,17 @@ export default function Cardapio() {
             {user ? (
               <>
                 <Link to={`/${slug}/meus-pedidos`} title="Meus pedidos"
-                  className="rounded-full border border-white/30 bg-black/20 p-2 text-white backdrop-blur-sm">
+                  className="rounded-full border border-white/30 bg-black/20 p-2 text-white backdrop-blur-sm transition hover:bg-black/30">
                   <History size={16} />
                 </Link>
-                <button onClick={() => supabase.auth.signOut()} title="Sair"
-                  className="rounded-full border border-white/30 bg-black/20 p-2 text-white backdrop-blur-sm">
-                  <LogOut size={16} />
+                <button onClick={() => setModalContaAberto(true)} title="Minha Conta"
+                  className="flex items-center gap-1.5 rounded-full border border-white/30 bg-black/20 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-black/30">
+                  <UserIcon size={14} /> Minha Conta
                 </button>
               </>
             ) : (
-              <button onClick={() => entrarComGoogle(window.location.href)}
-                className="flex items-center gap-1.5 rounded-full border border-white/30 bg-black/20 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm">
+              <button onClick={() => setModalAuthAberto(true)}
+                className="flex items-center gap-1.5 rounded-full border border-white/30 bg-black/20 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-black/30">
                 <LogIn size={14} /> Entrar
               </button>
             )}
@@ -319,7 +323,6 @@ export default function Cardapio() {
       {produtoAberto && (
         <ModalProduto produto={produtoAberto} onClose={() => setProdutoAberto(null)} onAdd={addAoCarrinho} />
       )}
-
       {checkoutAberto && loja && (
         <Checkout
           loja={loja}
@@ -327,6 +330,7 @@ export default function Cardapio() {
           carrinho={carrinho}
           taxas={taxas}
           user={user}
+          onAbrirAuth={() => setModalAuthAberto(true)}
           setCarrinho={setCarrinho}
           onClose={() => setCheckoutAberto(false)}
           onSucesso={(n, id, pixInfo) => { setPedidoNumero(n); setPedidoId(id); setPix(pixInfo ?? null); setCarrinho([]); setCheckoutAberto(false); }}
@@ -463,6 +467,16 @@ function ModalProduto({ produto, onClose, onAdd }: {
           </div>
         </div>
       </div>
+
+      <ModalAuthCliente isOpen={modalAuthAberto} onClose={() => setModalAuthAberto(false)} />
+      
+      <ModalMinhaConta 
+        isOpen={modalContaAberto} 
+        onClose={() => setModalContaAberto(false)} 
+        lojaId={loja.id}
+        userId={user?.id ?? ''}
+        userEmail={user?.email}
+      />
     </div>
   );
 }
@@ -579,7 +593,7 @@ function CartaoModal({ loja, info, onFechar, onAprovado }: {
 }
 
 // ── Checkout (delivery/retirada, cupom, pagamento, wa.me) ───
-function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, onSucesso, onCartao }: {
+function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, onSucesso, onCartao, onAbrirAuth }: {
   loja: Loja;
   aberta: boolean;
   carrinho: ItemCarrinho[];
@@ -589,6 +603,7 @@ function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, o
   onClose: () => void;
   onSucesso: (numero: number, pedidoId: string, pix?: { copia_e_cola: string; qr_imagem?: string } | null) => void;
   onCartao?: (info: { pedidoId: string; numero: number; total: number }) => void;
+  onAbrirAuth: () => void;
 }) {
   const [tipo, setTipo] = useState<'DELIVERY' | 'RETIRADA_BALCAO'>('DELIVERY');
   const [nome, setNome] = useState('');
@@ -643,7 +658,10 @@ function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, o
 
   const enviar = async () => {
     setErro('');
-    if (!user) return setErro('Entre com sua conta Google pra finalizar o pedido.');
+    if (!user) {
+      onAbrirAuth();
+      return setErro('Faça login ou cadastre-se para finalizar o pedido.');
+    }
     if (!aberta) return setErro('A loja está fechada no momento.');
     if (!nome || !telefone) return setErro('Preencha nome e telefone.');
     if (tipo === 'DELIVERY' && !endereco) return setErro('Preencha o endereço de entrega.');
