@@ -4,67 +4,125 @@ import { AlertTriangle, Plus, Pencil, Archive, ArchiveRestore, Calculator, Trash
 import { supabase } from '../../lib/supabase';
 import { Insumo, fmt, InsumoRendimentoJSON } from '../../types';
 import type { CtxLoja } from './AdminLayout';
+import EstoquePreparos from './EstoquePreparos';
 
 export default function Estoque() {
   const { lojaId } = useOutletContext<CtxLoja>();
+  const [tab, setTab] = useState<'insumos' | 'preparos'>('insumos');
   const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [inativos, setInativos] = useState<Insumo[]>([]);
   const [mostrarInativos, setMostrarInativos] = useState(false);
   
   // States para Novo Insumo Dinâmico
   const [nome, setNome] = useState('');
-  const [quantidade, setQuantidade] = useState('');
+  const [categoriaInsumo, setCategoriaInsumo] = useState('Ingrediente');
+  const [isNovaCategoria, setIsNovaCategoria] = useState(false);
+  const [nomeNovaCategoria, setNomeNovaCategoria] = useState('');
+  const [filtroCategoria, setFiltroCategoria] = useState<string | null>(null);
+  
+  // Compra
+  const [unidadeCompra, setUnidadeCompra] = useState('pct');
+  const [precoCompra, setPrecoCompra] = useState('');
+  const [qtdEstoqueCompra, setQtdEstoqueCompra] = useState('');
+  
+  // Uso (Rendimento) - Multi-step
+  type PassoRendimento = { id: string; rendimento: string; unidade: string };
+  const [passosRendimento, setPassosRendimento] = useState<PassoRendimento[]>([
+     { id: '1', rendimento: '1', unidade: 'un' }
+  ]);
+  
   const [estoqueMinimo, setEstoqueMinimo] = useState('');
-  const [precoEmbalagem, setPrecoEmbalagem] = useState('');
-  
-  type Regra = { id: string; de_qtd: string; de_unidade: string; para_qtd: string; para_unidade: string };
-  const [regras, setRegras] = useState<Regra[]>([]);
-  
-  // Unidade final e qtd final calculadas
-  const unidadeFinal = regras.length > 0 ? regras[regras.length - 1].para_unidade : 'un';
-  const qtdEmbalagemFinal = regras.reduce((acc, r) => acc * (Number(r.para_qtd) / (Number(r.de_qtd) || 1)), 1);
 
   const [editando, setEditando] = useState<Insumo | null>(null);
   const [entrada, setEntrada] = useState<{ insumo: Insumo; qtd: string; custo: string } | null>(null);
 
   const carregar = async () => {
-    const { data } = await supabase.from('insumos').select('*').eq('loja_id', lojaId).order('nome');
+    const { data, error } = await supabase.from('insumos').select('*, fichas_preparos!fichas_preparos_preparo_id_fkey(*)').eq('loja_id', lojaId).order('nome');
+    if (error) console.error("Erro ao carregar insumos:", error);
     const todos = (data as Insumo[]) ?? [];
     setInsumos(todos.filter((i) => i.ativo));
     setInativos(todos.filter((i) => !i.ativo));
   };
   useEffect(() => { carregar(); }, [lojaId]);
 
-  const addRegra = () => {
-    setRegras([...regras, { id: Math.random().toString(), de_qtd: '1', de_unidade: regras.length > 0 ? regras[regras.length-1].para_unidade : 'embalagem', para_qtd: '1', para_unidade: '' }]);
-  };
-
   const criar = async () => {
     if (!nome) return;
-    const qtd = Number(quantidade || 0);
-    const jsonRegras: InsumoRendimentoJSON = {
-      regras: regras.map(r => ({ de_qtd: Number(r.de_qtd), de_unidade: r.de_unidade, para_qtd: Number(r.para_qtd), para_unidade: r.para_unidade }))
-    };
+    const qtdEstoque = Number(qtdEstoqueCompra || 0);
+    const precoEmb = Number(precoCompra || 0);
+    const rendEmb = passosRendimento.reduce((acc, p) => acc * (Number(p.rendimento) || 1), 1);
+    const unidadeUso = passosRendimento[passosRendimento.length - 1].unidade;
+    const estoqueFinal = qtdEstoque * rendEmb;
     
-    const { data } = await supabase.from('insumos').insert({
-      loja_id: lojaId,
-      nome,
-      unidade_medida: unidadeFinal || 'un',
-      quantidade_atual: qtd,
-      estoque_minimo: Number(estoqueMinimo || 0),
-      preco_embalagem: Number(precoEmbalagem || 0),
-      qtd_embalagem: qtdEmbalagemFinal || 1,
-      detalhes_rendimento: regras.length > 0 ? jsonRegras : null
-    }).select('id').single();
-
-    if (data && qtd > 0) {
-      await supabase.from('movimentacoes_estoque').insert({
-        loja_id: lojaId, insumo_id: data.id, tipo: 'ENTRADA', quantidade: qtd, motivo: 'Saldo inicial',
-      });
+    let jsonRegras: InsumoRendimentoJSON | null = null;
+    if (passosRendimento.length > 1 || passosRendimento[0].unidade !== unidadeCompra || Number(passosRendimento[0].rendimento) !== 1) {
+       jsonRegras = { regras: [] };
+       let unidadeAtual = unidadeCompra;
+       for (const passo of passosRendimento) {
+          jsonRegras.regras.push({
+             de_qtd: 1, de_unidade: unidadeAtual,
+             para_qtd: Number(passo.rendimento), para_unidade: passo.unidade
+          });
+          unidadeAtual = passo.unidade;
+       }
     }
     
-    setNome(''); setQuantidade(''); setEstoqueMinimo(''); setPrecoEmbalagem(''); setRegras([]);
+    const categoriaFinal = isNovaCategoria ? nomeNovaCategoria : categoriaInsumo;
+    
+    const payload = {
+      loja_id: lojaId,
+      nome,
+      unidade_medida: unidadeUso,
+      quantidade_atual: estoqueFinal,
+      estoque_minimo: Number(estoqueMinimo || 0),
+      preco_embalagem: precoEmb,
+      qtd_embalagem: rendEmb,
+      detalhes_rendimento: jsonRegras,
+      categoria_insumo: categoriaFinal
+    };
+
+    if (editando) {
+       await supabase.from('insumos').update(payload).eq('id', editando.id);
+    } else {
+       const { data } = await supabase.from('insumos').insert(payload).select('id').single();
+       if (data && estoqueFinal > 0) {
+         await supabase.from('movimentacoes_estoque').insert({
+           loja_id: lojaId, insumo_id: data.id, tipo: 'ENTRADA', quantidade: estoqueFinal, motivo: 'Saldo inicial',
+         });
+       }
+    }
+    
+    cancelarEdicao();
     carregar();
+  };
+
+  const iniciarEdicao = (i: Insumo) => {
+    setEditando(i);
+    setNome(i.nome);
+    setCategoriaInsumo(i.categoria_insumo || 'Ingrediente');
+    setIsNovaCategoria(false);
+    setNomeNovaCategoria('');
+    setEstoqueMinimo(String(i.estoque_minimo || ''));
+    
+    if (i.detalhes_rendimento?.regras && i.detalhes_rendimento.regras.length > 0) {
+       setUnidadeCompra(i.detalhes_rendimento.regras[0].de_unidade);
+       setPassosRendimento(i.detalhes_rendimento.regras.map((r: any, idx: number) => ({
+          id: String(idx), rendimento: String(r.para_qtd), unidade: r.para_unidade
+       })));
+       setQtdEstoqueCompra(String(Number(i.quantidade_atual) / Number(i.qtd_embalagem)));
+    } else {
+       setUnidadeCompra(i.unidade_medida);
+       setPassosRendimento([{ id: '1', rendimento: '1', unidade: i.unidade_medida }]);
+       setQtdEstoqueCompra(String(i.quantidade_atual));
+    }
+    setPrecoCompra(String(i.preco_embalagem || ''));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelarEdicao = () => {
+    setEditando(null);
+    setNome(''); setQtdEstoqueCompra(''); setEstoqueMinimo(''); setPrecoCompra(''); setCategoriaInsumo('Ingrediente');
+    setIsNovaCategoria(false); setNomeNovaCategoria('');
+    setPassosRendimento([{ id: '1', rendimento: '1', unidade: 'un' }]); setUnidadeCompra('pct');
   };
 
   const registrarEntrada = async () => {
@@ -82,17 +140,34 @@ export default function Estoque() {
   };
 
   const toggleAtivo = async (i: Insumo) => {
-    await supabase.from('insumos').update({ ativo: !i.ativo }).eq('id', i.id);
-    carregar();
+    if (window.confirm(`Tem certeza que deseja ${i.ativo ? 'arquivar (excluir)' : 'reativar'} o insumo ${i.nome}?`)) {
+      await supabase.from('insumos').update({ ativo: !i.ativo }).eq('id', i.id);
+      carregar();
+    }
   };
 
-  const criticos = insumos.filter((i) => Number(i.quantidade_atual) <= Number(i.estoque_minimo));
+  const criticos = insumos.filter((i) => !i.is_preparo && Number(i.quantidade_atual) <= Number(i.estoque_minimo));
+  const insumosBrutos = insumos.filter(i => !i.is_preparo && (!filtroCategoria || i.categoria_insumo === filtroCategoria || (filtroCategoria === 'Ingrediente' && !i.categoria_insumo)));
+  const inativosBrutos = inativos.filter(i => !i.is_preparo && (!filtroCategoria || i.categoria_insumo === filtroCategoria || (filtroCategoria === 'Ingrediente' && !i.categoria_insumo)));
+
+  const categoriasDoBanco = Array.from(new Set([...insumos, ...inativos].map(i => i.categoria_insumo).filter(Boolean))) as string[];
+  const categoriasUnicas = Array.from(new Set(['Ingrediente', 'Revenda Direta', 'Embalagem', 'Limpeza', ...categoriasDoBanco]));
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
-      <h2 className="mb-3 font-bold dark:text-gray-100">Estoque de Insumos</h2>
+    <div className="p-4 max-w-4xl mx-auto pb-24">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+         <h2 className="font-black text-2xl dark:text-gray-100">Estoque Geral</h2>
+         <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl shadow-inner">
+           <button onClick={() => setTab('insumos')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'insumos' ? 'bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Matérias-Primas</button>
+           <button onClick={() => setTab('preparos')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'preparos' ? 'bg-white dark:bg-gray-900 shadow-sm text-orange-600 dark:text-orange-500' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Receitas & Preparos</button>
+         </div>
+      </div>
 
-      {criticos.length > 0 && (
+      {tab === 'preparos' ? (
+        <EstoquePreparos lojaId={lojaId} insumosTotais={[...insumos, ...inativos]} onUpdate={carregar} />
+      ) : (
+        <>
+          {criticos.length > 0 && (
         <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:bg-amber-900/20 dark:border-amber-900/50 shadow-sm flex flex-col sm:flex-row gap-4 items-center justify-between">
           <div>
              <p className="flex items-center gap-1.5 text-sm font-bold text-amber-800 dark:text-amber-500 mb-1">
@@ -107,78 +182,198 @@ export default function Estoque() {
       )}
 
       {/* NOVO INSUMO COM MOTOR DINÂMICO */}
-      <div className="mb-8 rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 shadow-sm">
-        <p className="mb-4 text-sm font-bold flex items-center gap-2 dark:text-gray-100"><Calculator size={18} className="text-[var(--cor-primaria)]" /> Cadastrar Novo Insumo</p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block mb-3">
-              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Nome do Insumo</span>
-              <input className="mt-1 w-full rounded-xl border border-gray-300 p-2.5 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100 focus:border-[var(--cor-primaria)] focus:outline-none" placeholder="ex: Tomate, Queijo Mussarela"
-                value={nome} onChange={e => setNome(e.target.value)} />
-            </label>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-               <label className="block">
-                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Preço da Compra (R$)</span>
-                 <input className="mt-1 w-full rounded-xl border border-gray-300 p-2.5 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100" type="number" placeholder="ex: 9.99"
-                   value={precoEmbalagem} onChange={e => setPrecoEmbalagem(e.target.value)} />
-               </label>
-               <label className="block">
-                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Qtd Atual em Estoque</span>
-                 <input className="mt-1 w-full rounded-xl border border-gray-300 p-2.5 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100" type="number"
-                   value={quantidade} onChange={e => setQuantidade(e.target.value)} />
-               </label>
-            </div>
-            <label className="block">
-              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Estoque Mínimo de Alerta</span>
-              <input className="mt-1 w-full rounded-xl border border-gray-300 p-2.5 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100" type="number"
-                value={estoqueMinimo} onChange={e => setEstoqueMinimo(e.target.value)} />
-            </label>
-          </div>
-
-          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700 relative">
-             <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">Calculadora de Rendimento</p>
-             <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-4">Adicione regras se você compra de um jeito e usa de outro (ex: compra Peça, usa Fatias). Se você usa do mesmo jeito que compra, deixe vazio.</p>
-             
-             {regras.map((r, index) => (
-                <div key={r.id} className="flex items-center gap-2 mb-2 bg-white dark:bg-gray-900 p-2 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <input type="number" className="w-12 p-1 text-center text-xs border rounded bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-white" value={r.de_qtd} onChange={e => { const nr = [...regras]; nr[index].de_qtd = e.target.value; setRegras(nr); }} />
-                  <input className="w-20 p-1 text-xs border rounded bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-white" placeholder="Peça" value={r.de_unidade} onChange={e => { const nr = [...regras]; nr[index].de_unidade = e.target.value; setRegras(nr); }} />
-                  <span className="text-xs text-gray-400 font-bold">=</span>
-                  <input type="number" className="w-16 p-1 text-center text-xs border rounded bg-green-50 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800 dark:text-green-400" placeholder="Rende" value={r.para_qtd} onChange={e => { const nr = [...regras]; nr[index].para_qtd = e.target.value; setRegras(nr); }} />
-                  <input className="w-20 p-1 text-xs border rounded bg-green-50 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800 dark:text-green-400" placeholder="Fatias" value={r.para_unidade} onChange={e => { const nr = [...regras]; nr[index].para_unidade = e.target.value; setRegras(nr); }} />
-                  <button onClick={() => setRegras(regras.filter((_, i) => i !== index))} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={14}/></button>
-                </div>
-             ))}
-
-             <button onClick={addRegra} className="mt-2 text-xs font-semibold text-[var(--cor-primaria)] hover:underline flex items-center gap-1">
-               <Plus size={12}/> Adicionar passo de rendimento
+      <div className={`mb-8 rounded-2xl ${editando ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800'} border p-5 shadow-sm transition-colors`}>
+        <div className="mb-5 flex items-center justify-between">
+           <p className="text-sm font-bold flex items-center gap-2 dark:text-gray-100">
+             {editando ? <Pencil size={18} className="text-blue-500" /> : <Calculator size={18} className="text-[var(--cor-primaria)]" />} 
+             {editando ? 'Editar Insumo' : 'Cadastrar Novo Insumo'}
+           </p>
+           {editando && (
+             <button onClick={cancelarEdicao} className="text-xs font-bold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+               Cancelar Edição
              </button>
-
-             <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-[10px] text-gray-500 dark:text-gray-400">Resumo Matemático:</p>
-                <p className="text-sm font-bold text-gray-800 dark:text-gray-200">
-                  A compra (R$ {precoEmbalagem || '0,00'}) equivale a <span className="text-[var(--cor-primaria)] bg-[var(--cor-primaria)]/10 px-1 rounded">{qtdEmbalagemFinal} {unidadeFinal}</span>
-                </p>
-                {qtdEmbalagemFinal > 0 && Number(precoEmbalagem) > 0 && (
-                   <p className="text-xs font-semibold text-green-600 dark:text-green-500 mt-1">Custo: {fmt(Number(precoEmbalagem)/qtdEmbalagemFinal)} por {unidadeFinal}</p>
-                )}
-             </div>
-          </div>
+           )}
         </div>
-        <button onClick={criar} className="mt-4 w-full flex items-center justify-center gap-1 rounded-xl bg-[var(--cor-primaria)] py-3 text-sm font-bold text-white shadow-md hover:scale-[1.01] transition-transform">
-          <Plus size={16} /> Salvar Insumo no Banco
+        
+        <div className="space-y-5">
+           {/* Nome */}
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="block">
+                 <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Nome do Insumo / Produto</span>
+                 <input className="mt-1 w-full rounded-xl border border-gray-300 p-3 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100 focus:border-[var(--cor-primaria)] focus:outline-none" placeholder="ex: Queijo Mussarela, Coca-Cola Lata" value={nome} onChange={e => setNome(e.target.value)} />
+              </label>
+              <label className="block">
+                 <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Categoria</span>
+                 <select className="mt-1 w-full rounded-xl border border-gray-300 p-3 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100 focus:border-[var(--cor-primaria)] focus:outline-none" 
+                   value={isNovaCategoria ? 'nova' : categoriaInsumo} 
+                   onChange={e => {
+                     if (e.target.value === 'nova') {
+                       setIsNovaCategoria(true);
+                     } else {
+                       setIsNovaCategoria(false);
+                       setCategoriaInsumo(e.target.value);
+                     }
+                   }}>
+                   {categoriasUnicas.map(cat => (
+                     <option key={cat} value={cat}>{cat}</option>
+                   ))}
+                   <option value="nova" className="font-bold text-orange-600">+ Cadastrar Nova Categoria...</option>
+                 </select>
+                 {isNovaCategoria && (
+                   <div className="mt-2 animate-in fade-in slide-in-from-top-1">
+                     <input className="w-full rounded-xl border border-orange-300 bg-orange-50/50 dark:bg-orange-900/10 p-3 text-sm dark:border-orange-800/50 dark:text-gray-100 focus:border-orange-500 focus:outline-none" 
+                       placeholder="Digite o nome da nova categoria..." 
+                       value={nomeNovaCategoria} 
+                       onChange={e => setNomeNovaCategoria(e.target.value)} 
+                       autoFocus
+                     />
+                   </div>
+                 )}
+              </label>
+           </div>
+           
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Compra */}
+              <div className="bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-200 dark:border-gray-700/50">
+                 <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wider">1. Como você compra?</p>
+                 <div className="space-y-3">
+                    <label className="block">
+                       <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400">Unidade de Compra</span>
+                       <select className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none" value={unidadeCompra} onChange={e => setUnidadeCompra(e.target.value)}>
+                         <option value="pct">Pacote (pct)</option>
+                         <option value="cx">Caixa (cx)</option>
+                         <option value="kg">Quilograma (kg)</option>
+                         <option value="g">Grama (g)</option>
+                         <option value="L">Litro (L)</option>
+                         <option value="ml">Mililitro (ml)</option>
+                         <option value="un">Unidade (un)</option>
+                         <option value="fardo">Fardo</option>
+                         <option value="lata">Lata</option>
+                         <option value="gf">Garrafa (gf)</option>
+                       </select>
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                       <label className="block">
+                          <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400">Preço pago (R$)</span>
+                          <input className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 focus:outline-none" type="number" placeholder="0.00" value={precoCompra} onChange={e => setPrecoCompra(e.target.value)} />
+                       </label>
+                       <label className="block">
+                          <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400">Qtd em Estoque</span>
+                          <div className="mt-1 flex rounded-lg border border-gray-300 overflow-hidden dark:border-gray-600">
+                             <input className="w-full p-2 text-sm dark:bg-gray-900 dark:text-gray-100 focus:outline-none bg-transparent" type="number" placeholder="0" value={qtdEstoqueCompra} onChange={e => setQtdEstoqueCompra(e.target.value)} />
+                             <div className="bg-gray-100 dark:bg-gray-800 px-2 flex items-center justify-center text-[11px] text-gray-500 font-medium border-l border-gray-300 dark:border-gray-600 min-w-[3rem]">{unidadeCompra}</div>
+                          </div>
+                       </label>
+                    </div>
+                 </div>
+              </div>
+              
+              {/* Uso / Conversão */}
+              <div className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                 <p className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-3 uppercase tracking-wider">2. COMO VOCÊ ARMAZENA / USA? (CONVERSÃO)</p>
+                 <div className="space-y-3">
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">Ex: Compro <b>Fardo</b> ➔ Rende 6 <b>Unidades</b>. Ou Compro <b>Caixa</b> ➔ Rende 20 <b>Kg</b>.</p>
+                    {passosRendimento.map((passo, index) => {
+                       const unidadeAnterior = index === 0 ? unidadeCompra : passosRendimento[index - 1].unidade;
+                       return (
+                          <div key={passo.id} className="relative p-3 bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-800/50 rounded-lg shadow-sm">
+                             <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400 block mb-2">
+                                Passo {index + 1}: Essa compra de 1 {unidadeAnterior} rende...
+                             </span>
+                             <div className="flex gap-2 items-center">
+                                <input className="w-20 rounded-lg border border-blue-200 p-2 text-sm dark:bg-gray-950 dark:border-blue-800/50 dark:text-gray-100 focus:outline-none text-center" type="number" value={passo.rendimento} onChange={e => {
+                                   const newPassos = [...passosRendimento];
+                                   newPassos[index].rendimento = e.target.value;
+                                   setPassosRendimento(newPassos);
+                                }} />
+                                <select className="flex-1 rounded-lg border border-blue-200 p-2 text-sm dark:bg-gray-950 dark:border-blue-800/50 dark:text-gray-100 outline-none" value={passo.unidade} onChange={e => {
+                                   const newPassos = [...passosRendimento];
+                                   newPassos[index].unidade = e.target.value;
+                                   setPassosRendimento(newPassos);
+                                }}>
+                                  <option value="un">Unidades (un)</option>
+                                  <option value="g">Gramas (g)</option>
+                                  <option value="ml">Mililitros (ml)</option>
+                                  <option value="fatias">Fatias</option>
+                                  <option value="porção">Porções</option>
+                                  <option value="kg">Quilogramas (kg)</option>
+                                  <option value="L">Litros (L)</option>
+                                  <option value="peça">Peças</option>
+                                </select>
+                                {index > 0 && (
+                                   <button onClick={() => setPassosRendimento(passosRendimento.filter(p => p.id !== passo.id))} className="p-2 text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 rounded-lg transition-colors">
+                                      <Trash2 size={16} />
+                                   </button>
+                                )}
+                             </div>
+                          </div>
+                       );
+                    })}
+                    
+                    <button onClick={() => setPassosRendimento([...passosRendimento, { id: Math.random().toString(), rendimento: '1', unidade: 'un' }])} className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline mt-1">
+                       <Plus size={12} /> Adicionar quebra (ex: Peça para Fatias)
+                    </button>
+
+                    <label className="block mt-4 pt-3 border-t border-blue-200 dark:border-blue-800/30">
+                       <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400 block mb-1">Avisar estoque baixo quando chegar em:</span>
+                       <div className="flex rounded-lg border border-blue-200 overflow-hidden dark:border-blue-800/50">
+                          <input className="w-full p-2 text-sm dark:bg-gray-950 dark:text-gray-100 focus:outline-none bg-transparent" type="number" placeholder="0" value={estoqueMinimo} onChange={e => setEstoqueMinimo(e.target.value)} />
+                          <div className="bg-blue-100 dark:bg-blue-900/40 px-3 flex items-center justify-center text-[11px] text-blue-700 dark:text-blue-400 font-bold border-l border-blue-200 dark:border-blue-800/50 min-w-[3rem]">
+                             {passosRendimento[passosRendimento.length - 1].unidade}
+                          </div>
+                       </div>
+                    </label>
+                 </div>
+              </div>
+           </div>
+           
+           {/* Resumo */}
+           {(Number(qtdEstoqueCompra) > 0 || Number(precoCompra) > 0) && (
+              <div className="bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30 rounded-xl p-3 flex flex-wrap items-center justify-between gap-4">
+                 <div>
+                    <p className="text-[10px] text-green-700 dark:text-green-500 font-semibold uppercase">Estoque Final Calculado</p>
+                    <p className="text-lg font-black text-green-800 dark:text-green-400">
+                       {Number(qtdEstoqueCompra || 0) * passosRendimento.reduce((acc, p) => acc * (Number(p.rendimento) || 1), 1)} {passosRendimento[passosRendimento.length - 1].unidade}
+                    </p>
+                 </div>
+                 {Number(precoCompra) > 0 && passosRendimento.reduce((acc, p) => acc * (Number(p.rendimento) || 1), 1) > 0 && (
+                    <div className="text-right">
+                       <p className="text-[10px] text-green-700 dark:text-green-500 font-semibold uppercase">Custo Unitário Final</p>
+                       <p className="text-sm font-bold text-green-800 dark:text-green-400">
+                          {fmt(Number(precoCompra)/passosRendimento.reduce((acc, p) => acc * (Number(p.rendimento) || 1), 1))} por {passosRendimento[passosRendimento.length - 1].unidade}
+                       </p>
+                    </div>
+                 )}
+              </div>
+           )}
+        </div>
+        
+        <button onClick={criar} className={`mt-5 w-full flex items-center justify-center gap-1 rounded-xl py-3.5 text-sm font-bold text-white shadow-md hover:scale-[1.01] transition-transform ${editando ? 'bg-blue-600 hover:bg-blue-700' : 'bg-[var(--cor-primaria)]'}`}>
+          {editando ? 'Atualizar Insumo' : <><Plus size={16} /> Salvar Insumo</>}
         </button>
       </div>
 
+      <div className="flex gap-2 overflow-x-auto pb-4 mb-2 hide-scrollbar">
+         {['Tudo', ...categoriasUnicas].map(cat => (
+           <button key={cat} onClick={() => setFiltroCategoria(cat === 'Tudo' ? null : cat)} className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${filtroCategoria === cat || (!filtroCategoria && cat === 'Tudo') ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400'}`}>
+             {cat}
+           </button>
+         ))}
+      </div>
+
       <div className="space-y-3">
-        {insumos.map((i) => {
+        {insumosBrutos.map((i) => {
           const custoUnit = Number(i.qtd_embalagem) > 0 ? Number(i.preco_embalagem) / Number(i.qtd_embalagem) : 0;
           const critico = Number(i.quantidade_atual) <= Number(i.estoque_minimo);
           return (
             <div key={i.id} className={`flex items-center justify-between rounded-xl bg-white dark:bg-gray-900 p-4 shadow-sm border ${critico ? 'border-amber-300 dark:border-amber-500/50' : 'border-gray-100 dark:border-gray-800'}`}>
               <div>
-                <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{i.nome}</p>
+                <p className="text-sm font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  {i.nome} 
+                  {i.categoria_insumo && i.categoria_insumo !== 'Ingrediente' && (
+                    <span className="bg-gray-100 dark:bg-gray-800 text-gray-500 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">{i.categoria_insumo}</span>
+                  )}
+                </p>
                 <div className="flex gap-4 mt-1">
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     Estoque: <span className="font-semibold text-gray-700 dark:text-gray-300">{Number(i.quantidade_atual)} {i.unidade_medida}</span>
@@ -197,24 +392,27 @@ export default function Estoque() {
                   </div>
                 )}
               </div>
-              <div className="flex shrink-0 items-center gap-1.5">
+              <div className="flex shrink-0 items-center gap-2">
                 <button onClick={() => setEntrada({ insumo: i, qtd: '', custo: '' })}
-                  className="rounded-lg border px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-400 dark:border-gray-700">+ Entrada</button>
-                <button onClick={() => toggleAtivo(i)} className="rounded-lg border border-red-200 p-1.5 text-red-500 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Archive size={14} /></button>
+                  className="rounded-lg border px-3 py-1.5 text-xs font-bold text-green-700 dark:text-green-400 dark:border-gray-700 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">+ Entrada</button>
+                <div className="flex items-center border-l dark:border-gray-700 pl-2 ml-1 space-x-1">
+                   <button onClick={() => iniciarEdicao(i)} className="rounded-lg p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Editar Insumo"><Pencil size={16} /></button>
+                   <button onClick={() => toggleAtivo(i)} className="rounded-lg p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Excluir/Arquivar Insumo"><Trash2 size={16} /></button>
+                </div>
               </div>
             </div>
           );
         })}
       </div>
 
-      {inativos.length > 0 && (
+      {inativosBrutos.length > 0 && (
         <div className="mt-8">
           <button onClick={() => setMostrarInativos((v) => !v)} className="text-xs font-medium text-gray-400 underline">
-            {mostrarInativos ? 'Ocultar' : 'Mostrar'} inativos ({inativos.length})
+            {mostrarInativos ? 'Ocultar' : 'Mostrar'} inativos ({inativosBrutos.length})
           </button>
           {mostrarInativos && (
             <div className="mt-2 space-y-2">
-              {inativos.map((i) => (
+              {inativosBrutos.map((i) => (
                 <div key={i.id} className="flex items-center justify-between rounded-xl bg-white dark:bg-gray-900 p-3 opacity-60 shadow-sm border border-gray-100 dark:border-gray-800">
                   <p className="text-sm font-medium dark:text-gray-100">{i.nome}</p>
                   <button onClick={() => toggleAtivo(i)} className="flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-400 dark:border-gray-700">
@@ -247,6 +445,8 @@ export default function Estoque() {
             </button>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
