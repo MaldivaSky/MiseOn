@@ -18,7 +18,7 @@ export default function Marketing() {
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
         {(['cupons', 'banners', 'taxas', 'horarios', 'clientes'] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${tab === t ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm'}`}>
+            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${tab === t ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-600 dark:text-gray-300 shadow-sm'}`}>
             {{ cupons: 'Cupons', banners: 'Banners', taxas: 'Taxas de entrega', horarios: 'Horários', clientes: 'Clientes' }[t]}
           </button>
         ))}
@@ -61,14 +61,14 @@ function CuponsTab({ lojaId }: { lojaId: string }) {
         <Plus size={15} /> Novo cupom
       </button>
       {cupons.map((c) => (
-        <div key={c.id} className={`rounded-xl bg-white p-3 shadow-sm ${c.ativo === false ? 'opacity-50' : ''}`}>
+        <div key={c.id} className={`rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 shadow-sm ${c.ativo === false ? 'opacity-50' : ''}`}>
           <div className="flex items-center justify-between">
             <p className="font-bold">{c.codigo}</p>
             <span className="text-sm font-semibold text-[var(--cor-primaria)]">
               {c.tipo === 'FIXO' ? fmt(Number(c.valor)) : `${c.valor}%`}
             </span>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             {c.descricao || (c.apenas_primeiro_pedido ? 'Só na 1ª compra' : 'Uso geral')}
             {c.pedido_minimo > 0 && ` · mín. ${fmt(Number(c.pedido_minimo))}`}
             {c.metodo_exigido && ` · só ${c.metodo_exigido}`}
@@ -124,7 +124,7 @@ function CupomModal({ lojaId, cupom, onClose, onSalvo }: { lojaId: string; cupom
 
   return (
     <div className="fade fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={onClose}>
-      <div className="sheet w-full max-w-lg rounded-t-3xl bg-white p-4" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet w-full max-w-lg rounded-t-3xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold">{cupom ? 'Editar cupom' : 'Novo cupom'}</h3>
           <button onClick={onClose}><X size={20} /></button>
@@ -204,7 +204,7 @@ function BannersTab({ lojaId }: { lojaId: string }) {
   return (
     <div className="space-y-2">
       {banners.map((b, idx) => (
-        <div key={b.id} className={`flex items-center gap-2 rounded-xl bg-white p-2.5 shadow-sm ${b.is_ativo === false ? 'opacity-50' : ''}`}>
+        <div key={b.id} className={`flex items-center gap-2 rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-2.5 shadow-sm ${b.is_ativo === false ? 'opacity-50' : ''}`}>
           <img src={b.imagem_url} className="h-12 w-20 shrink-0 rounded-lg object-cover" alt="" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{b.titulo || '(sem título)'}</p>
@@ -214,12 +214,12 @@ function BannersTab({ lojaId }: { lojaId: string }) {
             <button disabled={idx === 0} onClick={() => mover(b, -1)} className="text-gray-400 disabled:opacity-20"><ChevronUp size={14} /></button>
             <button disabled={idx === banners.length - 1} onClick={() => mover(b, 1)} className="text-gray-400 disabled:opacity-20"><ChevronDown size={14} /></button>
           </div>
-          <button onClick={() => toggleAtivo(b)} className="text-xs font-medium text-gray-500">{b.is_ativo === false ? 'Inativo' : 'Ativo'}</button>
+          <button onClick={() => toggleAtivo(b)} className="text-xs font-medium text-gray-500 dark:text-gray-400">{b.is_ativo === false ? 'Inativo' : 'Ativo'}</button>
           <button onClick={() => excluir(b)} className="rounded-lg border border-red-200 p-1.5 text-red-500"><Trash2 size={14} /></button>
         </div>
       ))}
 
-      <div className="space-y-2 rounded-xl bg-white p-3 shadow-sm">
+      <div className="space-y-2 rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 shadow-sm">
         <p className="text-sm font-semibold">Novo banner</p>
         <ImageUpload lojaId={lojaId} pasta="banners" value={novo.imagem_url} onChange={(u) => setNovo({ ...novo, imagem_url: u })} aspecto="aspect-[2/1]" />
         <input value={novo.titulo} onChange={(e) => setNovo({ ...novo, titulo: e.target.value })} placeholder="Título (opcional)" className="w-full rounded-lg border p-2 text-sm" />
@@ -265,18 +265,18 @@ function TaxasTab({ lojaId }: { lojaId: string }) {
   return (
     <div className="space-y-2">
       {taxas.map((t) => (
-        <div key={t.id} className={`flex items-center gap-2 rounded-xl bg-white p-2.5 shadow-sm ${t.ativo === false ? 'opacity-50' : ''}`}>
+        <div key={t.id} className={`flex items-center gap-2 rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-2.5 shadow-sm ${t.ativo === false ? 'opacity-50' : ''}`}>
           <p className="flex-1 text-sm font-medium">{t.bairro}</p>
           <div className="flex items-center gap-1 text-sm">
             R$ <input defaultValue={t.valor} onBlur={(e) => atualizarValor(t, e.target.value)} type="number"
               className="w-16 rounded-lg border p-1 text-sm" />
           </div>
-          <button onClick={() => toggleAtivo(t)} className="text-xs font-medium text-gray-500">{t.ativo === false ? 'Inativa' : 'Ativa'}</button>
+          <button onClick={() => toggleAtivo(t)} className="text-xs font-medium text-gray-500 dark:text-gray-400">{t.ativo === false ? 'Inativa' : 'Ativa'}</button>
           <button onClick={() => excluir(t)} className="rounded-lg border border-red-200 p-1.5 text-red-500"><Trash2 size={14} /></button>
         </div>
       ))}
 
-      <div className="flex gap-2 rounded-xl bg-white p-2.5 shadow-sm">
+      <div className="flex gap-2 rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-2.5 shadow-sm">
         <input value={novo.bairro} onChange={(e) => setNovo({ ...novo, bairro: e.target.value })} placeholder="Bairro" className="flex-1 rounded-lg border p-2 text-sm" />
         <input value={novo.valor} onChange={(e) => setNovo({ ...novo, valor: e.target.value })} type="number" placeholder="R$" className="w-20 rounded-lg border p-2 text-sm" />
         <button onClick={criar} className="rounded-lg bg-[var(--cor-primaria)] px-4 text-sm font-semibold text-white">Add</button>
@@ -313,7 +313,7 @@ function HorariosTab({ lojaId }: { lojaId: string }) {
       {DIAS.map((nome, dia) => {
         const doDia = horarios.filter((h) => h.dia_semana === dia);
         return (
-          <div key={dia} className="rounded-xl bg-white p-3 shadow-sm">
+          <div key={dia} className="rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 shadow-sm">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold">{nome}</p>
               <button onClick={() => addIntervalo(dia)} className="flex items-center gap-1 text-xs font-medium text-[var(--cor-primaria)]">
@@ -363,7 +363,7 @@ function ClientesTab({ lojaId }: { lojaId: string }) {
 
   return (
     <div>
-      <p className="mb-3 text-xs text-gray-500">
+      <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
         Toda pessoa que fez login pra pedir vira um contato aqui — use pra reativar quem sumiu ou avisar de promoção.
       </p>
 
@@ -371,7 +371,7 @@ function ClientesTab({ lojaId }: { lojaId: string }) {
         placeholder="Mensagem padrão pra usar no botão de WhatsApp (opcional — se vazio, manda uma saudação genérica)"
         rows={2} className="mb-3 w-full rounded-xl border p-2.5 text-sm" />
 
-      <div className="mb-3 flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm">
+      <div className="mb-3 flex items-center gap-2 rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 px-3 py-2 shadow-sm">
         <Search size={16} className="text-gray-400" />
         <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou telefone…"
           className="w-full bg-transparent text-sm outline-none" />
@@ -379,11 +379,11 @@ function ClientesTab({ lojaId }: { lojaId: string }) {
 
       <div className="space-y-2">
         {visiveis.map((c) => (
-          <div key={c.id} className="flex items-center justify-between rounded-xl bg-white p-3 shadow-sm">
+          <div key={c.id} className="flex items-center justify-between rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 shadow-sm">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{c.nome || '(sem nome)'}</p>
               <p className="truncate text-xs text-gray-400">{c.telefone}{c.email ? ` · ${c.email}` : ''}</p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {c.total_pedidos} pedido(s){c.ultimo_pedido ? ` · último em ${new Date(c.ultimo_pedido).toLocaleDateString('pt-BR')}` : ''}
               </p>
             </div>

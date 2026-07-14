@@ -62,7 +62,7 @@ export default function CardapioAdmin() {
       <div className="mb-3 flex gap-2">
         {(['produtos', 'categorias'] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium ${tab === t ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm dark:bg-gray-900 dark:text-gray-300 dark:border dark:border-gray-800'}`}>
+            className={`rounded-full px-4 py-1.5 text-sm font-medium ${tab === t ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-600 dark:text-gray-300 shadow-sm dark:bg-gray-900 dark:text-gray-300 dark:border dark:border-gray-800'}`}>
             {t === 'produtos' ? 'Produtos' : 'Categorias'}
           </button>
         ))}
@@ -74,7 +74,7 @@ export default function CardapioAdmin() {
 
       {tab === 'produtos' && (
         <>
-          <div className="mb-3 flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800">
+          <div className="mb-3 flex items-center gap-2 rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 px-3 py-2 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800">
             <Search size={16} className="text-gray-400" />
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto…"
               className="w-full bg-transparent text-sm outline-none" />
@@ -82,12 +82,12 @@ export default function CardapioAdmin() {
 
           <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
             <button onClick={() => setCatAtiva(null)}
-              className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${!catAtiva ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm dark:bg-gray-900 dark:text-gray-300 dark:border dark:border-gray-800'}`}>
+              className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${!catAtiva ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-600 dark:text-gray-300 shadow-sm dark:bg-gray-900 dark:text-gray-300 dark:border dark:border-gray-800'}`}>
               Tudo
             </button>
             {categorias.map((c) => (
               <button key={c.id} onClick={() => setCatAtiva(c.id === catAtiva ? null : c.id)}
-                className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${catAtiva === c.id ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm dark:bg-gray-900 dark:text-gray-300 dark:border dark:border-gray-800'}`}>
+                className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${catAtiva === c.id ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-600 dark:text-gray-300 shadow-sm dark:bg-gray-900 dark:text-gray-300 dark:border dark:border-gray-800'}`}>
                 {c.nome}
               </button>
             ))}
@@ -100,7 +100,7 @@ export default function CardapioAdmin() {
 
           <div className="space-y-2">
             {visiveis.map((p) => (
-              <div key={p.id} className={`flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800 ${!p.disponivel ? 'opacity-50' : ''}`}>
+              <div key={p.id} className={`flex items-center gap-3 rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800 ${!p.disponivel ? 'opacity-50' : ''}`}>
                 {p.imagem_url
                   ? <img src={p.imagem_url} className="h-14 w-14 shrink-0 rounded-lg object-cover" alt="" />
                   : <div className="h-14 w-14 shrink-0 rounded-lg bg-gray-100" />}
@@ -123,7 +123,7 @@ export default function CardapioAdmin() {
                   </button>
                 </div>
                 <div className="flex shrink-0 flex-col gap-1.5">
-                  <button onClick={() => setEditando(p)} className="rounded-lg border p-1.5 text-gray-500"><Pencil size={14} /></button>
+                  <button onClick={() => setEditando(p)} className="rounded-lg border p-1.5 text-gray-500 dark:text-gray-400"><Pencil size={14} /></button>
                   <button onClick={() => excluirProduto(p)} className="rounded-lg border border-red-200 p-1.5 text-red-500"><Trash2 size={14} /></button>
                 </div>
               </div>
@@ -186,21 +186,21 @@ function CategoriasTab({ lojaId, categorias, onChange }: { lojaId: string; categ
   return (
     <div className="space-y-2">
       {categorias.map((c, idx) => (
-        <div key={c.id} className={`flex items-center gap-2 rounded-xl bg-white p-2.5 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800 ${c.ativo === false ? 'opacity-50' : ''}`}>
+        <div key={c.id} className={`flex items-center gap-2 rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-2.5 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800 ${c.ativo === false ? 'opacity-50' : ''}`}>
           <div className="flex flex-col">
             <button disabled={idx === 0} onClick={() => mover(c, -1)} className="text-gray-400 disabled:opacity-20"><ChevronUp size={14} /></button>
             <button disabled={idx === categorias.length - 1} onClick={() => mover(c, 1)} className="text-gray-400 disabled:opacity-20"><ChevronDown size={14} /></button>
           </div>
           <input defaultValue={c.nome} onBlur={(e) => renomear(c, e.target.value)}
             className="flex-1 rounded-lg border-none bg-transparent p-1 text-sm font-medium outline-none focus:bg-gray-50 dark:text-gray-100 dark:focus:bg-gray-800" />
-          <button onClick={() => toggleAtiva(c)} className="text-xs font-medium text-gray-500">
+          <button onClick={() => toggleAtiva(c)} className="text-xs font-medium text-gray-500 dark:text-gray-400">
             {c.ativo === false ? 'Inativa' : 'Ativa'}
           </button>
           <button onClick={() => excluir(c)} className="rounded-lg border border-red-200 p-1.5 text-red-500"><Trash2 size={14} /></button>
         </div>
       ))}
 
-      <div className="flex gap-2 rounded-xl bg-white p-2.5 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800">
+      <div className="flex gap-2 rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-2.5 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800">
         <input value={nova} onChange={(e) => setNova(e.target.value)} placeholder="Nova categoria (ex: Bebidas)"
           className="flex-1 rounded-lg border p-2 text-sm dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700" onKeyDown={(e) => e.key === 'Enter' && criar()} />
         <button onClick={criar} className="rounded-lg bg-[var(--cor-primaria)] px-4 text-sm font-semibold text-white">Add</button>
@@ -325,7 +325,7 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
 
   return (
     <div className="fade fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={onClose}>
-      <div className="sheet max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-4 dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold dark:text-gray-100">{produto ? 'Editar produto' : 'Novo produto'}</h3>
           <button onClick={onClose} className="dark:text-gray-300"><X size={20} /></button>
@@ -371,7 +371,7 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
             {!insumos.length && <p className="mt-1 text-xs text-gray-400">Cadastre insumos em Estoque primeiro.</p>}
             {ficha.length > 0 && (
               <div className="mt-2 flex justify-between border-t pt-2 text-xs">
-                <span className="text-gray-500">Custo: {fmt(custoInsumos)}</span>
+                <span className="text-gray-500 dark:text-gray-400">Custo: {fmt(custoInsumos)}</span>
                 <span className={`font-semibold ${margem < 30 ? 'text-red-500' : 'text-green-600'}`}>Margem: {margem.toFixed(0)}%</span>
               </div>
             )}
@@ -394,7 +394,7 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
               </div>
               <div className="mt-1.5 space-y-1 pl-2">
                 {g.opcoes.map((o) => (
-                  <div key={o._key} className="flex flex-col gap-1.5 border-b border-gray-200 pb-2 mb-2 last:border-0 last:pb-0 last:mb-0">
+                  <div key={o._key} className="flex flex-col gap-1.5 border-b border-gray-200 dark:border-gray-800 pb-2 mb-2 last:border-0 last:pb-0 last:mb-0">
                     <div className="flex items-center gap-1.5">
                       <input value={o.nome} onChange={(e) => setGrupos((arr) => arr.map((x) => x._key === g._key
                         ? { ...x, opcoes: x.opcoes.map((y) => y._key === o._key ? { ...y, nome: e.target.value } : y) } : x))}
@@ -409,7 +409,7 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
                     <div className="flex items-center gap-1.5 pl-2">
                       <select value={o.insumo_id || ''} onChange={(e) => setGrupos((arr) => arr.map((x) => x._key === g._key
                         ? { ...x, opcoes: x.opcoes.map((y) => y._key === o._key ? { ...y, insumo_id: e.target.value || null } : y) } : x))}
-                        className="flex-1 rounded-lg border border-dashed border-gray-300 p-1.5 text-xs text-gray-500">
+                        className="flex-1 rounded-lg border border-dashed border-gray-300 p-1.5 text-xs text-gray-500 dark:text-gray-400">
                         <option value="">Sem baixa de estoque</option>
                         {insumos.map((i) => <option key={i.id} value={i.id}>Baixar: {i.nome} ({i.unidade_medida})</option>)}
                       </select>

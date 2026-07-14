@@ -68,19 +68,19 @@ export default function Tenants() {
         {visiveis.map((l) => {
           const m = metricas[l.id];
           return (
-            <div key={l.id} className={`rounded-2xl bg-white p-4 shadow-sm ${!l.ativo ? 'opacity-50' : ''}`}>
+            <div key={l.id} className={`rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 shadow-sm ${!l.ativo ? 'opacity-50' : ''}`}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-bold">{l.nome}</p>
                   <p className="text-xs text-gray-400">/{l.slug}</p>
                 </div>
                 <button onClick={() => toggleAtivo(l)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${l.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${l.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500 dark:text-gray-400'}`}>
                   {l.ativo ? 'Ativa' : 'Inativa'}
                 </button>
               </div>
 
-              <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-gray-500">
+              <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-gray-500 dark:text-gray-400">
                 <span>Pedidos (30d): <b className="text-gray-700">{m?.pedidos_30d ?? 0}</b></span>
                 <span>GMV (30d): <b className="text-gray-700">{fmt(m?.gmv_30d ?? 0)}</b></span>
                 <span>Último pedido: <b className="text-gray-700">{m?.ultimo_pedido ? new Date(m.ultimo_pedido).toLocaleDateString('pt-BR') : '—'}</b></span>

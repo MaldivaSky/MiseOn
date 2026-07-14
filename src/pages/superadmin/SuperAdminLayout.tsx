@@ -42,10 +42,10 @@ export default function SuperAdminLayout() {
         <p className="text-sm font-bold">MiseOn · SuperAdmin</p>
         <button onClick={sair} className="text-gray-300"><LogOut size={18} /></button>
       </header>
-      <nav className="flex gap-1 overflow-x-auto border-b bg-white px-2">
+      <nav className="flex gap-1 overflow-x-auto border-b bg-white dark:bg-gray-900 dark:border-gray-800 px-2">
         {itens.map((i) => (
           <NavLink key={i.to} to={i.to}
-            className={({ isActive }) => `flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium ${isActive ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400'}`}>
+            className={({ isActive }) => `flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium ${isActive ? 'border-gray-900 text-gray-900 dark:text-gray-100' : 'border-transparent text-gray-400'}`}>
             {i.icon} {i.label}
           </NavLink>
         ))}

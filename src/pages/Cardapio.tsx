@@ -159,7 +159,7 @@ export default function Cardapio() {
             <div className="mx-auto flex max-w-6xl items-end gap-4 px-4 pb-4 sm:px-6 sm:pb-6">
               {loja.logo_url
                 ? <img src={loja.logo_url} className="h-16 w-16 shrink-0 rounded-2xl border-2 border-white/40 object-cover shadow-xl sm:h-24 sm:w-24" alt="" />
-                : <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-2 border-white/40 bg-white/15 text-2xl font-bold text-white shadow-xl backdrop-blur-sm sm:h-24 sm:w-24 sm:text-4xl">
+                : <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-2 border-white/40 bg-white dark:bg-gray-900 dark:border-gray-800/15 text-2xl font-bold text-white shadow-xl backdrop-blur-sm sm:h-24 sm:w-24 sm:text-4xl">
                     {iniciais}
                   </div>}
               <div className="min-w-0 pb-1 text-white">
@@ -172,7 +172,7 @@ export default function Cardapio() {
                     <Clock size={11} /> {aberta ? 'Aberto agora' : 'Fechado'}
                   </span>
                   {loja.pedido_minimo > 0 && (
-                    <span className="rounded-full bg-white/15 px-2 py-0.5 text-white/90 backdrop-blur-sm">Pedido mín. {fmt(loja.pedido_minimo)}</span>
+                    <span className="rounded-full bg-white dark:bg-gray-900 dark:border-gray-800/15 px-2 py-0.5 text-white/90 backdrop-blur-sm">Pedido mín. {fmt(loja.pedido_minimo)}</span>
                   )}
                 </div>
               </div>
@@ -196,7 +196,7 @@ export default function Cardapio() {
         <main className="min-w-0">
           {/* Busca */}
           <div className="px-4 pt-2 lg:px-0">
-            <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm dark:bg-gray-900">
+            <div className="flex items-center gap-2 rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 px-3 py-2 shadow-sm dark:bg-gray-900">
               <Search size={16} className="text-gray-400" />
               <input
                 value={busca}
@@ -211,7 +211,7 @@ export default function Cardapio() {
           <div className="flex gap-2 overflow-x-auto px-4 py-3 lg:px-0">
             <button
               onClick={() => setCatAtiva(null)}
-              className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${!catAtiva ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm dark:bg-gray-900 dark:text-gray-300'}`}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${!catAtiva ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-600 dark:text-gray-300 shadow-sm dark:bg-gray-900 dark:text-gray-300'}`}
             >
               Tudo
             </button>
@@ -219,7 +219,7 @@ export default function Cardapio() {
               <button
                 key={c.id}
                 onClick={() => setCatAtiva(c.id === catAtiva ? null : c.id)}
-                className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${catAtiva === c.id ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm dark:bg-gray-900 dark:text-gray-300'}`}
+                className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${catAtiva === c.id ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-600 dark:text-gray-300 shadow-sm dark:bg-gray-900 dark:text-gray-300'}`}
               >
                 {c.nome}
               </button>
@@ -234,7 +234,7 @@ export default function Cardapio() {
                 {maisPedidos.map((p) => (
                   <button key={p.id} onClick={() => p.tem_estoque !== false && setProdutoAberto(p)}
                     disabled={p.tem_estoque === false}
-                    className={`relative w-36 shrink-0 rounded-xl bg-white p-2 text-left shadow-sm dark:bg-gray-900 ${p.tem_estoque === false ? 'opacity-50' : ''}`}>
+                    className={`relative w-36 shrink-0 rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-2 text-left shadow-sm dark:bg-gray-900 ${p.tem_estoque === false ? 'opacity-50' : ''}`}>
                     {p.imagem_url && <img src={p.imagem_url} className="mb-1 h-20 w-full rounded-lg object-cover" alt="" />}
                     {p.tem_estoque === false && (
                       <span className="absolute right-3 top-3 rounded-full bg-gray-800 px-2 py-0.5 text-[9px] font-bold text-white">ESGOTADO</span>
@@ -260,7 +260,7 @@ export default function Cardapio() {
                     {doGrupo.map((p) => (
                       <button key={p.id} onClick={() => p.tem_estoque !== false && setProdutoAberto(p)}
                         disabled={p.tem_estoque === false}
-                        className={`card-hover flex w-full gap-3 overflow-hidden rounded-xl bg-white text-left shadow-sm dark:bg-gray-900 ${p.tem_estoque === false ? 'opacity-50' : ''}`}>
+                        className={`card-hover flex w-full gap-3 overflow-hidden rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 text-left shadow-sm dark:bg-gray-900 ${p.tem_estoque === false ? 'opacity-50' : ''}`}>
                         {p.imagem_url && <img src={p.imagem_url} className="h-24 w-24 shrink-0 object-cover" alt="" />}
                         <div className="min-w-0 flex-1 py-3 pr-3">
                           <p className="flex flex-wrap items-center gap-2 font-medium dark:text-gray-100">
@@ -282,7 +282,7 @@ export default function Cardapio() {
 
         {/* Carrinho — barra flutuante no mobile, painel fixo no desktop */}
         <aside className="hidden lg:sticky lg:top-4 lg:block">
-          <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-900">
+          <div className="rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 shadow-sm dark:bg-gray-900">
             <p className="mb-3 flex items-center gap-2 font-bold dark:text-gray-100"><ShoppingBag size={18} /> Seu carrinho</p>
             {carrinho.length === 0 ? (
               <p className="py-6 text-center text-sm text-gray-400">Adicione itens do cardápio.</p>
@@ -323,40 +323,38 @@ export default function Cardapio() {
       {produtoAberto && (
         <ModalProduto produto={produtoAberto} onClose={() => setProdutoAberto(null)} onAdd={addAoCarrinho} />
       )}
-      {checkoutAberto && loja && (
-        <Checkout
-          loja={loja}
-          aberta={aberta}
-          carrinho={carrinho}
-          taxas={taxas}
-          user={user}
-          onAbrirAuth={() => setModalAuthAberto(true)}
-          setCarrinho={setCarrinho}
-          onClose={() => setCheckoutAberto(false)}
-          onSucesso={(n, id, pixInfo) => { setPedidoNumero(n); setPedidoId(id); setPix(pixInfo ?? null); setCarrinho([]); setCheckoutAberto(false); }}
-          onCartao={(info) => { setCartao(info); setCarrinho([]); setCheckoutAberto(false); }}
-        />
+      
+      {checkoutAberto && (
+        <Checkout loja={loja} aberta={aberta} carrinho={carrinho} taxas={taxas} user={user} setCarrinho={setCarrinho}
+          onClose={() => setCheckoutAberto(false)} onAbrirAuth={() => setModalAuthAberto(true)}
+          onCartao={(info) => { setCheckoutAberto(false); setCartao(info); }}
+          onSucesso={(num, id, pixData) => {
+            setCarrinho([]); setCheckoutAberto(false); setPedidoNumero(num); setPedidoId(id); setPix(pixData ?? null);
+          }} />
       )}
 
-      {cartao && loja && (
-        <CartaoModal
-          loja={loja}
-          info={cartao}
-          onFechar={() => setCartao(null)}
-          onAprovado={() => { setPedidoNumero(cartao.numero); setPedidoId(cartao.pedidoId); setCartao(null); }}
-        />
-      )}
+      {cartao && <CartaoModal loja={loja} info={cartao} onFechar={() => setCartao(null)} onAprovado={() => { setCartao(null); setPedidoNumero(cartao.numero); setPedidoId(cartao.pedidoId); }} />}
+
+      <ModalAuthCliente isOpen={modalAuthAberto} onClose={() => setModalAuthAberto(false)} />
+      
+      <ModalMinhaConta 
+        isOpen={modalContaAberto} 
+        onClose={() => setModalContaAberto(false)} 
+        lojaId={loja.id}
+        userId={user?.id ?? ''}
+        userEmail={user?.email}
+      />
 
       {pedidoNumero !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center dark:bg-gray-900">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-6 text-center dark:bg-gray-900">
             <p className="text-4xl">✅</p>
             <h3 className="mt-2 text-lg font-bold dark:text-gray-100">Pedido #{pedidoNumero} enviado!</h3>
             {pix ? (
               <div className="mt-3 text-left">
                 <p className="text-center text-sm font-semibold dark:text-gray-200">Pague com Pix para confirmar:</p>
                 {pix.qr_imagem && <img src={pix.qr_imagem} alt="QR Code Pix" className="mx-auto mt-2 h-44 w-44" />}
-                <div className="mt-2 break-all rounded-lg bg-gray-100 p-2 text-[10px] text-gray-600 dark:bg-gray-800 dark:text-gray-300">{pix.copia_e_cola}</div>
+                <div className="mt-2 break-all rounded-lg bg-gray-100 p-2 text-[10px] text-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:text-gray-300">{pix.copia_e_cola}</div>
                 <button
                   onClick={() => navigator.clipboard.writeText(pix.copia_e_cola)}
                   className="mt-2 w-full rounded-xl border border-[var(--cor-primaria)] py-2 text-sm font-semibold text-[var(--cor-primaria)]"
@@ -372,7 +370,7 @@ export default function Cardapio() {
               className="mt-4 flex w-full items-center justify-center rounded-xl bg-[var(--cor-primaria)] py-3 font-semibold text-white">
               Acompanhar meu pedido
             </a>
-            <button onClick={() => { setPedidoNumero(null); setPix(null); setPedidoId(null); }} className="mt-2 w-full rounded-xl border py-3 text-sm font-medium text-gray-500 dark:border-gray-700 dark:text-gray-400">
+            <button onClick={() => { setPedidoNumero(null); setPix(null); setPedidoId(null); }} className="mt-2 w-full rounded-xl border py-3 text-sm font-medium text-gray-500 dark:text-gray-400 dark:border-gray-700 dark:text-gray-400">
               Fechar
             </button>
           </div>
@@ -467,16 +465,6 @@ function ModalProduto({ produto, onClose, onAdd }: {
           </div>
         </div>
       </div>
-
-      <ModalAuthCliente isOpen={modalAuthAberto} onClose={() => setModalAuthAberto(false)} />
-      
-      <ModalMinhaConta 
-        isOpen={modalContaAberto} 
-        onClose={() => setModalContaAberto(false)} 
-        lojaId={loja.id}
-        userId={user?.id ?? ''}
-        userEmail={user?.email}
-      />
     </div>
   );
 }
@@ -554,7 +542,7 @@ function CartaoModal({ loja, info, onFechar, onAprovado }: {
 
   return (
     <div className="fade fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={onFechar}>
-      <div className="sheet w-full max-w-lg rounded-t-3xl bg-white p-4 dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet w-full max-w-lg rounded-t-3xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold dark:text-gray-100">💳 Pagar com cartão · {fmt(info.total)}</h3>
           <button onClick={onFechar} className="dark:text-gray-300"><X size={20} /></button>
@@ -763,7 +751,7 @@ function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, o
 
   return (
     <div className="fade fixed inset-0 z-40 flex items-end justify-center bg-black/50" onClick={onClose}>
-      <div className="sheet max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-4 dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold dark:text-gray-100">Seu pedido</h3>
           <button onClick={onClose} className="dark:text-gray-300"><X size={20} /></button>

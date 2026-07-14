@@ -71,7 +71,7 @@ export default function ModalMinhaConta({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/60 backdrop-blur-sm">
-      <div className="h-full w-full max-w-md bg-white p-6 shadow-2xl transition-transform dark:bg-gray-900 sm:w-96">
+      <div className="h-full w-full max-w-md bg-white dark:bg-gray-900 dark:border-gray-800 p-6 shadow-2xl transition-transform dark:bg-gray-900 sm:w-96">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Minha Conta</h2>
           <button onClick={onClose} className="rounded-full p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
@@ -89,7 +89,7 @@ export default function ModalMinhaConta({
               <p>Email logado: <strong className="text-gray-800 dark:text-gray-200">{userEmail}</strong></p>
             </div>
 
-            <div className="space-y-3 border-t border-gray-100 pt-5 dark:border-gray-800">
+            <div className="space-y-3 border-t border-gray-100 dark:border-gray-800 pt-5 dark:border-gray-800">
               <h3 className="font-semibold text-gray-700 dark:text-gray-300">Meus Dados</h3>
               
               <div className="relative">
@@ -99,7 +99,7 @@ export default function ModalMinhaConta({
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
                   placeholder="Nome completo"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                  className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                 />
               </div>
 
@@ -110,12 +110,12 @@ export default function ModalMinhaConta({
                   value={telefone}
                   onChange={(e) => setTelefone(e.target.value)}
                   placeholder="Telefone (WhatsApp)"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                  className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                 />
               </div>
             </div>
 
-            <div className="space-y-3 border-t border-gray-100 pt-5 dark:border-gray-800">
+            <div className="space-y-3 border-t border-gray-100 dark:border-gray-800 pt-5 dark:border-gray-800">
               <h3 className="font-semibold text-gray-700 dark:text-gray-300">Endereço de Entrega Padrão</h3>
               
               <div className="relative">
@@ -125,7 +125,7 @@ export default function ModalMinhaConta({
                   value={endereco}
                   onChange={(e) => setEndereco(e.target.value)}
                   placeholder="Rua, número, complemento"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                  className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                 />
               </div>
 
@@ -136,7 +136,7 @@ export default function ModalMinhaConta({
                   value={bairro}
                   onChange={(e) => setBairro(e.target.value)}
                   placeholder="Bairro"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                  className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                 />
               </div>
             </div>

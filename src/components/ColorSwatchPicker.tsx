@@ -9,7 +9,7 @@ export default function ColorSwatchPicker({ value, onChange, paleta = PALETA_COR
 }) {
   return (
     <div>
-      {label && <p className="mb-1.5 text-xs font-semibold text-gray-500">{label}</p>}
+      {label && <p className="mb-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">{label}</p>}
       <div className="flex flex-wrap gap-2">
         {paleta.map((c) => (
           <button

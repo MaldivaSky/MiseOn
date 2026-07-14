@@ -51,7 +51,7 @@ export default function Equipe() {
       ) : (
         <div className="space-y-2">
           {equipe.map((m) => (
-            <div key={m.user_id} className="flex items-center justify-between rounded-xl bg-white p-3 shadow-sm">
+            <div key={m.user_id} className="flex items-center justify-between rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 shadow-sm">
               <div>
                 <p className="text-sm font-medium">{m.email}</p>
                 <p className="text-xs capitalize text-gray-400">{m.papel}</p>
@@ -63,7 +63,7 @@ export default function Equipe() {
         </div>
       )}
 
-      <div className="mt-6 rounded-2xl bg-white p-4 shadow-sm">
+      <div className="mt-6 rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 shadow-sm">
         <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold"><Mail size={15} /> Convidar por e-mail</p>
         <div className="flex gap-2">
           <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@exemplo.com"
@@ -78,7 +78,7 @@ export default function Equipe() {
           className="mt-3 flex w-full items-center justify-center gap-1 rounded-xl bg-[var(--cor-primaria)] py-2.5 text-sm font-semibold text-white disabled:opacity-40">
           <Plus size={15} /> {enviando ? 'Enviando…' : 'Convidar'}
         </button>
-        {msg && <p className="mt-2 text-xs font-medium text-gray-600">{msg}</p>}
+        {msg && <p className="mt-2 text-xs font-medium text-gray-600 dark:text-gray-300">{msg}</p>}
         <p className="mt-2 text-[11px] text-gray-400">
           A pessoa recebe um e-mail para criar a senha (ou pode entrar com Google usando o mesmo e-mail).
         </p>

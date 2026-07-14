@@ -112,7 +112,7 @@ export default function Estoque() {
           const custoUnit = Number(i.qtd_embalagem) > 0 ? Number(i.preco_embalagem) / Number(i.qtd_embalagem) : 0;
           const critico = Number(i.quantidade_atual) <= Number(i.estoque_minimo);
           return (
-            <div key={i.id} className={`flex items-center justify-between rounded-xl bg-white p-3 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800 ${critico ? 'border-amber-300 dark:border-amber-500/50' : ''}`}>
+            <div key={i.id} className={`flex items-center justify-between rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800 ${critico ? 'border-amber-300 dark:border-amber-500/50' : ''}`}>
               <div>
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{i.nome}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -140,7 +140,7 @@ export default function Estoque() {
           {mostrarInativos && (
             <div className="mt-2 space-y-2">
               {inativos.map((i) => (
-                <div key={i.id} className="flex items-center justify-between rounded-xl bg-white p-3 opacity-60 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800">
+                <div key={i.id} className="flex items-center justify-between rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 opacity-60 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800">
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{i.nome}</p>
                   <button onClick={() => toggleAtivo(i)} className="flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-400 dark:border-gray-700">
                     <ArchiveRestore size={13} /> Reativar
@@ -153,11 +153,11 @@ export default function Estoque() {
       )}
 
       {/* Novo insumo */}
-      <div className="mt-6 rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800">
+      <div className="mt-6 rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800">
         <p className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Novo insumo</p>
         <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="col-span-2 rounded-xl border border-gray-100 bg-gray-50/50 p-3 dark:bg-gray-800/50 dark:border-gray-700">
-            <p className="mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400">Dados Básicos</p>
+          <div className="col-span-2 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 p-3 dark:bg-gray-800/50 dark:border-gray-700">
+            <p className="mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider dark:text-gray-400">Dados Básicos</p>
             <div className="grid grid-cols-3 gap-3">
               <label className="col-span-2 block">
                 <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Nome do Insumo</span>
@@ -174,8 +174,8 @@ export default function Estoque() {
             </div>
           </div>
 
-          <div className="col-span-2 rounded-xl border border-gray-100 bg-gray-50/50 p-3 dark:bg-gray-800/50 dark:border-gray-700">
-            <p className="mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400">Gestão e Custos</p>
+          <div className="col-span-2 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 p-3 dark:bg-gray-800/50 dark:border-gray-700">
+            <p className="mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider dark:text-gray-400">Gestão e Custos</p>
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Estoque Atual ({novo.unidade_medida})</span>
@@ -211,7 +211,7 @@ export default function Estoque() {
       {/* Modal entrada */}
       {entrada && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6" onClick={() => setEntrada(null)}>
-          <div className="w-full max-w-xs rounded-2xl bg-white p-4 dark:bg-gray-900 dark:border dark:border-gray-800" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-xs rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 dark:bg-gray-900 dark:border dark:border-gray-800" onClick={(e) => e.stopPropagation()}>
             <p className="font-semibold text-gray-900 dark:text-gray-100">Entrada — {entrada.insumo.nome}</p>
             <label className="mt-2 block">
               <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Quantidade ({entrada.insumo.unidade_medida})</span>
@@ -233,7 +233,7 @@ export default function Estoque() {
       {/* Modal edição */}
       {editando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6" onClick={() => setEditando(null)}>
-          <div className="w-full max-w-xs rounded-2xl bg-white p-4 dark:bg-gray-900 dark:border dark:border-gray-800" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-xs rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 dark:bg-gray-900 dark:border dark:border-gray-800" onClick={(e) => e.stopPropagation()}>
             <p className="mb-2 font-semibold text-gray-900 dark:text-gray-100">Editar insumo</p>
             <div className="space-y-3 text-sm">
               <label className="block">

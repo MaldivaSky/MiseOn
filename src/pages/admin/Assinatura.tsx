@@ -104,8 +104,8 @@ export default function Assinatura() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Card de Status */}
-        <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
-          <p className="mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wider">Status da Assinatura</p>
+        <div className="rounded-3xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 dark:border-gray-800 p-6 shadow-sm">
+          <p className="mb-4 text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status da Assinatura</p>
           
           <div className="flex items-center gap-3 mb-6">
             {status === 'ATIVO' ? (
@@ -121,19 +121,19 @@ export default function Assinatura() {
               <p className={`text-lg font-bold ${status === 'ATIVO' ? 'text-green-600' : 'text-red-600'}`}>
                 {status === 'ATIVO' ? 'Plano Ativo' : 'Plano Inativo / Inadimplente'}
               </p>
-              <p className="text-sm text-gray-500">{lojaNome}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{lojaNome}</p>
             </div>
           </div>
 
-          <div className="rounded-2xl bg-gray-50 p-4 border border-gray-100">
+          <div className="rounded-2xl bg-gray-50 p-4 border border-gray-100 dark:border-gray-800">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600">Plano Profissional</span>
-              <span className="font-bold text-gray-900">R$ 150,00 / mês</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300">Plano Profissional</span>
+              <span className="font-bold text-gray-900 dark:text-gray-100">R$ 150,00 / mês</span>
             </div>
             {vencimento && (
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1 text-sm text-gray-600"><Calendar size={14} /> Próxima cobrança</span>
-                <span className="font-semibold text-gray-900">{new Date(vencimento).toLocaleDateString('pt-BR')}</span>
+                <span className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300"><Calendar size={14} /> Próxima cobrança</span>
+                <span className="font-semibold text-gray-900 dark:text-gray-100">{new Date(vencimento).toLocaleDateString('pt-BR')}</span>
               </div>
             )}
           </div>
@@ -142,7 +142,7 @@ export default function Assinatura() {
         {/* Formulário de Pagamento Recorrente */}
         <div className="rounded-3xl border border-[var(--cor-primaria)] bg-[var(--cor-primaria)]/5 p-6">
           <h3 className="mb-2 text-lg font-bold text-[var(--cor-primaria)]">Atualizar Cartão (Cobrança Automática)</h3>
-          <p className="mb-5 text-xs text-gray-600">
+          <p className="mb-5 text-xs text-gray-600 dark:text-gray-300">
             Cadastre seu cartão para ativar a cobrança mensal de <strong>R$ 150,00</strong>. 
             O pagamento é processado de forma segura e automática pela Efí Bank.
           </p>
@@ -173,7 +173,7 @@ export default function Assinatura() {
             {processando ? 'Processando...' : 'Ativar Assinatura (R$ 150/mês)'}
           </button>
           
-          <p className="mt-3 text-center text-[10px] text-gray-500">
+          <p className="mt-3 text-center text-[10px] text-gray-500 dark:text-gray-400">
             Ao ativar, você concorda com a cobrança recorrente mensal. Cancele quando quiser.
           </p>
         </div>

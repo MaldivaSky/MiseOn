@@ -45,7 +45,7 @@ export default function MeusPedidos() {
 
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-gray-50 pb-10">
-      <header className="flex items-center gap-2 bg-white p-4 shadow-sm">
+      <header className="flex items-center gap-2 bg-white dark:bg-gray-900 dark:border-gray-800 p-4 shadow-sm">
         <Link to={`/${slug}`} className="text-gray-400"><ChevronLeft size={20} /></Link>
         <h1 className="font-bold">Meus pedidos</h1>
       </header>
@@ -65,14 +65,14 @@ export default function MeusPedidos() {
         {logado && !carregando && (
           <div className="space-y-2">
             {pedidos.map((p) => (
-              <Link key={p.id} to={`/pedido/${p.id}`} className="card-hover flex items-center justify-between rounded-xl bg-white p-3 shadow-sm">
+              <Link key={p.id} to={`/pedido/${p.id}`} className="card-hover flex items-center justify-between rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 shadow-sm">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-bold">#{p.numero}</span>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_COR[p.status]}`}>{STATUS_LABEL[p.status]}</span>
                   </div>
                   <p className="text-xs text-gray-400">{new Date(p.criado_em).toLocaleString('pt-BR')}</p>
-                  <p className="text-xs text-gray-500">{p.itens_pedido?.length ?? 0} item(ns)</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{p.itens_pedido?.length ?? 0} item(ns)</p>
                 </div>
                 <span className="font-bold">{fmt(Number(p.valor_total))}</span>
               </Link>

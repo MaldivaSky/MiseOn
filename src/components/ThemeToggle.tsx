@@ -10,7 +10,7 @@ export default function ThemeToggle({ className }: { className?: string }) {
     <button
       onClick={() => setEscuro(alternarTema())}
       title="Alternar tema claro/escuro"
-      className={className ?? 'rounded-full border border-gray-200 p-2 text-gray-500 dark:border-gray-700 dark:text-gray-300'}
+      className={className ?? 'rounded-full border border-gray-200 dark:border-gray-800 p-2 text-gray-500 dark:text-gray-400 dark:border-gray-700 dark:text-gray-300'}
     >
       {escuro ? <Sun size={16} /> : <Moon size={16} />}
     </button>

@@ -15,7 +15,7 @@ const STATUS_COR: Record<string, string> = {
   novo: 'bg-amber-100 text-amber-700',
   contatado: 'bg-blue-100 text-blue-700',
   convertido: 'bg-green-100 text-green-700',
-  descartado: 'bg-gray-100 text-gray-500',
+  descartado: 'bg-gray-100 text-gray-500 dark:text-gray-400',
 };
 
 export default function Onboarding() {
@@ -69,15 +69,15 @@ export default function Onboarding() {
 
       {leadsAbertos.length > 0 && (
         <div className="mb-5 max-w-md">
-          <p className="mb-2 text-sm font-semibold text-gray-600">Cadastros recebidos em /cadastre-se ({leadsAbertos.length})</p>
+          <p className="mb-2 text-sm font-semibold text-gray-600 dark:text-gray-300">Cadastros recebidos em /cadastre-se ({leadsAbertos.length})</p>
           <div className="space-y-2">
             {leadsAbertos.map((l) => (
-              <div key={l.id} className="rounded-xl bg-white p-3 shadow-sm">
+              <div key={l.id} className="rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 shadow-sm">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-bold">{l.nome_loja}</p>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_COR[l.status]}`}>{l.status}</span>
                 </div>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {l.nome_responsavel} - {l.whatsapp}{l.email ? ` - ${l.email}` : ''}
                   {l.tipo_negocio ? ` - ${l.tipo_negocio}` : ''}{l.cidade ? ` - ${l.cidade}` : ''}
                 </p>
@@ -97,7 +97,7 @@ export default function Onboarding() {
         </div>
       )}
 
-      <div className="max-w-md space-y-2 rounded-2xl bg-white p-4 shadow-sm">
+      <div className="max-w-md space-y-2 rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 shadow-sm">
         <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome da loja" className="w-full rounded-xl border p-2.5 text-sm" />
         <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="Slug (ex: burger-do-ze)" className="w-full rounded-xl border p-2.5 text-sm" />
         <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="WhatsApp (5511999999999)" className="w-full rounded-xl border p-2.5 text-sm" />

@@ -23,7 +23,7 @@ export default function Splash({ children }: { children: React.ReactNode }) {
     <>
       {children}
       {visivel && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white" onClick={fechar}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white dark:bg-gray-900 dark:border-gray-800" onClick={fechar}>
           <video
             ref={videoRef}
             src="/splash.mp4"

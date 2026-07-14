@@ -35,7 +35,7 @@ export default function ImageUpload({ lojaId, pasta, value, onChange, aspecto = 
 
   return (
     <div>
-      {label && <p className="mb-1 text-xs font-semibold text-gray-500">{label}</p>}
+      {label && <p className="mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400">{label}</p>}
       <div className={`relative overflow-hidden rounded-xl border-2 border-dashed bg-gray-50 ${value ? 'border-transparent' : 'border-gray-300'} ${aspecto}`}>
         {value ? (
           <img src={value} className="h-full w-full object-cover" alt="" />
@@ -59,7 +59,7 @@ export default function ImageUpload({ lojaId, pasta, value, onChange, aspecto = 
       <input ref={inputRef} type="file" accept="image/*" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) enviar(f); e.target.value = ''; }} />
       <button type="button" onClick={() => inputRef.current?.click()} disabled={enviando}
-        className="mt-2 w-full rounded-lg border py-2 text-xs font-medium text-gray-600 disabled:opacity-40">
+        className="mt-2 w-full rounded-lg border py-2 text-xs font-medium text-gray-600 dark:text-gray-300 disabled:opacity-40">
         {enviando ? 'Enviando…' : value ? 'Trocar imagem' : 'Enviar imagem'}
       </button>
       {erro && <p className="mt-1 text-xs font-medium text-red-500">{erro}</p>}

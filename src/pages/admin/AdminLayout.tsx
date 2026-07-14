@@ -44,7 +44,7 @@ export default function AdminLayout() {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 p-8 text-center">
         <p className="font-semibold">Sua conta ainda não está vinculada a nenhuma loja.</p>
-        <p className="text-sm text-gray-500">Peça para o administrador da loja te convidar pela tela de Equipe, usando este mesmo e-mail.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Peça para o administrador da loja te convidar pela tela de Equipe, usando este mesmo e-mail.</p>
         <button onClick={sair} className="mt-3 rounded-xl bg-gray-800 px-5 py-2.5 text-sm font-semibold text-white">Sair</button>
       </div>
     );
@@ -78,8 +78,8 @@ export default function AdminLayout() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
-      <header className="sticky top-0 z-30 flex items-center justify-between bg-white px-4 py-3 shadow-sm dark:bg-gray-900 dark:border-b dark:border-gray-800">
+    <div className="min-h-screen bg-gray-50 pb-20 text-gray-900 dark:text-gray-100 dark:bg-gray-950 dark:text-gray-100">
+      <header className="sticky top-0 z-30 flex items-center justify-between bg-white dark:bg-gray-900 dark:border-gray-800 px-4 py-3 shadow-sm dark:bg-gray-900 dark:border-b dark:border-gray-800 print:hidden">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between lg:max-w-5xl">
           <div className="flex items-center gap-2">
             <img src="/icon-192.png" alt="" className="h-8 w-8" />
@@ -92,7 +92,7 @@ export default function AdminLayout() {
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <button onClick={sair} className="text-gray-400 dark:text-gray-500"><LogOut size={18} /></button>
+            <button onClick={sair} className="text-gray-400 dark:text-gray-500 dark:text-gray-400"><LogOut size={18} /></button>
           </div>
         </div>
       </header>
@@ -101,16 +101,16 @@ export default function AdminLayout() {
         <Outlet context={ctx} />
       </div>
 
-      <nav className="fixed bottom-0 left-1/2 flex w-full max-w-3xl -translate-x-1/2 justify-around border-t bg-white py-2 dark:border-gray-800 dark:bg-gray-900 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] dark:shadow-none">
+      <nav className="fixed bottom-0 left-1/2 flex w-full max-w-3xl -translate-x-1/2 justify-around border-t bg-white dark:bg-gray-900 dark:border-gray-800 py-2 dark:border-gray-800 dark:bg-gray-900 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] dark:shadow-none print:hidden">
         {principal.map((i) => (
           <NavLink key={i.to} to={i.to}
-            className={({ isActive }) => `flex flex-col items-center gap-0.5 px-4 py-1 text-xs ${isActive ? 'font-semibold text-[var(--cor-primaria)]' : 'text-gray-400 dark:text-gray-500'}`}>
+            className={({ isActive }) => `flex flex-col items-center gap-0.5 px-4 py-1 text-xs ${isActive ? 'font-semibold text-[var(--cor-primaria)]' : 'text-gray-400 dark:text-gray-500 dark:text-gray-400'}`}>
             {i.icon}
             {i.label}
           </NavLink>
         ))}
         {ctx.papel === 'admin' && (
-          <button onClick={() => setMaisAberto(true)} className="flex flex-col items-center gap-0.5 px-4 py-1 text-xs text-gray-400 dark:text-gray-500">
+          <button onClick={() => setMaisAberto(true)} className="flex flex-col items-center gap-0.5 px-4 py-1 text-xs text-gray-400 dark:text-gray-500 dark:text-gray-400">
             <MoreHorizontal size={20} />
             Mais
           </button>
@@ -119,7 +119,7 @@ export default function AdminLayout() {
 
       {maisAberto && (
         <div className="fade fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setMaisAberto(false)}>
-          <div className="sheet w-full max-w-lg rounded-t-3xl bg-white p-4 pb-8 dark:bg-gray-900 dark:border-t dark:border-gray-800" onClick={(e) => e.stopPropagation()}>
+          <div className="sheet w-full max-w-lg rounded-t-3xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 pb-8 dark:bg-gray-900 dark:border-t dark:border-gray-800" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-lg font-bold dark:text-gray-100">Mais</h3>
               <button onClick={() => setMaisAberto(false)} className="dark:text-gray-300"><X size={20} /></button>

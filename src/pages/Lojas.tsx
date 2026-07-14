@@ -38,9 +38,9 @@ export default function Lojas() {
         <Link to="/" className="text-sm text-gray-400">← Início</Link>
       </div>
       <h1 className="text-xl font-bold">Lojas na MiseOn</h1>
-      <p className="mb-4 text-sm text-gray-500">Escolha uma loja e peça direto, sem app.</p>
+      <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Escolha uma loja e peça direto, sem app.</p>
 
-      <div className="mb-4 flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm">
+      <div className="mb-4 flex items-center gap-2 rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 px-3 py-2 shadow-sm">
         <Search size={16} className="text-gray-400" />
         <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar loja…"
           className="w-full bg-transparent text-sm outline-none" />
@@ -52,7 +52,7 @@ export default function Lojas() {
         <div className="space-y-3">
           {visiveis.map((l) => (
             <Link key={l.slug} to={`/${l.slug}`}
-              className="card-hover flex items-center gap-3 overflow-hidden rounded-2xl bg-white p-3 shadow-sm">
+              className="card-hover flex items-center gap-3 overflow-hidden rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 shadow-sm">
               {l.logo_url
                 ? <img src={l.logo_url} className="h-16 w-16 shrink-0 rounded-xl object-cover" alt="" />
                 : <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl text-xl font-bold text-white" style={{ background: l.cor_primaria }}>
@@ -60,7 +60,7 @@ export default function Lojas() {
                   </div>}
               <div className="min-w-0">
                 <p className="truncate font-bold">{l.nome}</p>
-                {l.descricao && <p className="truncate text-xs text-gray-500">{l.descricao}</p>}
+                {l.descricao && <p className="truncate text-xs text-gray-500 dark:text-gray-400">{l.descricao}</p>}
                 {l.endereco && <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-gray-400"><MapPin size={11} /> {l.endereco}</p>}
               </div>
             </Link>
@@ -69,7 +69,7 @@ export default function Lojas() {
         </div>
       )}
 
-      <Link to="/cadastre-se" className="mt-8 flex items-center justify-center rounded-xl border py-3 text-sm font-semibold text-gray-600">
+      <Link to="/cadastre-se" className="mt-8 flex items-center justify-center rounded-xl border py-3 text-sm font-semibold text-gray-600 dark:text-gray-300">
         Tem uma loja? Cadastre aqui →
       </Link>
     </div>

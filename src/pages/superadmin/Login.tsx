@@ -21,7 +21,7 @@ export default function SuperAdminLogin() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-900 p-4">
-      <form onSubmit={entrar} className="w-full max-w-sm rounded-2xl bg-white p-6 shadow">
+      <form onSubmit={entrar} className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-6 shadow">
         <p className="mb-1 text-center text-xs font-semibold uppercase tracking-wide text-gray-400">MiseOn</p>
         <h1 className="mb-4 text-center text-lg font-bold">Painel SuperAdmin</h1>
         <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="E-mail"

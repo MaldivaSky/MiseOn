@@ -39,10 +39,10 @@ export default function CadastreSuaLoja() {
 
   if (enviado) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-white p-8 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-white dark:bg-gray-900 dark:border-gray-800 p-8 text-center">
         <CheckCircle2 size={40} className="text-green-600" />
         <h1 className="text-lg font-bold">Recebemos seu cadastro!</h1>
-        <p className="max-w-sm text-sm text-gray-500">
+        <p className="max-w-sm text-sm text-gray-500 dark:text-gray-400">
           Vamos entrar em contato pelo WhatsApp <b>{whatsapp}</b> pra colocar sua loja no ar.
         </p>
         <Link to="/" className="mt-3 text-sm font-semibold text-blue-800">Voltar ao início</Link>
@@ -52,12 +52,12 @@ export default function CadastreSuaLoja() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4 py-10">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow">
+      <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-6 shadow">
         <div className="mb-4 flex items-center gap-2">
           <Store size={22} className="text-blue-800" />
           <h1 className="text-lg font-bold">Cadastre sua loja</h1>
         </div>
-        <p className="mb-4 text-sm text-gray-500">
+        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
           Cardápio digital, pedidos, entrega e controle de estoque — a gente configura pra você.
         </p>
         <div className="space-y-2">

@@ -115,7 +115,7 @@ export default function Loja() {
 
   const Campo = ({ label, k, placeholder, textarea }: { label: string; k: keyof FormLoja; placeholder?: string; textarea?: boolean }) => (
     <label className="block">
-      <span className="text-xs font-semibold text-gray-500">{label}</span>
+      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{label}</span>
       {textarea ? (
         <textarea value={form[k]} onChange={set(k)} placeholder={placeholder} rows={2}
           className="mt-1 w-full rounded-xl border p-2.5 text-sm" />
@@ -134,14 +134,14 @@ export default function Loja() {
       </div>
 
       {/* Link público — o cliente acessa por aqui, sem login */}
-      <div className="mb-5 rounded-2xl bg-white p-3 shadow-sm">
-        <p className="mb-1.5 text-xs font-semibold text-gray-500">Link público da sua loja</p>
+      <div className="mb-5 rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 shadow-sm">
+        <p className="mb-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">Link público da sua loja</p>
         <div className="flex items-center gap-2">
           <code className="flex-1 truncate rounded-lg bg-gray-50 px-2.5 py-2 text-xs text-gray-700">{linkPublico}</code>
-          <button onClick={copiarLink} title="Copiar link" className="shrink-0 rounded-lg border p-2 text-gray-500">
+          <button onClick={copiarLink} title="Copiar link" className="shrink-0 rounded-lg border p-2 text-gray-500 dark:text-gray-400">
             {copiado ? <Check size={15} className="text-green-600" /> : <Copy size={15} />}
           </button>
-          <a href={linkPublico} target="_blank" rel="noreferrer" title="Abrir" className="shrink-0 rounded-lg border p-2 text-gray-500">
+          <a href={linkPublico} target="_blank" rel="noreferrer" title="Abrir" className="shrink-0 rounded-lg border p-2 text-gray-500 dark:text-gray-400">
             <ExternalLink size={15} />
           </a>
           <button onClick={compartilharWhatsapp} title="Compartilhar no WhatsApp" className="shrink-0 rounded-lg border p-2 text-green-600">
@@ -157,7 +157,7 @@ export default function Loja() {
           backgroundImage: form.banner_url ? `url(${form.banner_url})` : undefined,
           backgroundSize: 'cover', backgroundPosition: 'center',
         }} />
-        <div className="flex items-center gap-3 bg-white p-3">
+        <div className="flex items-center gap-3 bg-white dark:bg-gray-900 dark:border-gray-800 p-3">
           {form.logo_url
             ? <img src={form.logo_url} alt="" className="h-14 w-14 rounded-full border object-cover" />
             : (
@@ -173,7 +173,7 @@ export default function Loja() {
             </span>
           </div>
         </div>
-        <div className="flex gap-2 bg-white px-3 pb-3">
+        <div className="flex gap-2 bg-white dark:bg-gray-900 dark:border-gray-800 px-3 pb-3">
           <span className="rounded-full px-3 py-1.5 text-xs font-semibold text-white" style={{ background: form.cor_primaria }}>Categoria</span>
           <span className="rounded-full px-3 py-1.5 text-xs font-semibold" style={{ background: form.cor_secundaria, color: '#fff' }}>Destaque</span>
         </div>
@@ -182,7 +182,7 @@ export default function Loja() {
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
         {(['aparencia', 'identidade', 'pagamentos'] as Aba[]).map((a) => (
           <button key={a} onClick={() => setAba(a)}
-            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${aba === a ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm'}`}>
+            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${aba === a ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-600 dark:text-gray-300 shadow-sm'}`}>
             {a === 'aparencia' ? 'Aparência' : a === 'identidade' ? 'Identidade' : 'Pagamentos e Integrações'}
           </button>
         ))}
@@ -195,7 +195,7 @@ export default function Loja() {
             <ImageUpload lojaId={lojaId} pasta="banner" value={form.banner_url} onChange={(u) => setValor('banner_url', u)} aspecto="aspect-video" label="Banner" />
           </div>
 
-          <div className="rounded-2xl bg-white p-4 shadow-sm">
+          <div className="rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 shadow-sm">
             <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold"><Palette size={15} /> Cores</p>
             <ColorSwatchPicker label="Cor primária (botões e destaques)" value={form.cor_primaria} onChange={(c) => setValor('cor_primaria', c)} />
             <div className="mt-3">
@@ -206,7 +206,7 @@ export default function Loja() {
             </div>
           </div>
 
-          <div className="rounded-2xl bg-white p-4 shadow-sm">
+          <div className="rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 shadow-sm">
             <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold"><TypeIcon size={15} /> Fonte</p>
             <FontPicker value={form.fonte} onChange={(f) => setValor('fonte', f)} />
           </div>
@@ -229,7 +229,7 @@ export default function Loja() {
         <div className="space-y-4">
           <div className="rounded-2xl border border-[var(--cor-primaria)] bg-[var(--cor-primaria)]/5 p-4">
             <h3 className="mb-1 text-sm font-bold text-[var(--cor-primaria)]">Recebimentos Automáticos via Efí Bank</h3>
-            <p className="mb-4 text-xs text-gray-600">
+            <p className="mb-4 text-xs text-gray-600 dark:text-gray-300">
               Configure seu "Identificador de Conta" (Payee Code) para receber os pagamentos dos clientes diretamente na sua conta da Efí via Split de Pagamentos. A plataforma não retém os valores.
             </p>
             <Campo label="Identificador de Conta Efí (Payee Code)" k="efi_payee_code" placeholder="ex: a1b2c3d4e5f6g7h8" />

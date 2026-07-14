@@ -39,7 +39,7 @@ export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white p-6 shadow-2xl dark:bg-gray-900">
+      <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white dark:bg-gray-900 dark:border-gray-800 p-6 shadow-2xl dark:bg-gray-900">
         <button onClick={onClose} className="absolute right-4 top-4 rounded-full p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
           <X size={20} />
         </button>
@@ -63,7 +63,7 @@ export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean;
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Seu e-mail"
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-gray-950 dark:text-white dark:focus:border-blue-500"
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-gray-950 dark:text-white dark:focus:border-blue-500"
             />
           </div>
           <div className="relative">
@@ -75,7 +75,7 @@ export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean;
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
               placeholder="Sua senha"
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-gray-950 dark:text-white dark:focus:border-blue-500"
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-gray-950 dark:text-white dark:focus:border-blue-500"
             />
           </div>
 
@@ -96,7 +96,7 @@ export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean;
 
         <button
           onClick={entrarComGoogle}
-          className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white py-3.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-900"
+          className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 dark:border-gray-800 py-3.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-900"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -107,7 +107,7 @@ export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean;
           Continuar com Google
         </button>
 
-        <div className="mt-6 text-center text-sm text-gray-500">
+        <div className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
           {modo === 'LOGIN' ? 'Ainda não tem conta? ' : 'Já tem uma conta? '}
           <button
             onClick={() => { setModo(modo === 'LOGIN' ? 'CADASTRO' : 'LOGIN'); setErro(''); setSucesso(''); }}
