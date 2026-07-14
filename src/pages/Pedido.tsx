@@ -82,7 +82,7 @@ export default function AcompanharPedido() {
           const msg = MENSAGEM_STATUS[novo.status];
           if (statusAnterior.current && statusAnterior.current !== novo.status && msg) {
             tocarSom();
-            if (Notification?.permission === 'granted') new Notification(msg, { body: `Pedido #${novo.numero}` });
+            if ('Notification' in window && Notification.permission === 'granted') new Notification(msg, { body: `Pedido #${novo.numero}` });
             setAviso(msg);
             setTimeout(() => setAviso(null), 6000);
           }
@@ -90,7 +90,7 @@ export default function AcompanharPedido() {
           carregar();
         })
       .subscribe();
-    Notification?.requestPermission?.();
+    if ('Notification' in window) Notification.requestPermission?.();
     return () => { supabase.removeChannel(canal); };
   }, [id]);
 

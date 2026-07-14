@@ -181,7 +181,7 @@ export default function PainelPedidos() {
 
   useEffect(() => {
     carregar();
-    Notification?.requestPermission?.();
+    if ('Notification' in window) Notification.requestPermission?.();
     const canal = supabase
       .channel('pedidos-loja')
       .on('postgres_changes',
@@ -191,7 +191,7 @@ export default function PainelPedidos() {
           if (payload.eventType === 'INSERT') {
             tocarSom();
             const p = payload.new as Pedido;
-            if (Notification.permission === 'granted') {
+            if ('Notification' in window && Notification.permission === 'granted') {
               new Notification(`🛎 Novo pedido #${p.numero}`, {
                 body: `${p.identificador_cliente} · ${fmt(Number(p.valor_total))}`,
               });
