@@ -204,7 +204,7 @@ export default function Compras() {
           </div>
 
           {/* Painel Flutuante (Bottom Bar) de Ação Massiva */}
-          <div className="fixed bottom-[60px] sm:bottom-0 left-0 w-full bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 p-4 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)] z-40">
+          <div className="fixed lg:bottom-0 bottom-16 left-0 lg:pl-[280px] w-full bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 p-4 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)] z-30 transition-all duration-300">
              <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
                 
                 <div className="flex items-center gap-4 w-full sm:w-auto">

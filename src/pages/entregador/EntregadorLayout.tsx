@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Outlet, Navigate, useNavigate } from 'react-router-dom';
-import { Bike, LogOut, Loader2 } from 'lucide-react';
+import { Outlet, Navigate, useNavigate, NavLink } from 'react-router-dom';
+import { Bike, LogOut, Loader2, UserCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
@@ -91,7 +91,10 @@ export default function EntregadorLayout() {
             <p className="text-xs font-bold text-gray-300">{ctx.nome}</p>
             <p className="text-[10px] text-green-400">Online e operando</p>
           </div>
-          <button onClick={handleLogout} className="rounded-full bg-gray-800 p-2 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors">
+          <NavLink to="/entregador/conta" className={({isActive}) => `rounded-full p-2 transition-colors ${isActive ? 'bg-[var(--cor-primaria)] text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700 bg-gray-800'}`}>
+            <UserCircle size={16} />
+          </NavLink>
+          <button onClick={handleLogout} className="rounded-full bg-red-500/10 p-2 text-red-500 hover:text-red-400 hover:bg-red-500/20 transition-colors">
             <LogOut size={16} />
           </button>
         </div>

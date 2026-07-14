@@ -6,11 +6,12 @@ import 'leaflet/dist/leaflet.css';
 import {
   MapPin, Navigation, CheckCircle2, Phone, Bike, MessageCircle, X,
   Plus, Trash2, Users, Send, Route, Loader2, AlertCircle, UserPlus, ChevronDown,
-  Eye, Radio
+  Eye, Radio, Printer
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Pedido, Entregador, RotaEntrega, MensagemPedido, fmt } from '../../types';
 import type { CtxLoja } from './AdminLayout';
+import { imprimir } from '../../lib/print';
 
 const iconeMoto = L.divIcon({
   html: '<div style="font-size:26px;line-height:1">🛵</div>',
@@ -373,6 +374,7 @@ function GestaoEntregadores({ lojaId }: { lojaId: string }) {
   const [rotas, setRotas] = useState<RotaEntrega[]>([]);
   const [pedidosProntos, setPedidosProntos] = useState<Pedido[]>([]);
   const [loadingEntregadores, setLoadingEntregadores] = useState(true);
+  const [lojaNome, setLojaNome] = useState('MiseOn');
 
   // Formulário novo entregador
   const [novoNome, setNovoNome] = useState('');
@@ -396,14 +398,16 @@ function GestaoEntregadores({ lojaId }: { lojaId: string }) {
 
   const carregar = async () => {
     setLoadingEntregadores(true);
-    const [{ data: entList }, { data: rotasList }, { data: pedList }] = await Promise.all([
+    const [{ data: entList }, { data: rotasList }, { data: pedList }, { data: lojaData }] = await Promise.all([
       supabase.from('entregadores').select('*').eq('loja_id', lojaId).eq('ativo', true).order('nome'),
-      supabase.from('rotas_entrega').select('*, entregadores(nome), pedidos(*)').eq('loja_id', lojaId).in('status', ['PENDENTE', 'EM_ANDAMENTO']).order('criado_em', { ascending: false }),
+      supabase.from('rotas_entrega').select('*, entregadores(nome), pedidos(*, itens_pedido(*, itens_pedido_opcoes(*)), pagamentos(metodo, status, valor_pago))').eq('loja_id', lojaId).in('status', ['PENDENTE', 'EM_ANDAMENTO']).order('criado_em', { ascending: false }),
       supabase.from('pedidos').select('*').eq('loja_id', lojaId).eq('tipo_pedido', 'DELIVERY').eq('status', 'PRONTO').is('rota_id', null).order('criado_em'),
+      supabase.from('lojas').select('nome').eq('id', lojaId).single()
     ]);
     setEntregadores((entList as Entregador[]) ?? []);
     setRotas((rotasList as RotaEntrega[]) ?? []);
     setPedidosProntos((pedList as Pedido[]) ?? []);
+    if (lojaData?.nome) setLojaNome(lojaData.nome);
     setLoadingEntregadores(false);
   };
 
@@ -651,13 +655,22 @@ function GestaoEntregadores({ lojaId }: { lojaId: string }) {
                         <span className={p.status === 'FINALIZADO' ? 'text-gray-400 line-through' : 'text-gray-600 dark:text-gray-300'}>
                           #{p.numero} · {p.bairro ?? p.endereco_entrega}
                         </span>
-                        <button
-                          onClick={() => setChatPedido(p)}
-                          className="ml-auto text-gray-400 hover:text-[var(--cor-primaria)] transition-colors"
-                          title="Abrir chat"
-                        >
-                          <MessageCircle size={14} />
-                        </button>
+                        <div className="ml-auto flex items-center gap-1">
+                          <button
+                            onClick={() => imprimir({ template: 'VIA_ENTREGADOR', lojaNome, pedido: p, itens: p.itens_pedido })}
+                            className="p-1.5 text-gray-400 hover:text-[var(--cor-primaria)] hover:bg-[var(--cor-primaria)]/10 rounded-lg transition-all"
+                            title="Imprimir Romaneio"
+                          >
+                            <Printer size={14} />
+                          </button>
+                          <button
+                            onClick={() => setChatPedido(p)}
+                            className="p-1.5 text-gray-400 hover:text-[var(--cor-primaria)] hover:bg-[var(--cor-primaria)]/10 rounded-lg transition-all"
+                            title="Abrir chat"
+                          >
+                            <MessageCircle size={14} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

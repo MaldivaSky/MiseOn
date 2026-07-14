@@ -136,6 +136,13 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-4">
             <a
+              href="/acesso"
+              style={{ color: '#EAF1FB' }}
+              className="hidden sm:inline text-sm font-semibold opacity-70 transition hover:opacity-100"
+            >
+              Acessos
+            </a>
+            <a
               href="/admin/login"
               style={{ color: '#EAF1FB' }}
               className="text-sm font-semibold opacity-70 transition hover:opacity-100"

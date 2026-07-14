@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Printer, Bike, Check, X as XIcon, Store } from 'lucide-react';
+import { Printer, Bike, Check, X as XIcon, Store, ChefHat, Receipt } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { Pedido, StatusPedido, fmt } from '../../types';
+import { Loja, Pedido, StatusPedido, fmt } from '../../types';
+import { imprimir } from '../../lib/print';
+
+type Via = 'cozinha' | 'romaneio' | 'nota';
 import { tocarSom } from '../../lib/som';
 import type { CtxLoja } from './AdminLayout';
 import { MiseOnLoader } from '../../components/MiseOnLoader';
@@ -33,10 +36,22 @@ function CardPedido({
   p: Pedido;
   onAvancar: () => void;
   onCancelar: () => void;
-  onImprimir: () => void;
+  onImprimir: (via: Via) => void;
 }) {
   const fluxo = FLUXO[p.status] ?? FLUXO.CANCELADO;
   const hora = new Date(p.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const [menu, setMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const isDelivery = p.tipo_pedido === 'DELIVERY';
+
+  useEffect(() => {
+    if (!menu) return;
+    const fora = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false); };
+    document.addEventListener('mousedown', fora);
+    return () => document.removeEventListener('mousedown', fora);
+  }, [menu]);
+
+  const escolher = (via: Via) => { setMenu(false); onImprimir(via); };
 
   return (
     <div
@@ -144,12 +159,31 @@ function CardPedido({
             <Check size={16} /> {p.tipo_pedido === 'RETIRADA_BALCAO' && p.status === 'PRONTO' ? 'Finalizar' : fluxo.label}
           </button>
         )}
-        <button
-          onClick={onImprimir}
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition"
-        >
-          <Printer size={18} />
-        </button>
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenu((m) => !m)}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition"
+            title="Imprimir via"
+          >
+            <Printer size={18} />
+          </button>
+          {menu && (
+            <div className="absolute bottom-12 right-0 z-20 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-white/10 dark:bg-[#0B1120]">
+              <p className="px-3 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Imprimir via</p>
+              <button onClick={() => escolher('cozinha')} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5">
+                <ChefHat size={16} className="text-orange-500" /> Comanda da Cozinha
+              </button>
+              {isDelivery && (
+                <button onClick={() => escolher('romaneio')} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5">
+                  <Bike size={16} className="text-blue-500" /> Romaneio do Entregador
+                </button>
+              )}
+              <button onClick={() => escolher('nota')} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5">
+                <Receipt size={16} className="text-emerald-500" /> Nota do Cliente
+              </button>
+            </div>
+          )}
+        </div>
         {['NOVO','ACEITO'].includes(p.status) && (
           <button
             onClick={onCancelar}
@@ -167,7 +201,12 @@ export default function PainelPedidos() {
   const { lojaId } = useOutletContext<CtxLoja>();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [imprimir, setImprimir] = useState<Pedido | null>(null);
+  const [loja, setLoja] = useState<Loja | null>(null);
+
+  useEffect(() => {
+    supabase.from('lojas').select('*').eq('id', lojaId).single()
+      .then(({ data }) => setLoja((data as Loja) ?? null));
+  }, [lojaId]);
 
   const carregar = async () => {
     const { data } = await supabase
@@ -241,7 +280,10 @@ export default function PainelPedidos() {
                 mudarStatus(p, proxStatus);
               }}
               onCancelar={() => { if (confirm('Cancelar pedido?')) mudarStatus(p, 'CANCELADO'); }}
-              onImprimir={() => { setImprimir(p); setTimeout(() => window.print(), 100); }}
+              onImprimir={(v) => {
+                const map: Record<Via, any> = { cozinha: 'COMANDA_COZINHA', romaneio: 'VIA_ENTREGADOR', nota: 'RECIBO_CLIENTE' };
+                imprimir({ template: map[v], lojaNome: loja?.nome || 'MiseOn', loja, pedido: p, itens: p.itens_pedido });
+              }}
             />
           ))}
           {pedidos.length === 0 && (
@@ -252,137 +294,6 @@ export default function PainelPedidos() {
               </p>
             </div>
           )}
-        </div>
-      )}
-
-      {/* ── Comanda térmica 80mm ── */}
-      {imprimir && (
-        <div className="hidden print:block font-mono text-black leading-tight" style={{ width: '100%', maxWidth: '300px', margin: '0 auto', fontSize: '12px' }}>
-          {/* VIA COZINHA */}
-          <div className="comanda-print">
-            <div className="text-center mb-2">
-              <p className="font-bold text-base">================================</p>
-              <h1 className="font-bold text-2xl uppercase mt-1">MISE ON</h1>
-              <p className="text-xs uppercase">Sistema Inteligente para sua Cozinha</p>
-              <p className="font-bold text-base mt-1">================================</p>
-              <h2 className="font-bold text-lg uppercase mt-2">VIA DA COZINHA</h2>
-            </div>
-            <div className="mb-2">
-              <p className="font-bold text-xl uppercase border-y-2 border-black border-dashed py-1 text-center my-2">
-                PEDIDO #{imprimir.numero}
-              </p>
-              <p className="font-bold uppercase text-base text-center mb-2">
-                * {imprimir.tipo_pedido === 'DELIVERY' ? 'ENTREGA' : 'RETIRADA NO BALCÃO'} *
-              </p>
-              <p>EMISSÃO: {new Date().toLocaleString('pt-BR')}</p>
-            </div>
-            <p className="font-bold text-base text-center mt-3 mb-1">--------------------------------</p>
-            <div className="py-1">
-              {imprimir.itens_pedido?.map((i) => (
-                <div key={i.id} className="mb-3">
-                  <div className="flex items-start">
-                    <span className="font-bold text-base mr-2">{i.quantidade}x</span>
-                    <span className="font-bold text-base uppercase leading-tight">{i.nome_produto}</span>
-                  </div>
-                  {i.itens_pedido_opcoes?.map((o, x) => (
-                    <p key={x} className="text-xs ml-6 uppercase">+ {o.nome_opcao}</p>
-                  ))}
-                  {i.observacao && (
-                    <div className="ml-6 mt-1 border-l-2 border-black pl-2">
-                      <p className="text-sm font-bold uppercase">OBS: {i.observacao}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            <p className="font-bold text-base text-center mt-2 mb-2">================================</p>
-            <div className="text-center text-[10px] mb-8"><p>*** FIM DA VIA COZINHA ***</p></div>
-          </div>
-
-          <div className="break-after-page" />
-
-          {/* VIA CLIENTE */}
-          <div className="comanda-print">
-            <div className="text-center mb-2">
-              <p className="font-bold text-base">================================</p>
-              <h1 className="font-bold text-2xl uppercase mt-1">MISE ON</h1>
-              <p className="text-xs uppercase">Sistema Inteligente para sua Cozinha</p>
-              <p className="font-bold text-base mt-1">================================</p>
-              <h2 className="font-bold text-lg uppercase mt-2">CUPOM NÃO FISCAL</h2>
-            </div>
-            <div className="mb-2">
-              <p className="font-bold text-xl uppercase border-y-2 border-black border-dashed py-1 text-center my-2">
-                PEDIDO #{imprimir.numero}
-              </p>
-              <p className="font-bold uppercase text-base text-center mb-2">
-                * {imprimir.tipo_pedido === 'DELIVERY' ? 'ENTREGA' : 'RETIRADA NO BALCÃO'} *
-              </p>
-              <p>EMISSÃO: {new Date().toLocaleString('pt-BR')}</p>
-            </div>
-            <p className="font-bold text-base text-center mt-3 mb-1">--------------------------------</p>
-            <div className="mb-2">
-              <p className="font-bold uppercase">CLIENTE: {imprimir.identificador_cliente}</p>
-              <p>TEL: {imprimir.telefone_contato}</p>
-              {imprimir.tipo_pedido === 'DELIVERY' && (
-                <div className="mt-1">
-                  <p className="font-bold uppercase">ENDEREÇO DE ENTREGA:</p>
-                  <p className="uppercase">{imprimir.endereco_entrega} {imprimir.bairro ? `- ${imprimir.bairro}` : ''}</p>
-                </div>
-              )}
-            </div>
-            <p className="font-bold text-base text-center mt-2 mb-1">--------------------------------</p>
-            <div className="py-1">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-dashed border-black">
-                    <th className="text-left font-normal pb-1">QTD</th>
-                    <th className="text-left font-normal pb-1">ITEM</th>
-                    <th className="text-right font-normal pb-1">TOTAL</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {imprimir.itens_pedido?.map((i) => (
-                    <tr key={i.id} className="align-top">
-                      <td className="pt-2 font-bold">{i.quantidade}x</td>
-                      <td className="pt-2">
-                        <div className="font-bold uppercase leading-tight">{i.nome_produto}</div>
-                        {i.itens_pedido_opcoes?.map((o, x) => (
-                          <div key={x} className="text-xs uppercase">+ {o.nome_opcao}</div>
-                        ))}
-                      </td>
-                      <td className="pt-2 text-right">{fmt(Number(i.preco_unitario) * i.quantidade)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="font-bold text-base text-center mt-2 mb-1">--------------------------------</p>
-            <div className="py-1 text-sm">
-              <div className="flex justify-between"><span>SUBTOTAL:</span><span>{fmt(Number(imprimir.subtotal))}</span></div>
-              {Number(imprimir.taxa_entrega) > 0 && (
-                <div className="flex justify-between"><span>TAXA ENTREGA:</span><span>{fmt(Number(imprimir.taxa_entrega))}</span></div>
-              )}
-              {Number(imprimir.desconto) > 0 && (
-                <div className="flex justify-between font-bold"><span>DESCONTO:</span><span>-{fmt(Number(imprimir.desconto))}</span></div>
-              )}
-              <div className="flex justify-between font-bold text-lg mt-2 pt-2 border-t-2 border-black border-dashed">
-                <span>TOTAL:</span><span>{fmt(Number(imprimir.valor_total))}</span>
-              </div>
-            </div>
-            <p className="font-bold text-base text-center mt-3 mb-1">================================</p>
-            <div className="py-1">
-              <p className="font-bold uppercase text-center">FORMA DE PAGAMENTO</p>
-              <p className="uppercase text-center text-base font-bold mt-1">{imprimir.pagamentos?.[0]?.metodo}</p>
-              {imprimir.troco_para && (
-                <p className="text-center font-bold uppercase mt-1">(LEVAR TROCO PARA {fmt(Number(imprimir.troco_para))})</p>
-              )}
-            </div>
-            <p className="font-bold text-base text-center mt-2 mb-1">================================</p>
-            <div className="text-center text-xs mt-4 mb-4">
-              <p className="font-bold">OBRIGADO PELA PREFERÊNCIA!</p>
-              <p className="mt-1">MiseOn · Sistema Inteligente para sua Cozinha</p>
-            </div>
-          </div>
         </div>
       )}
     </div>
