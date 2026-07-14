@@ -65,10 +65,10 @@ export default function PainelPedidos() {
 
   return (
     <div className="p-4">
-      <h2 className="mb-3 font-bold">Pedidos de hoje ({ativos.length} ativos)</h2>
+      <h2 className="mb-3 font-bold dark:text-gray-100">Pedidos de hoje ({ativos.length} ativos)</h2>
       <div className="space-y-3">
         {[...ativos, ...encerrados].map((p) => (
-          <div key={p.id} className="rounded-2xl bg-white p-4 shadow-sm">
+          <div key={p.id} className="rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800 dark:shadow-none">
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-lg font-bold">#{p.numero}</span>

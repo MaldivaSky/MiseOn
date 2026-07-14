@@ -60,17 +60,17 @@ export default function Financeiro() {
       <h2 className="mb-3 font-bold">Financeiro</h2>
 
       <div className="mb-4 grid grid-cols-3 gap-2">
-        <div className="rounded-2xl bg-white p-3 shadow-sm">
+        <div className="rounded-2xl bg-white p-3 shadow-sm dark:border dark:border-gray-800 dark:bg-gray-900">
           <p className="flex items-center gap-1 text-[10px] font-semibold text-gray-400"><DollarSign size={11} /> Faturamento hoje</p>
-          <p className="mt-1 text-sm font-bold">{fmt(faturamentoHoje)}</p>
+          <p className="mt-1 text-sm font-bold dark:text-gray-100">{fmt(faturamentoHoje)}</p>
         </div>
-        <div className="rounded-2xl bg-white p-3 shadow-sm">
+        <div className="rounded-2xl bg-white p-3 shadow-sm dark:border dark:border-gray-800 dark:bg-gray-900">
           <p className="flex items-center gap-1 text-[10px] font-semibold text-gray-400"><TrendingUp size={11} /> Lucro estimado</p>
           <p className={`mt-1 text-sm font-bold ${lucroHoje < 0 ? 'text-red-500' : 'text-green-600'}`}>{fmt(lucroHoje)}</p>
         </div>
-        <div className="rounded-2xl bg-white p-3 shadow-sm">
+        <div className="rounded-2xl bg-white p-3 shadow-sm dark:border dark:border-gray-800 dark:bg-gray-900">
           <p className="text-[10px] font-semibold text-gray-400">Pedidos hoje</p>
-          <p className="mt-1 text-sm font-bold">{pedidosHoje}</p>
+          <p className="mt-1 text-sm font-bold dark:text-gray-100">{pedidosHoje}</p>
         </div>
       </div>
 
@@ -79,17 +79,17 @@ export default function Financeiro() {
         {produtos.map((p) => {
           const margemBaixa = p.margem_pct !== null && p.margem_pct < 30;
           return (
-            <div key={p.produto_id} className="rounded-xl bg-white p-3 shadow-sm">
+            <div key={p.produto_id} className="rounded-xl bg-white p-3 shadow-sm dark:border dark:border-gray-800 dark:bg-gray-900">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">{p.nome}</p>
+                <p className="text-sm font-medium dark:text-gray-100">{p.nome}</p>
                 <span className={`flex items-center gap-0.5 text-xs font-bold ${margemBaixa ? 'text-red-500' : 'text-green-600'}`}>
                   {margemBaixa ? <TrendingDown size={12} /> : <TrendingUp size={12} />} {p.margem_pct ?? '—'}%
                 </span>
               </div>
-              <div className="mt-1 flex justify-between text-xs text-gray-500">
+              <div className="mt-1 flex justify-between text-xs text-gray-500 dark:text-gray-400">
                 <span>Venda: {fmt(Number(p.preco_venda))}</span>
                 <span>Custo: {fmt(Number(p.custo_insumos))}</span>
-                <span className="font-medium text-gray-700">Lucro: {fmt(Number(p.lucro_bruto))}</span>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Lucro: {fmt(Number(p.lucro_bruto))}</span>
               </div>
             </div>
           );

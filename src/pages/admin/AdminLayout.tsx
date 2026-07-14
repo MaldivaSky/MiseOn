@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History } from 'lucide-react';
+import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History, CreditCard } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import ThemeToggle from '../../components/ThemeToggle';
 
 export interface CtxLoja {
   lojaId: string;
   lojaNome: string;
+  lojaSlug: string;
   papel: string; // admin | operador | entregador
 }
 
@@ -22,14 +23,14 @@ export default function AdminLayout() {
       if (!user) return nav('/admin/login');
       const { data } = await supabase
         .from('usuarios_loja')
-        .select('loja_id, papel, lojas(nome, cor_primaria, cor_secundaria)')
+        .select('loja_id, papel, lojas(nome, cor_primaria, cor_secundaria, slug)')
         .eq('user_id', user.id)
         .limit(1)
         .single();
       if (!data) { setSemLoja(true); return; }
       const papel = (data as any).papel ?? 'admin';
       const lojaInfo = (data as any).lojas;
-      setCtx({ lojaId: data.loja_id, lojaNome: lojaInfo?.nome ?? 'Minha loja', papel });
+      setCtx({ lojaId: data.loja_id, lojaNome: lojaInfo?.nome ?? 'Minha loja', lojaSlug: lojaInfo?.slug ?? '', papel });
       if (lojaInfo?.cor_primaria) document.documentElement.style.setProperty('--cor-primaria', lojaInfo.cor_primaria);
       if (lojaInfo?.cor_secundaria) document.documentElement.style.setProperty('--cor-secundaria', lojaInfo.cor_secundaria);
       // entregador cai direto na fila de entregas
@@ -72,12 +73,13 @@ export default function AdminLayout() {
     { to: '/admin/historico', icon: <History size={18} />, label: 'Histórico' },
     { to: '/admin/marketing', icon: <Megaphone size={18} />, label: 'Marketing' },
     { to: '/admin/equipe', icon: <Users size={18} />, label: 'Equipe' },
-    { to: '/admin/loja', icon: <Store size={18} />, label: 'Minha Loja' },
+    { to: '/admin/assinatura', icon: <CreditCard size={18} />, label: 'Assinatura' },
+    { to: '/admin/loja', icon: <Store size={18} />, label: 'Configurar Loja' },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 dark:bg-gray-950">
-      <header className="sticky top-0 z-30 flex items-center justify-between bg-white px-4 py-3 shadow-sm dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 pb-20 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+      <header className="sticky top-0 z-30 flex items-center justify-between bg-white px-4 py-3 shadow-sm dark:bg-gray-900 dark:border-b dark:border-gray-800">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between lg:max-w-5xl">
           <div className="flex items-center gap-2">
             <img src="/icon-192.png" alt="" className="h-8 w-8" />
@@ -99,7 +101,7 @@ export default function AdminLayout() {
         <Outlet context={ctx} />
       </div>
 
-      <nav className="fixed bottom-0 left-1/2 flex w-full max-w-3xl -translate-x-1/2 justify-around border-t bg-white py-2 dark:border-gray-800 dark:bg-gray-900">
+      <nav className="fixed bottom-0 left-1/2 flex w-full max-w-3xl -translate-x-1/2 justify-around border-t bg-white py-2 dark:border-gray-800 dark:bg-gray-900 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] dark:shadow-none">
         {principal.map((i) => (
           <NavLink key={i.to} to={i.to}
             className={({ isActive }) => `flex flex-col items-center gap-0.5 px-4 py-1 text-xs ${isActive ? 'font-semibold text-[var(--cor-primaria)]' : 'text-gray-400 dark:text-gray-500'}`}>
@@ -117,12 +119,16 @@ export default function AdminLayout() {
 
       {maisAberto && (
         <div className="fade fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setMaisAberto(false)}>
-          <div className="sheet w-full max-w-lg rounded-t-3xl bg-white p-4 pb-8 dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
+          <div className="sheet w-full max-w-lg rounded-t-3xl bg-white p-4 pb-8 dark:bg-gray-900 dark:border-t dark:border-gray-800" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-lg font-bold dark:text-gray-100">Mais</h3>
               <button onClick={() => setMaisAberto(false)} className="dark:text-gray-300"><X size={20} /></button>
             </div>
             <div className="space-y-1">
+              <a href={`/${ctx.lojaSlug}`} target="_blank" rel="noreferrer" onClick={() => setMaisAberto(false)}
+                className="flex items-center gap-3 rounded-xl p-3 text-sm font-medium text-[var(--cor-primaria)] hover:bg-gray-50 dark:hover:bg-gray-800">
+                <Store size={18} /> Ver página da loja
+              </a>
               {mais.map((i) => (
                 <NavLink key={i.to} to={i.to} onClick={() => setMaisAberto(false)}
                   className="flex items-center gap-3 rounded-xl p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">

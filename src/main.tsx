@@ -18,6 +18,7 @@ import Financeiro from './pages/admin/Financeiro';
 import Historico from './pages/admin/Historico';
 import Marketing from './pages/admin/Marketing';
 import Equipe from './pages/admin/Equipe';
+import Assinatura from './pages/admin/Assinatura';
 import AdminLayout from './pages/admin/AdminLayout';
 import SuperAdminLogin from './pages/superadmin/Login';
 import SuperAdminLayout from './pages/superadmin/SuperAdminLayout';
@@ -44,6 +45,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="marketing" element={<Marketing />} />
             <Route path="equipe" element={<Equipe />} />
             <Route path="loja" element={<Loja />} />
+            <Route path="assinatura" element={<Assinatura />} />
           </Route>
           <Route path="/superadmin/login" element={<SuperAdminLogin />} />
           <Route path="/superadmin" element={<SuperAdminLayout />}>

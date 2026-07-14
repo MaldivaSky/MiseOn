@@ -62,7 +62,7 @@ export default function CardapioAdmin() {
       <div className="mb-3 flex gap-2">
         {(['produtos', 'categorias'] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium ${tab === t ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm'}`}>
+            className={`rounded-full px-4 py-1.5 text-sm font-medium ${tab === t ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm dark:bg-gray-900 dark:text-gray-300 dark:border dark:border-gray-800'}`}>
             {t === 'produtos' ? 'Produtos' : 'Categorias'}
           </button>
         ))}
@@ -74,7 +74,7 @@ export default function CardapioAdmin() {
 
       {tab === 'produtos' && (
         <>
-          <div className="mb-3 flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm">
+          <div className="mb-3 flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800">
             <Search size={16} className="text-gray-400" />
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto…"
               className="w-full bg-transparent text-sm outline-none" />
@@ -82,12 +82,12 @@ export default function CardapioAdmin() {
 
           <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
             <button onClick={() => setCatAtiva(null)}
-              className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${!catAtiva ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm'}`}>
+              className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${!catAtiva ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm dark:bg-gray-900 dark:text-gray-300 dark:border dark:border-gray-800'}`}>
               Tudo
             </button>
             {categorias.map((c) => (
               <button key={c.id} onClick={() => setCatAtiva(c.id === catAtiva ? null : c.id)}
-                className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${catAtiva === c.id ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm'}`}>
+                className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${catAtiva === c.id ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm dark:bg-gray-900 dark:text-gray-300 dark:border dark:border-gray-800'}`}>
                 {c.nome}
               </button>
             ))}
@@ -100,12 +100,12 @@ export default function CardapioAdmin() {
 
           <div className="space-y-2">
             {visiveis.map((p) => (
-              <div key={p.id} className={`flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm ${!p.disponivel ? 'opacity-50' : ''}`}>
+              <div key={p.id} className={`flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800 ${!p.disponivel ? 'opacity-50' : ''}`}>
                 {p.imagem_url
                   ? <img src={p.imagem_url} className="h-14 w-14 shrink-0 rounded-lg object-cover" alt="" />
                   : <div className="h-14 w-14 shrink-0 rounded-lg bg-gray-100" />}
                 <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+                  <p className="flex items-center gap-1.5 truncate text-sm font-medium dark:text-gray-100">
                     {p.nome}
                     {p.tem_estoque === false && (
                       <span className="shrink-0 rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-600">SEM INSUMO</span>
@@ -186,13 +186,13 @@ function CategoriasTab({ lojaId, categorias, onChange }: { lojaId: string; categ
   return (
     <div className="space-y-2">
       {categorias.map((c, idx) => (
-        <div key={c.id} className={`flex items-center gap-2 rounded-xl bg-white p-2.5 shadow-sm ${c.ativo === false ? 'opacity-50' : ''}`}>
+        <div key={c.id} className={`flex items-center gap-2 rounded-xl bg-white p-2.5 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800 ${c.ativo === false ? 'opacity-50' : ''}`}>
           <div className="flex flex-col">
             <button disabled={idx === 0} onClick={() => mover(c, -1)} className="text-gray-400 disabled:opacity-20"><ChevronUp size={14} /></button>
             <button disabled={idx === categorias.length - 1} onClick={() => mover(c, 1)} className="text-gray-400 disabled:opacity-20"><ChevronDown size={14} /></button>
           </div>
           <input defaultValue={c.nome} onBlur={(e) => renomear(c, e.target.value)}
-            className="flex-1 rounded-lg border-none bg-transparent p-1 text-sm font-medium outline-none focus:bg-gray-50" />
+            className="flex-1 rounded-lg border-none bg-transparent p-1 text-sm font-medium outline-none focus:bg-gray-50 dark:text-gray-100 dark:focus:bg-gray-800" />
           <button onClick={() => toggleAtiva(c)} className="text-xs font-medium text-gray-500">
             {c.ativo === false ? 'Inativa' : 'Ativa'}
           </button>
@@ -200,9 +200,9 @@ function CategoriasTab({ lojaId, categorias, onChange }: { lojaId: string; categ
         </div>
       ))}
 
-      <div className="flex gap-2 rounded-xl bg-white p-2.5 shadow-sm">
+      <div className="flex gap-2 rounded-xl bg-white p-2.5 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800">
         <input value={nova} onChange={(e) => setNova(e.target.value)} placeholder="Nova categoria (ex: Bebidas)"
-          className="flex-1 rounded-lg border p-2 text-sm" onKeyDown={(e) => e.key === 'Enter' && criar()} />
+          className="flex-1 rounded-lg border p-2 text-sm dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700" onKeyDown={(e) => e.key === 'Enter' && criar()} />
         <button onClick={criar} className="rounded-lg bg-[var(--cor-primaria)] px-4 text-sm font-semibold text-white">Add</button>
       </div>
     </div>
@@ -325,25 +325,25 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
 
   return (
     <div className="fade fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={onClose}>
-      <div className="sheet max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-4" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-4 dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold">{produto ? 'Editar produto' : 'Novo produto'}</h3>
-          <button onClick={onClose}><X size={20} /></button>
+          <h3 className="text-lg font-bold dark:text-gray-100">{produto ? 'Editar produto' : 'Novo produto'}</h3>
+          <button onClick={onClose} className="dark:text-gray-300"><X size={20} /></button>
         </div>
 
         <div className="mt-3 space-y-2">
-          <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do produto" className="w-full rounded-xl border p-2.5 text-sm" />
-          <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Descrição" rows={2} className="w-full rounded-xl border p-2.5 text-sm" />
+          <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do produto" className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
+          <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Descrição" rows={2} className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
           <div className="grid grid-cols-2 gap-2">
-            <input value={preco} onChange={(e) => setPreco(e.target.value)} type="number" placeholder="Preço R$" className="rounded-xl border p-2.5 text-sm" />
-            <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} className="rounded-xl border p-2.5 text-sm">
+            <input value={preco} onChange={(e) => setPreco(e.target.value)} type="number" placeholder="Preço R$" className="rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
+            <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} className="rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
               <option value="">Sem categoria</option>
               {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </div>
           <ImageUpload lojaId={lojaId} pasta="produtos" value={imagemUrl} onChange={setImagemUrl} aspecto="aspect-video" label="Foto do produto" />
 
-          <div className="flex flex-wrap gap-3 pt-1 text-xs">
+          <div className="flex flex-wrap gap-3 pt-1 text-xs dark:text-gray-300">
             <label className="flex items-center gap-1.5"><input type="checkbox" checked={isCombo} onChange={(e) => setIsCombo(e.target.checked)} /> Combo</label>
             <label className="flex items-center gap-1.5"><input type="checkbox" checked={destaque} onChange={(e) => setDestaque(e.target.checked)} /> Destaque</label>
             <label className="flex items-center gap-1.5"><input type="checkbox" checked={controlaEstoque} onChange={(e) => setControlaEstoque(e.target.checked)} /> Controla estoque</label>
@@ -352,8 +352,8 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
 
         {/* Ficha técnica */}
         {controlaEstoque && (
-          <div className="mt-4 rounded-2xl border p-3">
-            <p className="mb-2 text-sm font-semibold">Ficha técnica (consumo de insumos)</p>
+          <div className="mt-4 rounded-2xl border p-3 dark:border-gray-800">
+            <p className="mb-2 text-sm font-semibold dark:text-gray-200">Ficha técnica (consumo de insumos)</p>
             {ficha.map((f, idx) => (
               <div key={idx} className="mb-1.5 flex items-center gap-1.5">
                 <select value={f.insumo_id} onChange={(e) => setFicha((arr) => arr.map((x, i) => i === idx ? { ...x, insumo_id: e.target.value } : x))}
@@ -379,10 +379,10 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
         )}
 
         {/* Adicionais */}
-        <div className="mt-4 rounded-2xl border p-3">
-          <p className="mb-2 text-sm font-semibold">Adicionais / extras</p>
+        <div className="mt-4 rounded-2xl border p-3 dark:border-gray-800">
+          <p className="mb-2 text-sm font-semibold dark:text-gray-200">Adicionais / extras</p>
           {grupos.map((g) => (
-            <div key={g._key} className="mb-2 rounded-xl bg-gray-50 p-2">
+            <div key={g._key} className="mb-2 rounded-xl bg-gray-50 p-2 dark:bg-gray-800">
               <div className="flex items-center gap-1.5">
                 <input value={g.nome} onChange={(e) => setGrupos((arr) => arr.map((x) => x._key === g._key ? { ...x, nome: e.target.value } : x))}
                   placeholder="Nome do grupo (ex: Extras)" className="flex-1 rounded-lg border p-1.5 text-xs" />
@@ -394,15 +394,31 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
               </div>
               <div className="mt-1.5 space-y-1 pl-2">
                 {g.opcoes.map((o) => (
-                  <div key={o._key} className="flex items-center gap-1.5">
-                    <input value={o.nome} onChange={(e) => setGrupos((arr) => arr.map((x) => x._key === g._key
-                      ? { ...x, opcoes: x.opcoes.map((y) => y._key === o._key ? { ...y, nome: e.target.value } : y) } : x))}
-                      placeholder="Opção (ex: Cebola roxa)" className="flex-1 rounded-lg border p-1.5 text-xs" />
-                    <input value={o.preco_adicional} onChange={(e) => setGrupos((arr) => arr.map((x) => x._key === g._key
-                      ? { ...x, opcoes: x.opcoes.map((y) => y._key === o._key ? { ...y, preco_adicional: Number(e.target.value) } : y) } : x))}
-                      type="number" placeholder="+R$" className="w-16 rounded-lg border p-1.5 text-xs" />
-                    <button onClick={() => setGrupos((arr) => arr.map((x) => x._key === g._key
-                      ? { ...x, opcoes: x.opcoes.filter((y) => y._key !== o._key) } : x))} className="text-red-400"><X size={13} /></button>
+                  <div key={o._key} className="flex flex-col gap-1.5 border-b border-gray-200 pb-2 mb-2 last:border-0 last:pb-0 last:mb-0">
+                    <div className="flex items-center gap-1.5">
+                      <input value={o.nome} onChange={(e) => setGrupos((arr) => arr.map((x) => x._key === g._key
+                        ? { ...x, opcoes: x.opcoes.map((y) => y._key === o._key ? { ...y, nome: e.target.value } : y) } : x))}
+                        placeholder="Opção (ex: Cebola roxa)" className="flex-1 rounded-lg border p-1.5 text-xs" />
+                      <input value={o.preco_adicional} onChange={(e) => setGrupos((arr) => arr.map((x) => x._key === g._key
+                        ? { ...x, opcoes: x.opcoes.map((y) => y._key === o._key ? { ...y, preco_adicional: Number(e.target.value) } : y) } : x))}
+                        type="number" placeholder="+R$" className="w-16 rounded-lg border p-1.5 text-xs" />
+                      <button onClick={() => setGrupos((arr) => arr.map((x) => x._key === g._key
+                        ? { ...x, opcoes: x.opcoes.filter((y) => y._key !== o._key) } : x))} className="text-red-400"><X size={13} /></button>
+                    </div>
+                    {/* Vínculo de Estoque do Adicional */}
+                    <div className="flex items-center gap-1.5 pl-2">
+                      <select value={o.insumo_id || ''} onChange={(e) => setGrupos((arr) => arr.map((x) => x._key === g._key
+                        ? { ...x, opcoes: x.opcoes.map((y) => y._key === o._key ? { ...y, insumo_id: e.target.value || null } : y) } : x))}
+                        className="flex-1 rounded-lg border border-dashed border-gray-300 p-1.5 text-xs text-gray-500">
+                        <option value="">Sem baixa de estoque</option>
+                        {insumos.map((i) => <option key={i.id} value={i.id}>Baixar: {i.nome} ({i.unidade_medida})</option>)}
+                      </select>
+                      {o.insumo_id && (
+                        <input value={o.quantidade_insumo || ''} onChange={(e) => setGrupos((arr) => arr.map((x) => x._key === g._key
+                          ? { ...x, opcoes: x.opcoes.map((y) => y._key === o._key ? { ...y, quantidade_insumo: Number(e.target.value) } : y) } : x))}
+                          type="number" placeholder="Qtd Consumida" className="w-28 rounded-lg border border-dashed border-gray-300 p-1.5 text-xs" />
+                      )}
+                    </div>
                   </div>
                 ))}
                 <button onClick={() => addOpcao(g._key)} className="flex items-center gap-1 text-xs font-medium text-[var(--cor-primaria)]">

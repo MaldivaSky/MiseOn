@@ -112,19 +112,19 @@ export default function Estoque() {
           const custoUnit = Number(i.qtd_embalagem) > 0 ? Number(i.preco_embalagem) / Number(i.qtd_embalagem) : 0;
           const critico = Number(i.quantidade_atual) <= Number(i.estoque_minimo);
           return (
-            <div key={i.id} className={`flex items-center justify-between rounded-xl bg-white p-3 shadow-sm ${critico ? 'border border-amber-300' : ''}`}>
+            <div key={i.id} className={`flex items-center justify-between rounded-xl bg-white p-3 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800 ${critico ? 'border-amber-300 dark:border-amber-500/50' : ''}`}>
               <div>
-                <p className="text-sm font-medium">{i.nome}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{i.nome}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {Number(i.quantidade_atual)} {i.unidade_medida} em estoque
                   {custoUnit > 0 && <> · {fmt(custoUnit)}/{i.unidade_medida}</>}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 <button onClick={() => setEntrada({ insumo: i, qtd: '', custo: '' })}
-                  className="rounded-lg border px-3 py-1.5 text-xs font-medium text-green-700">+ Entrada</button>
-                <button onClick={() => abrirEdicao(i)} className="rounded-lg border p-1.5 text-gray-500"><Pencil size={14} /></button>
-                <button onClick={() => toggleAtivo(i)} className="rounded-lg border border-red-200 p-1.5 text-red-500"><Archive size={14} /></button>
+                  className="rounded-lg border px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-400 dark:border-gray-700">+ Entrada</button>
+                <button onClick={() => abrirEdicao(i)} className="rounded-lg border p-1.5 text-gray-500 dark:text-gray-400 dark:border-gray-700"><Pencil size={14} /></button>
+                <button onClick={() => toggleAtivo(i)} className="rounded-lg border border-red-200 p-1.5 text-red-500 dark:border-red-900"><Archive size={14} /></button>
               </div>
             </div>
           );
@@ -140,9 +140,9 @@ export default function Estoque() {
           {mostrarInativos && (
             <div className="mt-2 space-y-2">
               {inativos.map((i) => (
-                <div key={i.id} className="flex items-center justify-between rounded-xl bg-white p-3 opacity-60 shadow-sm">
-                  <p className="text-sm font-medium">{i.nome}</p>
-                  <button onClick={() => toggleAtivo(i)} className="flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium text-green-700">
+                <div key={i.id} className="flex items-center justify-between rounded-xl bg-white p-3 opacity-60 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{i.nome}</p>
+                  <button onClick={() => toggleAtivo(i)} className="flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-400 dark:border-gray-700">
                     <ArchiveRestore size={13} /> Reativar
                   </button>
                 </div>
@@ -153,23 +153,55 @@ export default function Estoque() {
       )}
 
       {/* Novo insumo */}
-      <div className="mt-6 rounded-2xl bg-white p-4 shadow-sm">
-        <p className="mb-2 text-sm font-semibold">Novo insumo</p>
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <input className="col-span-2 rounded-xl border p-2" placeholder="Nome (ex: Baguete, Queijo prato)"
-            value={novo.nome} onChange={(e) => setNovo({ ...novo, nome: e.target.value })} />
-          <select className="rounded-xl border p-2" value={novo.unidade_medida}
-            onChange={(e) => setNovo({ ...novo, unidade_medida: e.target.value })}>
-            {['un', 'g', 'kg', 'ml', 'l'].map((u) => <option key={u}>{u}</option>)}
-          </select>
-          <input className="rounded-xl border p-2" placeholder="Qtd atual" type="number"
-            value={novo.quantidade} onChange={(e) => setNovo({ ...novo, quantidade: e.target.value })} />
-          <input className="rounded-xl border p-2" placeholder="Estoque mínimo" type="number"
-            value={novo.estoque_minimo} onChange={(e) => setNovo({ ...novo, estoque_minimo: e.target.value })} />
-          <input className="rounded-xl border p-2" placeholder="Preço embalagem R$" type="number"
-            value={novo.preco_embalagem} onChange={(e) => setNovo({ ...novo, preco_embalagem: e.target.value })} />
-          <input className="col-span-2 rounded-xl border p-2" placeholder="Qtd na embalagem (ex: pacote 500g → 500)" type="number"
-            value={novo.qtd_embalagem} onChange={(e) => setNovo({ ...novo, qtd_embalagem: e.target.value })} />
+      <div className="mt-6 rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800">
+        <p className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Novo insumo</p>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="col-span-2 rounded-xl border border-gray-100 bg-gray-50/50 p-3 dark:bg-gray-800/50 dark:border-gray-700">
+            <p className="mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400">Dados Básicos</p>
+            <div className="grid grid-cols-3 gap-3">
+              <label className="col-span-2 block">
+                <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Nome do Insumo</span>
+                <input className="w-full rounded-xl border border-gray-300 p-2 focus:border-[var(--cor-primaria)] focus:outline-none dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100" placeholder="ex: Queijo Prato, Baguete"
+                  value={novo.nome} onChange={(e) => setNovo({ ...novo, nome: e.target.value })} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Unidade (Medida)</span>
+                <select className="w-full rounded-xl border border-gray-300 p-2 focus:border-[var(--cor-primaria)] focus:outline-none dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100" value={novo.unidade_medida}
+                  onChange={(e) => setNovo({ ...novo, unidade_medida: e.target.value })}>
+                  {['un', 'g', 'kg', 'ml', 'l'].map((u) => <option key={u}>{u}</option>)}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div className="col-span-2 rounded-xl border border-gray-100 bg-gray-50/50 p-3 dark:bg-gray-800/50 dark:border-gray-700">
+            <p className="mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400">Gestão e Custos</p>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Estoque Atual ({novo.unidade_medida})</span>
+                <input className="w-full rounded-xl border border-gray-300 p-2 focus:border-[var(--cor-primaria)] focus:outline-none dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100" type="number"
+                  value={novo.quantidade} onChange={(e) => setNovo({ ...novo, quantidade: e.target.value })} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Estoque Mínimo de Alerta</span>
+                <input className="w-full rounded-xl border border-gray-300 p-2 focus:border-[var(--cor-primaria)] focus:outline-none dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100" type="number"
+                  value={novo.estoque_minimo} onChange={(e) => setNovo({ ...novo, estoque_minimo: e.target.value })} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Preço da Embalagem Fechada (R$)</span>
+                <input className="w-full rounded-xl border border-gray-300 p-2 focus:border-[var(--cor-primaria)] focus:outline-none dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100" type="number"
+                  value={novo.preco_embalagem} onChange={(e) => setNovo({ ...novo, preco_embalagem: e.target.value })} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Qtd. na Embalagem (em {novo.unidade_medida})</span>
+                <input className="w-full rounded-xl border border-gray-300 p-2 focus:border-[var(--cor-primaria)] focus:outline-none dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100" type="number" placeholder="ex: pacote 500g → 500"
+                  value={novo.qtd_embalagem} onChange={(e) => setNovo({ ...novo, qtd_embalagem: e.target.value })} />
+              </label>
+            </div>
+            <p className="mt-2 text-[10px] text-gray-400">
+              * O preço e quantidade da embalagem servem para o sistema calcular o custo de cada {novo.unidade_medida} do insumo.
+            </p>
+          </div>
         </div>
         <button onClick={criar} className="mt-3 flex w-full items-center justify-center gap-1 rounded-xl bg-green-600 py-2.5 text-sm font-semibold text-white">
           <Plus size={15} /> Cadastrar
@@ -179,14 +211,18 @@ export default function Estoque() {
       {/* Modal entrada */}
       {entrada && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6" onClick={() => setEntrada(null)}>
-          <div className="w-full max-w-xs rounded-2xl bg-white p-4" onClick={(e) => e.stopPropagation()}>
-            <p className="font-semibold">Entrada — {entrada.insumo.nome}</p>
-            <input className="mt-2 w-full rounded-xl border p-2 text-sm" type="number" autoFocus
-              placeholder={`Quantidade (${entrada.insumo.unidade_medida})`}
-              value={entrada.qtd} onChange={(e) => setEntrada({ ...entrada, qtd: e.target.value })} />
-            <input className="mt-2 w-full rounded-xl border p-2 text-sm" type="number"
-              placeholder="Custo da compra R$ (opcional)"
-              value={entrada.custo} onChange={(e) => setEntrada({ ...entrada, custo: e.target.value })} />
+          <div className="w-full max-w-xs rounded-2xl bg-white p-4 dark:bg-gray-900 dark:border dark:border-gray-800" onClick={(e) => e.stopPropagation()}>
+            <p className="font-semibold text-gray-900 dark:text-gray-100">Entrada — {entrada.insumo.nome}</p>
+            <label className="mt-2 block">
+              <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Quantidade ({entrada.insumo.unidade_medida})</span>
+              <input className="w-full rounded-xl border border-gray-300 p-2 text-sm focus:border-green-600 focus:outline-none dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100" type="number" autoFocus
+                value={entrada.qtd} onChange={(e) => setEntrada({ ...entrada, qtd: e.target.value })} />
+            </label>
+            <label className="mt-2 block">
+              <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Custo da compra R$ (opcional)</span>
+              <input className="w-full rounded-xl border border-gray-300 p-2 text-sm focus:border-green-600 focus:outline-none dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100" type="number"
+                value={entrada.custo} onChange={(e) => setEntrada({ ...entrada, custo: e.target.value })} />
+            </label>
             <button onClick={registrarEntrada} className="mt-3 w-full rounded-xl bg-green-600 py-2.5 text-sm font-semibold text-white">
               Registrar
             </button>
@@ -197,21 +233,42 @@ export default function Estoque() {
       {/* Modal edição */}
       {editando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6" onClick={() => setEditando(null)}>
-          <div className="w-full max-w-xs rounded-2xl bg-white p-4" onClick={(e) => e.stopPropagation()}>
-            <p className="mb-2 font-semibold">Editar insumo</p>
-            <div className="space-y-2 text-sm">
-              <input className="w-full rounded-xl border p-2" placeholder="Nome"
-                value={formEdicao.nome} onChange={(e) => setFormEdicao({ ...formEdicao, nome: e.target.value })} />
-              <select className="w-full rounded-xl border p-2" value={formEdicao.unidade_medida}
-                onChange={(e) => setFormEdicao({ ...formEdicao, unidade_medida: e.target.value })}>
-                {['un', 'g', 'kg', 'ml', 'l'].map((u) => <option key={u}>{u}</option>)}
-              </select>
-              <input className="w-full rounded-xl border p-2" placeholder="Estoque mínimo" type="number"
-                value={formEdicao.estoque_minimo} onChange={(e) => setFormEdicao({ ...formEdicao, estoque_minimo: e.target.value })} />
-              <input className="w-full rounded-xl border p-2" placeholder="Preço embalagem R$" type="number"
-                value={formEdicao.preco_embalagem} onChange={(e) => setFormEdicao({ ...formEdicao, preco_embalagem: e.target.value })} />
-              <input className="w-full rounded-xl border p-2" placeholder="Qtd na embalagem" type="number"
-                value={formEdicao.qtd_embalagem} onChange={(e) => setFormEdicao({ ...formEdicao, qtd_embalagem: e.target.value })} />
+          <div className="w-full max-w-xs rounded-2xl bg-white p-4 dark:bg-gray-900 dark:border dark:border-gray-800" onClick={(e) => e.stopPropagation()}>
+            <p className="mb-2 font-semibold text-gray-900 dark:text-gray-100">Editar insumo</p>
+            <div className="space-y-3 text-sm">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Nome do Insumo</span>
+                <input className="w-full rounded-xl border border-gray-300 p-2 focus:border-blue-500 focus:outline-none dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100" 
+                  value={formEdicao.nome} onChange={(e) => setFormEdicao({ ...formEdicao, nome: e.target.value })} />
+              </label>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Unidade</span>
+                  <select className="w-full rounded-xl border border-gray-300 p-2 focus:border-blue-500 focus:outline-none dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100" value={formEdicao.unidade_medida}
+                    onChange={(e) => setFormEdicao({ ...formEdicao, unidade_medida: e.target.value })}>
+                    {['un', 'g', 'kg', 'ml', 'l'].map((u) => <option key={u}>{u}</option>)}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Estoque Mínimo</span>
+                  <input className="w-full rounded-xl border border-gray-300 p-2 focus:border-blue-500 focus:outline-none dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100" type="number"
+                    value={formEdicao.estoque_minimo} onChange={(e) => setFormEdicao({ ...formEdicao, estoque_minimo: e.target.value })} />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Preço Embalagem (R$)</span>
+                  <input className="w-full rounded-xl border border-gray-300 p-2 focus:border-blue-500 focus:outline-none dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100" type="number"
+                    value={formEdicao.preco_embalagem} onChange={(e) => setFormEdicao({ ...formEdicao, preco_embalagem: e.target.value })} />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Qtd. na Embalagem</span>
+                  <input className="w-full rounded-xl border border-gray-300 p-2 focus:border-blue-500 focus:outline-none dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100" type="number"
+                    value={formEdicao.qtd_embalagem} onChange={(e) => setFormEdicao({ ...formEdicao, qtd_embalagem: e.target.value })} />
+                </label>
+              </div>
             </div>
             <button onClick={salvarEdicao} className="mt-3 w-full rounded-xl bg-blue-800 py-2.5 text-sm font-semibold text-white">
               Salvar

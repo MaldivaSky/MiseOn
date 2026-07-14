@@ -26,6 +26,16 @@
   color: #f3f4f6;
 }
 
+body {
+  color: #111827; /* gray-900 */
+  background-color: #f9fafb; /* gray-50 */
+}
+
+.dark body {
+  color: #f3f4f6; /* gray-100 */
+  background-color: #030712; /* gray-950 */
+}
+
 html {
   -webkit-tap-highlight-color: transparent;
 }

@@ -27,16 +27,17 @@ interface FormLoja {
   endereco: string;
   pedido_minimo: string;
   pix_chave: string;
+  efi_payee_code: string;
 }
 
 const vazio: FormLoja = {
   nome: '', descricao: '', logo_url: '', banner_url: '',
   cor_primaria: PALETA_CORES[5], cor_secundaria: PALETA_CORES[1],
   fonte: 'Inter', cor_texto: PALETA_TEXTO[0],
-  whatsapp: '', telefone: '', endereco: '', pedido_minimo: '0', pix_chave: '',
+  whatsapp: '', telefone: '', endereco: '', pedido_minimo: '0', pix_chave: '', efi_payee_code: '',
 };
 
-type Aba = 'aparencia' | 'identidade';
+type Aba = 'aparencia' | 'identidade' | 'pagamentos';
 
 export default function Loja() {
   const { lojaId } = useOutletContext<CtxLoja>();
@@ -63,6 +64,7 @@ export default function Loja() {
           cor_texto: data.cor_texto ?? vazio.cor_texto,
           whatsapp: data.whatsapp ?? '', telefone: data.telefone ?? '', endereco: data.endereco ?? '',
           pedido_minimo: String(data.pedido_minimo ?? 0), pix_chave: data.pix_chave ?? '',
+          efi_payee_code: data.efi_payee_code ?? '',
         });
       }
       setCarregando(false);
@@ -89,6 +91,7 @@ export default function Loja() {
       endereco: form.endereco || null,
       pedido_minimo: Number(form.pedido_minimo || 0),
       pix_chave: form.pix_chave || null,
+      efi_payee_code: form.efi_payee_code || null,
     }).eq('id', lojaId);
     setSalvando(false);
     if (error) { setErro('Erro ao salvar: ' + error.message); return; }
@@ -127,7 +130,7 @@ export default function Loja() {
     <div className="p-4">
       <div className="mb-4 flex items-center gap-2">
         <Store size={20} className="text-[var(--cor-primaria)]" />
-        <h2 className="text-lg font-bold">Minha Loja</h2>
+        <h2 className="text-lg font-bold">Configurar Loja</h2>
       </div>
 
       {/* Link público — o cliente acessa por aqui, sem login */}
@@ -176,11 +179,11 @@ export default function Loja() {
         </div>
       </div>
 
-      <div className="mb-4 flex gap-2">
-        {(['aparencia', 'identidade'] as Aba[]).map((a) => (
+      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+        {(['aparencia', 'identidade', 'pagamentos'] as Aba[]).map((a) => (
           <button key={a} onClick={() => setAba(a)}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium ${aba === a ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm'}`}>
-            {a === 'aparencia' ? 'Aparência' : 'Identidade'}
+            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${aba === a ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white text-gray-600 shadow-sm'}`}>
+            {a === 'aparencia' ? 'Aparência' : a === 'identidade' ? 'Identidade' : 'Pagamentos e Integrações'}
           </button>
         ))}
       </div>
@@ -219,6 +222,18 @@ export default function Loja() {
           <Campo label="Endereço" k="endereco" placeholder="Av. Sapopemba, 7750 - Box 2" />
           <Campo label="Pedido mínimo (R$)" k="pedido_minimo" placeholder="15" />
           <Campo label="Chave Pix (estático)" k="pix_chave" placeholder="chave-pix@email.com" />
+        </div>
+      )}
+
+      {aba === 'pagamentos' && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-[var(--cor-primaria)] bg-[var(--cor-primaria)]/5 p-4">
+            <h3 className="mb-1 text-sm font-bold text-[var(--cor-primaria)]">Recebimentos Automáticos via Efí Bank</h3>
+            <p className="mb-4 text-xs text-gray-600">
+              Configure seu "Identificador de Conta" (Payee Code) para receber os pagamentos dos clientes diretamente na sua conta da Efí via Split de Pagamentos. A plataforma não retém os valores.
+            </p>
+            <Campo label="Identificador de Conta Efí (Payee Code)" k="efi_payee_code" placeholder="ex: a1b2c3d4e5f6g7h8" />
+          </div>
         </div>
       )}
 

@@ -8,3 +8,6 @@ dev-dist
 .vercel
 .DS_Store
 *.tsbuildinfo
+
+.vercel
+.env*
