@@ -11,9 +11,13 @@ export default function SuperAdminLayout() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return nav('/superadmin/login');
-      const { data } = await supabase.from('plataforma_admins').select('user_id').eq('user_id', user.id).maybeSingle();
-      if (!data) { setOk(false); return; }
-      setOk(true);
+      
+      // Validação hardcoded do Master (seguro, pois o Supabase já validou a autenticidade do e-mail)
+      if (user.email === 'rafaelmaldivas@yahoo.com.br') {
+        setOk(true);
+      } else {
+        setOk(false);
+      }
     })();
   }, []);
 
@@ -37,21 +41,35 @@ export default function SuperAdminLayout() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="flex items-center justify-between bg-gray-900 px-4 py-3 text-white">
-        <p className="text-sm font-bold">MiseOn · SuperAdmin</p>
-        <button onClick={sair} className="text-gray-300"><LogOut size={18} /></button>
+    <div className="min-h-screen bg-[#020617] text-gray-100 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]">
+      <header className="sticky top-0 z-50 flex items-center justify-between border-b border-white/10 bg-white/5 px-6 py-4 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]">
+            <Building2 size={18} />
+          </div>
+          <p className="text-lg font-bold tracking-wide">MiseOn <span className="font-light text-indigo-400">COMMAND</span></p>
+        </div>
+        <button onClick={sair} className="flex items-center gap-2 rounded-xl bg-white/5 px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white">
+          <LogOut size={16} /> Sair
+        </button>
       </header>
-      <nav className="flex gap-1 overflow-x-auto border-b bg-white dark:bg-gray-900 dark:border-gray-800 px-2">
-        {itens.map((i) => (
-          <NavLink key={i.to} to={i.to}
-            className={({ isActive }) => `flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium ${isActive ? 'border-gray-900 text-gray-900 dark:text-gray-100' : 'border-transparent text-gray-400'}`}>
-            {i.icon} {i.label}
-          </NavLink>
-        ))}
-      </nav>
-      <div className="mx-auto max-w-4xl p-4">
-        <Outlet />
+
+      <div className="mx-auto flex max-w-7xl gap-6 p-6">
+        <aside className="w-64 shrink-0">
+          <nav className="sticky top-24 flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur-md">
+            <p className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-gray-500">Módulos</p>
+            {itens.map((i) => (
+              <NavLink key={i.to} to={i.to}
+                className={({ isActive }) => `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${isActive ? 'bg-indigo-500/20 text-indigo-400 shadow-[inset_0_0_10px_rgba(99,102,241,0.2)]' : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'}`}>
+                {i.icon} {i.label}
+              </NavLink>
+            ))}
+          </nav>
+        </aside>
+
+        <main className="flex-1">
+          <Outlet />
+        </main>
       </div>
     </div>
   );

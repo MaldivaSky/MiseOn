@@ -5,22 +5,207 @@ import { supabase } from '../../lib/supabase';
 import { Pedido, StatusPedido, fmt } from '../../types';
 import { tocarSom } from '../../lib/som';
 import type { CtxLoja } from './AdminLayout';
+import { MiseOnLoader } from '../../components/MiseOnLoader';
 
-const FLUXO: Record<string, { prox?: StatusPedido; label?: string; cor: string }> = {
-  NOVO:       { prox: 'ACEITO',     label: 'Aceitar',          cor: 'bg-amber-100 text-amber-700' },
-  ACEITO:     { prox: 'PREPARANDO', label: 'Preparando',       cor: 'bg-blue-100 text-blue-700' },
-  PREPARANDO: { prox: 'PRONTO',     label: 'Pronto',           cor: 'bg-indigo-100 text-indigo-700' },
-  PRONTO:     { prox: 'EM_ROTA',    label: 'Saiu p/ entrega',  cor: 'bg-purple-100 text-purple-700' },
-  EM_ROTA:    { prox: 'FINALIZADO', label: 'Finalizar',        cor: 'bg-cyan-100 text-cyan-700' },
-  FINALIZADO: { cor: 'bg-green-100 text-green-700' },
-  CANCELADO:  { cor: 'bg-red-100 text-red-600' },
+/* ── Mapa de status → label + cor brand ── */
+const FLUXO: Record<string, { prox?: StatusPedido; label?: string; bg: string; color: string }> = {
+  NOVO:       { prox: 'ACEITO',     label: 'Aceitar pedido',   bg: 'rgba(252,91,36,.18)',  color: '#FC5B24' },
+  ACEITO:     { prox: 'PREPARANDO', label: 'Preparando',       bg: 'rgba(10,92,196,.18)',  color: '#6B9EFF' },
+  PREPARANDO: { prox: 'PRONTO',     label: 'Marcar pronto',    bg: 'rgba(10,92,196,.18)',  color: '#6B9EFF' },
+  PRONTO:     { prox: 'EM_ROTA',    label: 'Saiu p/ entrega',  bg: 'rgba(124,58,237,.18)', color: '#A78BFA' },
+  EM_ROTA:    { prox: 'FINALIZADO', label: 'Finalizar',        bg: 'rgba(16,185,129,.18)', color: '#34D399' },
+  FINALIZADO: { bg: 'rgba(16,185,129,.14)', color: '#34D399' },
+  CANCELADO:  { bg: 'rgba(239,68,68,.14)',  color: '#F87171' },
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  NOVO: 'NOVO', ACEITO: 'ACEITO', PREPARANDO: 'PREP.', PRONTO: 'PRONTO',
+  EM_ROTA: 'EM ROTA', FINALIZADO: 'FINALIZADO', CANCELADO: 'CANCELADO',
 };
 
 const SELECT = '*, itens_pedido(*, itens_pedido_opcoes(*)), pagamentos(metodo, status, valor_pago)';
 
+/* ── Card de pedido com visual oficial MiseOn ── */
+function CardPedido({
+  p, onAvancar, onCancelar, onImprimir,
+}: {
+  p: Pedido;
+  onAvancar: () => void;
+  onCancelar: () => void;
+  onImprimir: () => void;
+}) {
+  const fluxo = FLUXO[p.status] ?? FLUXO.CANCELADO;
+  const hora = new Date(p.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+  return (
+    <div
+      style={{
+        background: '#0B1120',
+        border: '1px solid rgba(255,255,255,.08)',
+        borderRadius: 20,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        animation: 'mo-screen-in .45s cubic-bezier(.2,.8,.2,1) both',
+      }}
+    >
+      {/* ── Header azul ── */}
+      <div style={{ background: '#004198', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src="/brand/logo.png" alt="" style={{ height: 20, filter: 'brightness(0) invert(1)' }} />
+          <span style={{
+            fontFamily: "'Sora', sans-serif",
+            fontWeight: 800,
+            fontSize: 18,
+            color: '#EAF1FB',
+            letterSpacing: '.02em',
+          }}>
+            #{p.numero}
+          </span>
+        </div>
+        <span style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: '.12em',
+          textTransform: 'uppercase',
+          padding: '4px 10px',
+          borderRadius: 8,
+          background: fluxo.bg,
+          color: fluxo.color,
+          border: `1px solid ${fluxo.color}40`,
+        }}>
+          {STATUS_LABEL[p.status] || p.status}
+        </span>
+      </div>
+
+      {/* ── Info cliente ── */}
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,.06)' }}>
+        <p style={{ fontFamily: "'Sora', sans-serif", fontWeight: 600, fontSize: 14, color: '#EAF1FB', margin: 0 }}>
+          {p.identificador_cliente}
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#6C7A96' }}>{p.telefone_contato}</span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#6C7A96', background: 'rgba(255,255,255,.06)', padding: '1px 8px', borderRadius: 6 }}>{hora}</span>
+        </div>
+      </div>
+
+      {/* ── Status em destaque (se preparando/novo) ── */}
+      {['NOVO','ACEITO','PREPARANDO'].includes(p.status) && (
+        <div style={{ margin: '12px 16px 0', background: 'rgba(252,91,36,.1)', border: '1px solid rgba(252,91,36,.35)', borderRadius: 12, padding: '10px 14px' }}>
+          <div style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: 14, color: '#FE7A47' }}>
+            {p.status === 'NOVO' ? 'Aguardando aceite' : p.status === 'ACEITO' ? 'Aceito — preparando na cozinha' : 'Preparando na cozinha'}
+          </div>
+          <div style={{ fontSize: 12, color: '#AEB9CE', marginTop: 4 }}>Estoque baixado por ficha técnica ✓</div>
+        </div>
+      )}
+
+      {/* ── Itens ── */}
+      <div style={{ flex: 1, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {p.itens_pedido?.map((i) => (
+          <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+            <span style={{ color: '#AEB9CE' }}>
+              {i.quantidade}× {i.nome_produto}
+              {i.itens_pedido_opcoes?.map((o, x) => (
+                <span key={x} style={{ display: 'block', fontSize: 11, color: '#6C7A96', marginTop: 2 }}>+ {o.nome_opcao}</span>
+              ))}
+              {i.observacao && (
+                <span style={{ display: 'block', fontSize: 11, color: '#F87171', marginTop: 2, fontWeight: 600 }}>⚠ {i.observacao}</span>
+              )}
+            </span>
+            <span style={{ fontFamily: "'Sora', sans-serif", fontWeight: 600, color: '#EAF1FB', whiteSpace: 'nowrap', marginLeft: 8 }}>
+              {fmt(Number(i.preco_unitario) * i.quantidade)}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Entrega/Balcão ── */}
+      <div style={{ margin: '0 16px', borderTop: '1px solid rgba(255,255,255,.06)', paddingTop: 10, paddingBottom: 10 }}>
+        {p.tipo_pedido === 'DELIVERY' ? (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: '#AEB9CE' }}>
+            <Bike size={14} style={{ marginTop: 2, flexShrink: 0, color: '#6B9EFF' }} />
+            <span>{p.endereco_entrega}{p.bairro ? ` — ${p.bairro}` : ''}</span>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#34D399', fontWeight: 600 }}>
+            <Store size={14} /> Retirada no balcão
+          </div>
+        )}
+      </div>
+
+      {/* ── Total ── */}
+      <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,.06)' }}>
+        <span style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: 15, color: '#EAF1FB' }}>Total</span>
+        <span style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: 15, color: '#FC5B24' }}>{fmt(Number(p.valor_total))}</span>
+      </div>
+
+      {/* ── Botões ── */}
+      <div style={{ padding: '12px 16px', display: 'flex', gap: 8, borderTop: '1px solid rgba(255,255,255,.06)' }}>
+        {fluxo.prox && (
+          <button
+            onClick={onAvancar}
+            style={{
+              flex: 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              background: '#FC5B24',
+              border: 'none',
+              borderRadius: 12,
+              padding: '11px 0',
+              fontFamily: "'Sora', sans-serif",
+              fontWeight: 700,
+              fontSize: 14,
+              color: '#fff',
+              cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(252,91,36,.35)',
+              transition: 'filter .15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.15)')}
+            onMouseLeave={e => (e.currentTarget.style.filter = 'none')}
+          >
+            <Check size={16} /> {p.tipo_pedido === 'RETIRADA_BALCAO' && p.status === 'PRONTO' ? 'Finalizar Retirada' : fluxo.label}
+          </button>
+        )}
+        <button
+          onClick={onImprimir}
+          style={{
+            width: 44, height: 44, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(255,255,255,.05)',
+            border: '1px solid rgba(255,255,255,.1)',
+            borderRadius: 12,
+            color: '#AEB9CE',
+            cursor: 'pointer',
+          }}
+        >
+          <Printer size={18} />
+        </button>
+        {['NOVO','ACEITO'].includes(p.status) && (
+          <button
+            onClick={onCancelar}
+            style={{
+              width: 44, height: 44, flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(239,68,68,.1)',
+              border: '1px solid rgba(239,68,68,.25)',
+              borderRadius: 12,
+              color: '#F87171',
+              cursor: 'pointer',
+            }}
+          >
+            <XIcon size={18} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Painel principal ── */
 export default function PainelPedidos() {
   const { lojaId } = useOutletContext<CtxLoja>();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [carregando, setCarregando] = useState(true);
   const [imprimir, setImprimir] = useState<Pedido | null>(null);
 
   const carregar = async () => {
@@ -30,6 +215,7 @@ export default function PainelPedidos() {
       .gte('criado_em', new Date(Date.now() - 24 * 3600e3).toISOString())
       .order('criado_em', { ascending: false });
     setPedidos((data as Pedido[]) ?? []);
+    setCarregando(false);
   };
 
   useEffect(() => {
@@ -64,143 +250,70 @@ export default function PainelPedidos() {
   const encerrados = pedidos.filter((p) => ['FINALIZADO', 'CANCELADO'].includes(p.status));
 
   return (
-    <div className="p-4">
-      <div className="print:hidden">
-        <h2 className="mb-1 text-xl font-bold dark:text-white">Cozinha & Despacho</h2>
-        <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">{pedidos.length} pedidos em andamento</p>
+    <div style={{ minHeight: '100vh', background: '#070C18', padding: '20px 16px', fontFamily: "'Manrope', sans-serif" }}>
+
+      {/* ── Cabeçalho ── */}
+      <div className="print:hidden" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '.28em', color: '#FC5B24', textTransform: 'uppercase' }}>
+            PAINEL · AO VIVO
+          </span>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', display: 'inline-block' }} />
+        </div>
+        <h2 style={{ fontFamily: "'Sora', sans-serif", fontWeight: 800, fontSize: 26, color: '#EAF1FB', margin: 0 }}>
+          Cozinha &amp; Despacho
+        </h2>
+        <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#6C7A96', margin: '4px 0 0' }}>
+          {pedidos.length} pedidos hoje · {ativos.length} em andamento
+        </p>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 print:hidden">
-        {[...ativos, ...encerrados].map((p) => (
-          <div key={p.id} className="flex flex-col rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800 dark:shadow-none overflow-hidden">
-            {/* Header da Comanda */}
-            <div className={`p-4 border-b-4 ${p.tipo_pedido === 'DELIVERY' ? 'border-[var(--cor-primaria)]' : 'border-emerald-500'} dark:border-opacity-80`}>
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <span className="text-3xl font-black tracking-tight dark:text-white">#{p.numero}</span>
-                </div>
-                <span className={`rounded-lg px-2.5 py-1 text-xs font-bold uppercase tracking-wider ${FLUXO[p.status].cor}`}>
-                  {p.status.replace('_', ' ')}
-                </span>
-              </div>
-              <p className="text-sm font-semibold truncate dark:text-gray-200">{p.identificador_cliente}</p>
-              <div className="mt-1 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                <span>{p.telefone_contato}</span>
-                <span className="font-medium bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md">
-                  {new Date(p.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
+
+      {/* ── Loading ── */}
+      {carregando && (
+        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 60 }}>
+          <MiseOnLoader status="Sincronizando pedidos" rows={3} />
+        </div>
+      )}
+
+      {/* ── Grid de cards ── */}
+      {!carregando && (
+        <div className="print:hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[...ativos, ...encerrados].map((p) => (
+            <CardPedido
+              key={p.id}
+              p={p}
+              onAvancar={() => {
+                let proxStatus = FLUXO[p.status]?.prox!;
+                if (p.tipo_pedido === 'RETIRADA_BALCAO' && p.status === 'PRONTO') proxStatus = 'FINALIZADO';
+                mudarStatus(p, proxStatus);
+              }}
+              onCancelar={() => { if (confirm('Cancelar pedido?')) mudarStatus(p, 'CANCELADO'); }}
+              onImprimir={() => { setImprimir(p); setTimeout(() => window.print(), 100); }}
+            />
+          ))}
+          {pedidos.length === 0 && (
+            <div className="col-span-full" style={{ paddingTop: 60, textAlign: 'center' }}>
+              <img src="/brand/icon.png" alt="" style={{ width: 56, opacity: .3, margin: '0 auto 16px' }} />
+              <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: '#6C7A96', letterSpacing: '.08em' }}>
+                NENHUM PEDIDO HOJE AINDA
+              </p>
             </div>
+          )}
+        </div>
+      )}
 
-            {/* Corpo da Comanda (Itens) */}
-            <div className="flex-1 p-4 bg-gray-50/50 dark:bg-gray-900/50">
-              <ul className="space-y-4">
-                {p.itens_pedido?.map((i) => (
-                  <li key={i.id} className="border-b border-gray-100 dark:border-gray-800 pb-3 last:border-0 last:pb-0">
-                    <div className="flex items-start gap-2">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-gray-200 dark:bg-gray-800 text-sm font-bold dark:text-white">
-                        {i.quantidade}
-                      </span>
-                      <div className="flex-1 pt-0.5">
-                        <span className="text-base font-bold leading-tight dark:text-gray-100">{i.nome_produto}</span>
-                        
-                        {i.itens_pedido_opcoes && i.itens_pedido_opcoes.length > 0 && (
-                          <div className="mt-1.5 space-y-1">
-                            {i.itens_pedido_opcoes.map((o, x) => (
-                              <span key={x} className="flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                                <span className="h-1 w-1 rounded-full bg-emerald-500"></span>
-                                + {o.nome_opcao}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        
-                        {i.observacao && (
-                          <div className="mt-2 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 p-2">
-                            <span className="text-sm font-bold text-red-700 dark:text-red-400 uppercase leading-snug">
-                              ATENÇÃO: {i.observacao}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Rodapé da Comanda */}
-            <div className="border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-              <div className="mb-3 rounded-xl bg-gray-50 dark:bg-gray-800 p-2.5 text-sm">
-                {p.tipo_pedido === 'DELIVERY' ? (
-                  <div className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
-                    <Bike size={16} className="mt-0.5 shrink-0" />
-                    <div>
-                      <p className="font-semibold text-gray-900 dark:text-gray-100">{p.endereco_entrega}</p>
-                      {p.bairro && <p className="text-xs text-gray-500 dark:text-gray-400">Bairro: {p.bairro}</p>}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center gap-2 font-bold text-[var(--cor-primaria)]">
-                    <Store size={18} /> Retirada no balcão
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between font-bold dark:text-white mb-4">
-                <span>Total</span>
-                <span className="text-lg">{fmt(Number(p.valor_total))}</span>
-              </div>
-
-              {/* Botões de Ação */}
-              <div className="flex gap-2">
-                {FLUXO[p.status].prox && (
-                  <button 
-                    onClick={() => {
-                      let proxStatus = FLUXO[p.status].prox!;
-                      // Se for retirada no balcão, pula de PRONTO direto para FINALIZADO
-                      if (p.tipo_pedido === 'RETIRADA_BALCAO' && p.status === 'PRONTO') {
-                        proxStatus = 'FINALIZADO';
-                      }
-                      mudarStatus(p, proxStatus);
-                    }}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--cor-primaria)] py-3 font-bold text-white shadow-sm hover:opacity-90">
-                    <Check size={18} /> 
-                    {p.tipo_pedido === 'RETIRADA_BALCAO' && p.status === 'PRONTO' ? 'Finalizar Retirada' : FLUXO[p.status].label}
-                  </button>
-                )}
-                <button onClick={() => { setImprimir(p); setTimeout(() => window.print(), 100); }}
-                  className="flex shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 dark:border-gray-800 p-3 text-gray-600 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
-                  <Printer size={20} />
-                </button>
-                {['NOVO', 'ACEITO'].includes(p.status) && (
-                  <button onClick={() => { if (confirm('Cancelar pedido?')) mudarStatus(p, 'CANCELADO'); }}
-                    className="flex shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 p-3 text-red-600 hover:bg-red-100 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400">
-                    <XIcon size={20} />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-        {pedidos.length === 0 && <p className="col-span-full py-12 text-center text-gray-400">Nenhum pedido hoje ainda.</p>}
-      </div>
-      
-      {/* Comanda térmica 80mm — 2 vias: cozinha (sem preço) + cliente (com preço) */}
+      {/* ── Comanda térmica 80mm ── */}
       {imprimir && (
         <div className="hidden print:block font-mono text-black leading-tight" style={{ width: '100%', maxWidth: '300px', margin: '0 auto', fontSize: '12px' }}>
-          
           {/* VIA COZINHA */}
           <div className="comanda-print">
             <div className="text-center mb-2">
               <p className="font-bold text-base">================================</p>
               <h1 className="font-bold text-2xl uppercase mt-1">MISE ON</h1>
-              <p className="text-xs uppercase">Gestão Inteligente</p>
+              <p className="text-xs uppercase">Sistema Inteligente para sua Cozinha</p>
               <p className="font-bold text-base mt-1">================================</p>
-              
               <h2 className="font-bold text-lg uppercase mt-2">VIA DA COZINHA</h2>
             </div>
-            
             <div className="mb-2">
               <p className="font-bold text-xl uppercase border-y-2 border-black border-dashed py-1 text-center my-2">
                 PEDIDO #{imprimir.numero}
@@ -209,11 +322,8 @@ export default function PainelPedidos() {
                 * {imprimir.tipo_pedido === 'DELIVERY' ? 'ENTREGA' : 'RETIRADA NO BALCÃO'} *
               </p>
               <p>EMISSÃO: {new Date().toLocaleString('pt-BR')}</p>
-              <p>PEDIDO : {new Date(imprimir.criado_em + (!imprimir.criado_em.includes('Z') && !imprimir.criado_em.includes('+') ? 'Z' : '')).toLocaleString('pt-BR')}</p>
             </div>
-
             <p className="font-bold text-base text-center mt-3 mb-1">--------------------------------</p>
-            
             <div className="py-1">
               {imprimir.itens_pedido?.map((i) => (
                 <div key={i.id} className="mb-3">
@@ -222,9 +332,7 @@ export default function PainelPedidos() {
                     <span className="font-bold text-base uppercase leading-tight">{i.nome_produto}</span>
                   </div>
                   {i.itens_pedido_opcoes?.map((o, x) => (
-                    <p key={x} className="text-xs ml-6 uppercase">
-                      + {o.nome_opcao}
-                    </p>
+                    <p key={x} className="text-xs ml-6 uppercase">+ {o.nome_opcao}</p>
                   ))}
                   {i.observacao && (
                     <div className="ml-6 mt-1 border-l-2 border-black pl-2">
@@ -234,26 +342,21 @@ export default function PainelPedidos() {
                 </div>
               ))}
             </div>
-            
             <p className="font-bold text-base text-center mt-2 mb-2">================================</p>
-            <div className="text-center text-[10px] mb-8">
-              <p>*** FIM DA VIA COZINHA ***</p>
-            </div>
+            <div className="text-center text-[10px] mb-8"><p>*** FIM DA VIA COZINHA ***</p></div>
           </div>
-          
-          <div className="break-after-page"></div>
+
+          <div className="break-after-page" />
 
           {/* VIA CLIENTE */}
           <div className="comanda-print">
             <div className="text-center mb-2">
               <p className="font-bold text-base">================================</p>
               <h1 className="font-bold text-2xl uppercase mt-1">MISE ON</h1>
-              <p className="text-xs uppercase">Gestão Inteligente</p>
+              <p className="text-xs uppercase">Sistema Inteligente para sua Cozinha</p>
               <p className="font-bold text-base mt-1">================================</p>
-              
               <h2 className="font-bold text-lg uppercase mt-2">CUPOM NÃO FISCAL</h2>
             </div>
-            
             <div className="mb-2">
               <p className="font-bold text-xl uppercase border-y-2 border-black border-dashed py-1 text-center my-2">
                 PEDIDO #{imprimir.numero}
@@ -262,11 +365,8 @@ export default function PainelPedidos() {
                 * {imprimir.tipo_pedido === 'DELIVERY' ? 'ENTREGA' : 'RETIRADA NO BALCÃO'} *
               </p>
               <p>EMISSÃO: {new Date().toLocaleString('pt-BR')}</p>
-              <p>PEDIDO : {new Date(imprimir.criado_em + (!imprimir.criado_em.includes('Z') && !imprimir.criado_em.includes('+') ? 'Z' : '')).toLocaleString('pt-BR')}</p>
             </div>
-
             <p className="font-bold text-base text-center mt-3 mb-1">--------------------------------</p>
-            
             <div className="mb-2">
               <p className="font-bold uppercase">CLIENTE: {imprimir.identificador_cliente}</p>
               <p>TEL: {imprimir.telefone_contato}</p>
@@ -277,9 +377,7 @@ export default function PainelPedidos() {
                 </div>
               )}
             </div>
-
             <p className="font-bold text-base text-center mt-2 mb-1">--------------------------------</p>
-            
             <div className="py-1">
               <table className="w-full text-sm">
                 <thead>
@@ -305,51 +403,31 @@ export default function PainelPedidos() {
                 </tbody>
               </table>
             </div>
-
             <p className="font-bold text-base text-center mt-2 mb-1">--------------------------------</p>
-            
             <div className="py-1 text-sm">
-              <div className="flex justify-between">
-                <span>SUBTOTAL:</span>
-                <span>{fmt(Number(imprimir.subtotal))}</span>
-              </div>
+              <div className="flex justify-between"><span>SUBTOTAL:</span><span>{fmt(Number(imprimir.subtotal))}</span></div>
               {Number(imprimir.taxa_entrega) > 0 && (
-                <div className="flex justify-between">
-                  <span>TAXA ENTREGA:</span>
-                  <span>{fmt(Number(imprimir.taxa_entrega))}</span>
-                </div>
+                <div className="flex justify-between"><span>TAXA ENTREGA:</span><span>{fmt(Number(imprimir.taxa_entrega))}</span></div>
               )}
               {Number(imprimir.desconto) > 0 && (
-                <div className="flex justify-between font-bold">
-                  <span>DESCONTO:</span>
-                  <span>-{fmt(Number(imprimir.desconto))}</span>
-                </div>
+                <div className="flex justify-between font-bold"><span>DESCONTO:</span><span>-{fmt(Number(imprimir.desconto))}</span></div>
               )}
               <div className="flex justify-between font-bold text-lg mt-2 pt-2 border-t-2 border-black border-dashed">
-                <span>TOTAL:</span>
-                <span>{fmt(Number(imprimir.valor_total))}</span>
+                <span>TOTAL:</span><span>{fmt(Number(imprimir.valor_total))}</span>
               </div>
             </div>
-
             <p className="font-bold text-base text-center mt-3 mb-1">================================</p>
-
             <div className="py-1">
               <p className="font-bold uppercase text-center">FORMA DE PAGAMENTO</p>
-              <p className="uppercase text-center text-base font-bold mt-1">
-                {imprimir.pagamentos?.[0]?.metodo}
-              </p>
+              <p className="uppercase text-center text-base font-bold mt-1">{imprimir.pagamentos?.[0]?.metodo}</p>
               {imprimir.troco_para && (
-                <p className="text-center font-bold uppercase mt-1">
-                  (LEVAR TROCO PARA {fmt(Number(imprimir.troco_para))})
-                </p>
+                <p className="text-center font-bold uppercase mt-1">(LEVAR TROCO PARA {fmt(Number(imprimir.troco_para))})</p>
               )}
             </div>
-
             <p className="font-bold text-base text-center mt-2 mb-1">================================</p>
-
             <div className="text-center text-xs mt-4 mb-4">
               <p className="font-bold">OBRIGADO PELA PREFERÊNCIA!</p>
-              <p className="mt-1">MiseOn - O Sabor da Tecnologia</p>
+              <p className="mt-1">MiseOn · Sistema Inteligente para sua Cozinha</p>
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
-  Plus, Pencil, Trash2, X, Star, EyeOff, Eye, Search, ChevronUp, ChevronDown, Save,
+  Plus, Pencil, Trash2, X, Star, EyeOff, Eye, Search, ChevronUp, ChevronDown, Save, Sparkles,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Categoria, Produto, GrupoOpcoes, Opcao, Insumo, fmt } from '../../types';
@@ -240,7 +240,26 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
     (produto?.fichas_tecnicas ?? []).map((f) => ({ insumo_id: f.insumo_id, quantidade_consumida: String(f.quantidade_consumida) })),
   );
   const [salvando, setSalvando] = useState(false);
+  const [gerandoIA, setGerandoIA] = useState(false);
   const [erro, setErro] = useState('');
+
+  const gerarDescricaoIA = async () => {
+    if (!nome.trim()) return setErro('Preencha o nome do produto primeiro para a IA saber o que gerar.');
+    setGerandoIA(true);
+    setErro('');
+    try {
+      const catNome = categorias.find(c => c.id === categoriaId)?.nome;
+      const { data, error } = await supabase.functions.invoke('magic-copy', {
+        body: { nome, categoria: catNome }
+      });
+      if (error) throw error;
+      if (data?.descricao) setDescricao(data.descricao);
+      else throw new Error('Não foi possível gerar a descrição.');
+    } catch (e: any) {
+      setErro('Erro na IA: ' + (e?.message || 'Falha ao conectar com OpenAI.'));
+    }
+    setGerandoIA(false);
+  };
 
   const custoInsumos = ficha.reduce((s, f) => {
     const i = insumos.find((x) => x.id === f.insumo_id);
@@ -333,7 +352,12 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
 
         <div className="mt-3 space-y-2">
           <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do produto" className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
-          <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Descrição" rows={2} className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
+          <div className="relative">
+            <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Descrição" rows={3} className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 pb-10" />
+            <button onClick={gerarDescricaoIA} disabled={gerandoIA || !nome} className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-lg bg-orange-100 px-3 py-1.5 text-xs font-bold text-orange-600 transition-colors hover:bg-orange-200 disabled:opacity-50 dark:bg-orange-900/30 dark:text-orange-400">
+              <Sparkles size={14} className={gerandoIA ? "animate-pulse" : ""} /> {gerandoIA ? 'Gerando Mágica...' : 'Gerar com IA'}
+            </button>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <input value={preco} onChange={(e) => setPreco(e.target.value)} type="number" placeholder="Preço R$" className="rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
             <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} className="rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">

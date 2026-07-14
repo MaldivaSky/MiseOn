@@ -28,15 +28,19 @@ import Tenants from './pages/superadmin/Tenants';
 import Onboarding from './pages/superadmin/Onboarding';
 import Churn from './pages/superadmin/Churn';
 import Auditoria from './pages/superadmin/Auditoria';
-import Splash from './components/Splash';
+import Termos from './pages/legal/Termos';
+import Privacidade from './pages/legal/Privacidade';
+import BrandIntro from './components/BrandIntro';
+import { ScreenTransition } from './components/ScreenTransition';
 
 registerSW({ immediate: true });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <Splash>
-        <Routes>
+      <BrandIntro>
+        <ScreenTransition>
+          <Routes>
           <Route path="/admin/login" element={<Login />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="pedidos" replace />} />
@@ -60,14 +64,17 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="auditoria" element={<Auditoria />} />
           </Route>
           <Route path="/" element={<Home />} />
+          <Route path="/termos" element={<Termos />} />
+          <Route path="/privacidade" element={<Privacidade />} />
           <Route path="/lojas" element={<Lojas />} />
           <Route path="/cadastre-se" element={<CadastreSuaLoja />} />
           <Route path="/pedido/:id" element={<AcompanharPedido />} />
           <Route path="/:slug/meus-pedidos" element={<MeusPedidos />} />
           <Route path="/:slug" element={<Cardapio />} />
           <Route path="*" element={<Home />} />
-        </Routes>
-      </Splash>
+          </Routes>
+        </ScreenTransition>
+      </BrandIntro>
     </BrowserRouter>
   </React.StrictMode>,
 );
