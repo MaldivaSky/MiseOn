@@ -324,8 +324,8 @@ BEGIN
     INSERT INTO movimentacoes_estoque (loja_id, insumo_id, tipo, quantidade, motivo, pedido_id)
     VALUES (v_loja, r.insumo_id, 'BAIXA_VENDA', -r.qtd, 'Baixa automática (extras)', p_pedido_id);
   END LOOP;
+  -- Removemos o UPDATE pedidos daqui para evitar conflito de tupla modificada
 
-  UPDATE pedidos SET estoque_baixado = true WHERE id = p_pedido_id;
 
   -- contador "mais pedidos"
   UPDATE produtos p SET vendidos = vendidos + ip.quantidade
@@ -338,6 +338,7 @@ BEGIN
   NEW.atualizado_em = now();
   IF NEW.status = 'ACEITO' AND OLD.status = 'NOVO' THEN
     PERFORM fn_baixar_estoque(NEW.id);
+    NEW.estoque_baixado = true;
   END IF;
   -- estorno de estoque em cancelamento pós-aceite
   IF NEW.status = 'CANCELADO' AND OLD.estoque_baixado THEN
