@@ -32,7 +32,10 @@ export interface Loja {
   fonte?: string;
   cor_texto?: string;
   whatsapp: string;
+  telefone?: string;
   endereco?: string;
+  cnpj?: string;
+  razao_social?: string;
   pedido_minimo: number;
   aberto_manual?: boolean | null;
   pix_chave?: string;
