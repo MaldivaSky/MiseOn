@@ -36,7 +36,7 @@ async function efiFetch(path: string, init: RequestInit, token?: string) {
 }
 
 async function getToken(): Promise<string> {
-  const auth = btoa(`${Deno.env.get('EFI_CLIENT_ID')}:${Deno.env.get('EFI_CLIENT_SECRET')}`);
+  const auth = btoa(`${Deno.env.get('EFI_PIX_CLIENT_ID')}:${Deno.env.get('EFI_PIX_CLIENT_SECRET')}`);
   const res = await efiFetch('/oauth/token', {
     method: 'POST',
     headers: { Authorization: `Basic ${auth}` },

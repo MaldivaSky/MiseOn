@@ -15,7 +15,7 @@ const EFI_COB_URL = Deno.env.get('EFI_SANDBOX') === 'true'
   : 'https://cobrancas.api.efipay.com.br';
 
 async function getToken(): Promise<string> {
-  const auth = btoa(`${Deno.env.get('EFI_CLIENT_ID')}:${Deno.env.get('EFI_CLIENT_SECRET')}`);
+  const auth = btoa(`${Deno.env.get('EFI_COBRANCAS_CLIENT_ID')}:${Deno.env.get('EFI_COBRANCAS_CLIENT_SECRET')}`);
   const res = await fetch(`${EFI_COB_URL}/v1/authorize`, {
     method: 'POST',
     headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
