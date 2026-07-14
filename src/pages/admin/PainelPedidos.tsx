@@ -6,6 +6,7 @@ import { Pedido, StatusPedido, fmt } from '../../types';
 import { tocarSom } from '../../lib/som';
 import type { CtxLoja } from './AdminLayout';
 import { MiseOnLoader } from '../../components/MiseOnLoader';
+import MiseOnLogo from '../../components/MiseOnLogo';
 
 /* ── Mapa de status → label + cor brand ── */
 const FLUXO: Record<string, { prox?: StatusPedido; label?: string; bg: string; color: string }> = {
@@ -39,20 +40,15 @@ function CardPedido({
 
   return (
     <div
-      style={{
-        background: '#0B1120',
-        border: '1px solid rgba(255,255,255,.08)',
-        borderRadius: 20,
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        animation: 'mo-screen-in .45s cubic-bezier(.2,.8,.2,1) both',
-      }}
+      className="flex flex-col overflow-hidden rounded-[20px] border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0B1120]"
+      style={{ animation: 'mo-screen-in .45s cubic-bezier(.2,.8,.2,1) both' }}
     >
       {/* ── Header azul ── */}
       <div style={{ background: '#004198', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/brand/logo.png" alt="" style={{ height: 20, filter: 'brightness(0) invert(1)' }} />
+          <div style={{ background: '#fff', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+            <img src="/brand/icon.png" alt="MiseOn" style={{ width: 22, height: 22, objectFit: 'contain' }} />
+          </div>
           <span style={{
             fontFamily: "'Sora', sans-serif",
             fontWeight: 800,
@@ -80,13 +76,13 @@ function CardPedido({
       </div>
 
       {/* ── Info cliente ── */}
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,.06)' }}>
-        <p style={{ fontFamily: "'Sora', sans-serif", fontWeight: 600, fontSize: 14, color: '#EAF1FB', margin: 0 }}>
+      <div className="border-b border-gray-100 px-4 py-3 dark:border-white/5">
+        <p className="m-0 font-['Sora'] text-sm font-semibold text-gray-900 dark:text-[#EAF1FB]">
           {p.identificador_cliente}
         </p>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#6C7A96' }}>{p.telefone_contato}</span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#6C7A96', background: 'rgba(255,255,255,.06)', padding: '1px 8px', borderRadius: 6 }}>{hora}</span>
+        <div className="mt-1 flex justify-between">
+          <span className="font-['JetBrains_Mono'] text-[11px] text-gray-500 dark:text-[#6C7A96]">{p.telefone_contato}</span>
+          <span className="rounded-md bg-gray-100 px-2 py-[1px] font-['JetBrains_Mono'] text-[11px] text-gray-500 dark:bg-white/5 dark:text-[#6C7A96]">{hora}</span>
         </div>
       </div>
 
@@ -101,19 +97,19 @@ function CardPedido({
       )}
 
       {/* ── Itens ── */}
-      <div style={{ flex: 1, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="flex flex-1 flex-col gap-2 px-4 py-3">
         {p.itens_pedido?.map((i) => (
-          <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-            <span style={{ color: '#AEB9CE' }}>
+          <div key={i.id} className="flex justify-between text-[13px]">
+            <span className="text-gray-700 dark:text-[#AEB9CE]">
               {i.quantidade}× {i.nome_produto}
               {i.itens_pedido_opcoes?.map((o, x) => (
-                <span key={x} style={{ display: 'block', fontSize: 11, color: '#6C7A96', marginTop: 2 }}>+ {o.nome_opcao}</span>
+                <span key={x} className="mt-0.5 block text-[11px] text-gray-500 dark:text-[#6C7A96]">+ {o.nome_opcao}</span>
               ))}
               {i.observacao && (
-                <span style={{ display: 'block', fontSize: 11, color: '#F87171', marginTop: 2, fontWeight: 600 }}>⚠ {i.observacao}</span>
+                <span className="mt-0.5 block text-[11px] font-semibold text-red-500 dark:text-red-400">⚠ {i.observacao}</span>
               )}
             </span>
-            <span style={{ fontFamily: "'Sora', sans-serif", fontWeight: 600, color: '#EAF1FB', whiteSpace: 'nowrap', marginLeft: 8 }}>
+            <span className="ml-2 whitespace-nowrap font-['Sora'] font-semibold text-gray-900 dark:text-[#EAF1FB]">
               {fmt(Number(i.preco_unitario) * i.quantidade)}
             </span>
           </div>
@@ -121,77 +117,43 @@ function CardPedido({
       </div>
 
       {/* ── Entrega/Balcão ── */}
-      <div style={{ margin: '0 16px', borderTop: '1px solid rgba(255,255,255,.06)', paddingTop: 10, paddingBottom: 10 }}>
+      <div className="mx-4 border-t border-gray-100 py-2.5 dark:border-white/5">
         {p.tipo_pedido === 'DELIVERY' ? (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: '#AEB9CE' }}>
-            <Bike size={14} style={{ marginTop: 2, flexShrink: 0, color: '#6B9EFF' }} />
+          <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-[#AEB9CE]">
+            <Bike size={14} className="mt-0.5 shrink-0 text-blue-500 dark:text-[#6B9EFF]" />
             <span>{p.endereco_entrega}{p.bairro ? ` — ${p.bairro}` : ''}</span>
           </div>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#34D399', fontWeight: 600 }}>
+          <div className="flex items-center gap-1.5 text-emerald-500 font-semibold">
             <Store size={14} /> Retirada no balcão
           </div>
         )}
       </div>
 
-      {/* ── Total ── */}
-      <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,.06)' }}>
-        <span style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: 15, color: '#EAF1FB' }}>Total</span>
-        <span style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: 15, color: '#FC5B24' }}>{fmt(Number(p.valor_total))}</span>
+      <div className="px-4 py-3 flex justify-between border-t border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5">
+        <span className="font-['Sora'] font-bold text-[15px] text-gray-900 dark:text-gray-100">Total</span>
+        <span className="font-['Sora'] font-bold text-[15px] text-orange-500">{fmt(Number(p.valor_total))}</span>
       </div>
 
-      {/* ── Botões ── */}
-      <div style={{ padding: '12px 16px', display: 'flex', gap: 8, borderTop: '1px solid rgba(255,255,255,.06)' }}>
+      <div className="p-4 flex gap-2 border-t border-gray-100 dark:border-white/5">
         {fluxo.prox && (
           <button
             onClick={onAvancar}
-            style={{
-              flex: 1,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              background: '#FC5B24',
-              border: 'none',
-              borderRadius: 12,
-              padding: '11px 0',
-              fontFamily: "'Sora', sans-serif",
-              fontWeight: 700,
-              fontSize: 14,
-              color: '#fff',
-              cursor: 'pointer',
-              boxShadow: '0 4px 16px rgba(252,91,36,.35)',
-              transition: 'filter .15s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.15)')}
-            onMouseLeave={e => (e.currentTarget.style.filter = 'none')}
+            className="flex-1 flex items-center justify-center gap-2 bg-orange-500 text-white rounded-xl py-2.5 font-['Sora'] font-bold text-sm shadow-lg shadow-orange-500/20 hover:brightness-110 transition"
           >
-            <Check size={16} /> {p.tipo_pedido === 'RETIRADA_BALCAO' && p.status === 'PRONTO' ? 'Finalizar Retirada' : fluxo.label}
+            <Check size={16} /> {p.tipo_pedido === 'RETIRADA_BALCAO' && p.status === 'PRONTO' ? 'Finalizar' : fluxo.label}
           </button>
         )}
         <button
           onClick={onImprimir}
-          style={{
-            width: 44, height: 44, flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(255,255,255,.05)',
-            border: '1px solid rgba(255,255,255,.1)',
-            borderRadius: 12,
-            color: '#AEB9CE',
-            cursor: 'pointer',
-          }}
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition"
         >
           <Printer size={18} />
         </button>
         {['NOVO','ACEITO'].includes(p.status) && (
           <button
             onClick={onCancelar}
-            style={{
-              width: 44, height: 44, flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(239,68,68,.1)',
-              border: '1px solid rgba(239,68,68,.25)',
-              borderRadius: 12,
-              color: '#F87171',
-              cursor: 'pointer',
-            }}
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 transition"
           >
             <XIcon size={18} />
           </button>
@@ -201,7 +163,6 @@ function CardPedido({
   );
 }
 
-/* ── Painel principal ── */
 export default function PainelPedidos() {
   const { lojaId } = useOutletContext<CtxLoja>();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -250,32 +211,24 @@ export default function PainelPedidos() {
   const encerrados = pedidos.filter((p) => ['FINALIZADO', 'CANCELADO'].includes(p.status));
 
   return (
-    <div style={{ minHeight: '100vh', background: '#070C18', padding: '20px 16px', fontFamily: "'Manrope', sans-serif" }}>
-
-      {/* ── Cabeçalho ── */}
-      <div className="print:hidden" style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '.28em', color: '#FC5B24', textTransform: 'uppercase' }}>
-            PAINEL · AO VIVO
-          </span>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', display: 'inline-block' }} />
+    <div className="min-h-screen bg-gray-50 px-4 py-5 dark:bg-[#070C18]">
+      <div className="print:hidden mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="font-['JetBrains_Mono'] text-[11px] tracking-[0.28em] text-orange-500 uppercase">PAINEL · AO VIVO</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#22c55e]" />
         </div>
-        <h2 style={{ fontFamily: "'Sora', sans-serif", fontWeight: 800, fontSize: 26, color: '#EAF1FB', margin: 0 }}>
-          Cozinha &amp; Despacho
-        </h2>
-        <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#6C7A96', margin: '4px 0 0' }}>
+        <h2 className="m-0 font-['Sora'] text-[26px] font-extrabold text-gray-900 dark:text-white">Cozinha &amp; Despacho</h2>
+        <p className="mt-1 font-['JetBrains_Mono'] text-xs text-gray-500 dark:text-gray-400">
           {pedidos.length} pedidos hoje · {ativos.length} em andamento
         </p>
       </div>
 
-      {/* ── Loading ── */}
       {carregando && (
-        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 60 }}>
+        <div className="flex justify-center pt-16">
           <MiseOnLoader status="Sincronizando pedidos" rows={3} />
         </div>
       )}
 
-      {/* ── Grid de cards ── */}
       {!carregando && (
         <div className="print:hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {[...ativos, ...encerrados].map((p) => (
@@ -292,10 +245,10 @@ export default function PainelPedidos() {
             />
           ))}
           {pedidos.length === 0 && (
-            <div className="col-span-full" style={{ paddingTop: 60, textAlign: 'center' }}>
-              <img src="/brand/icon.png" alt="" style={{ width: 56, opacity: .3, margin: '0 auto 16px' }} />
-              <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: '#6C7A96', letterSpacing: '.08em' }}>
-                NENHUM PEDIDO HOJE AINDA
+            <div className="col-span-full pt-16 text-center">
+              <img src="/brand/icon.png" alt="" className="mx-auto mb-4 w-14 opacity-30 dark:opacity-20" />
+              <p className="font-['JetBrains_Mono'] text-[13px] tracking-wider text-gray-500 dark:text-[#6C7A96]">
+                NENHUM PEDIDO AINDA.
               </p>
             </div>
           )}
