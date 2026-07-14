@@ -16,6 +16,7 @@ export default function Assinatura() {
   const [cpf, setCpf] = useState('');
   const [validade, setValidade] = useState(''); // MM/AA
   const [cvv, setCvv] = useState('');
+  const [celular, setCelular] = useState('');
   const [processando, setProcessando] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
@@ -45,8 +46,6 @@ export default function Assinatura() {
     setProcessando(true);
 
     try {
-      // Simulação da geração de token e assinatura via Efí Bank (Plataforma)
-      // Em produção, isso chamaria a SDK da Efí e em seguida a Edge Function 'saas-assinar'
       if (!(window as any).EfiPay) {
         await new Promise<void>((ok, err) => {
           const s = document.createElement('script');
@@ -58,33 +57,52 @@ export default function Assinatura() {
       }
       const EfiPay = (window as any).EfiPay;
       
-      // Validação simulada para o fluxo
-      const brand = await EfiPay.CreditCard.setCardNumber(num).verifyCardBrand();
+      const payeeCode = import.meta.env.VITE_MISEON_EFI_PAYEE_CODE;
+      if (!payeeCode) throw new Error('Identificador da conta (Payee Code) não configurado na plataforma.');
+
+      const ambiente = import.meta.env.VITE_SUPABASE_URL?.includes('localhost') ? 'sandbox' : 'production';
       
-      // Como a conta mestre é da Plataforma (MiseOn), passamos o ID da plataforma
-      // Em um ambiente real, o backend processa a recorrência guardando o token de pagamento.
+      let payment_token = '';
+      try {
+        const result = await EfiPay.CreditCard
+          .setAccount(payeeCode)
+          .setEnvironment(ambiente)
+          .setCreditCardData({
+            brand: await EfiPay.CreditCard.setCardNumber(num).verifyCardBrand(),
+            number: num,
+            cvv: cvv,
+            expirationMonth: mes,
+            expirationYear: ano.length === 2 ? `20${ano}` : ano,
+            holderName: nome,
+            holderDocument: cpf.replace(/\D/g, ''),
+            reuse: false
+          })
+          .getPaymentToken();
+          
+        payment_token = result.payment_token;
+      } catch (tokenErr: any) {
+        throw new Error(tokenErr?.error_description || 'Falha ao validar o cartão de crédito.');
+      }
       
-      // Chamada para a nossa Edge Function (simulada)
-      /*
+      // Chama a Edge Function
       const { data, error } = await supabase.functions.invoke('saas-assinar', {
-        body: { loja_id: lojaId, card_token: 'token_simulado' }
+        body: { 
+          loja_id: lojaId, 
+          payment_token,
+          customer: {
+            name: nome,
+            cpf: cpf,
+            phone: celular
+          }
+        }
       });
-      */
 
-      // Simulando sucesso imediato
-      await new Promise(r => setTimeout(r, 1500));
+      if (error || data?.error) {
+        throw new Error(data?.error || error?.message || 'Pagamento recusado.');
+      }
       
-      // Atualizando banco localmente para refletir
-      const novoVencimento = new Date();
-      novoVencimento.setMonth(novoVencimento.getMonth() + 1);
-      
-      await supabase.from('lojas').update({
-        status_assinatura: 'ATIVO',
-        vencimento_assinatura: novoVencimento.toISOString()
-      }).eq('id', lojaId);
-
       setSucesso('Assinatura ativada com sucesso! Cobrança recorrente configurada.');
-      setNumero(''); setNome(''); setCpf(''); setValidade(''); setCvv('');
+      setNumero(''); setNome(''); setCpf(''); setValidade(''); setCvv(''); setCelular('');
       carregarDados();
 
     } catch (e: any) {
@@ -154,8 +172,12 @@ export default function Assinatura() {
             <input value={nome} onChange={(e) => setNome(e.target.value)}
               placeholder="Nome impresso no cartão" className="w-full rounded-xl border border-gray-300 p-3 text-sm focus:border-[var(--cor-primaria)] focus:outline-none" />
             
-            <input value={cpf} onChange={(e) => setCpf(e.target.value)} inputMode="numeric"
-              placeholder="CPF do titular" className="w-full rounded-xl border border-gray-300 p-3 text-sm focus:border-[var(--cor-primaria)] focus:outline-none" />
+            <div className="flex gap-3">
+              <input value={cpf} onChange={(e) => setCpf(e.target.value)} inputMode="numeric"
+                placeholder="CPF do titular" className="w-1/2 rounded-xl border border-gray-300 p-3 text-sm focus:border-[var(--cor-primaria)] focus:outline-none" />
+              <input value={celular} onChange={(e) => setCelular(e.target.value)} inputMode="numeric"
+                placeholder="Celular (DDD + Número)" className="w-1/2 rounded-xl border border-gray-300 p-3 text-sm focus:border-[var(--cor-primaria)] focus:outline-none" />
+            </div>
             
             <div className="flex gap-3">
               <input value={validade} onChange={(e) => setValidade(e.target.value)}
