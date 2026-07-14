@@ -170,7 +170,10 @@ export default function Compras() {
                     <div>
                       <p className="font-bold text-gray-900 dark:text-gray-100 text-lg">{it.insumo.nome}</p>
                       <p className="text-xs text-red-500 dark:text-red-400 font-semibold flex items-center gap-1 mt-0.5">
-                        <AlertTriangle size={12} /> Estoque crítico: restam {Number(it.insumo.quantidade_atual)} (Mín. {Number(it.insumo.estoque_minimo)})
+                        <AlertTriangle size={12} /> Estoque crítico: restam {Number(it.insumo.quantidade_atual)} {it.insumo.unidade_medida} (Mín. {Number(it.insumo.estoque_minimo)} {it.insumo.unidade_medida})
+                      </p>
+                      <p className="text-[10px] font-medium text-gray-500 dark:text-gray-500 mt-1.5 flex items-center gap-1">
+                        <PackageCheck size={10} /> 1 {it.unidade_compra} = {Number(it.insumo.qtd_embalagem) || 1} {it.insumo.unidade_medida}
                       </p>
                     </div>
                   </div>

@@ -23,6 +23,13 @@ import Marketing from './pages/admin/Marketing';
 import Equipe from './pages/admin/Equipe';
 import Assinatura from './pages/admin/Assinatura';
 import AdminLayout from './pages/admin/AdminLayout';
+
+// Entregador App
+import EntregadorLayout from './pages/entregador/EntregadorLayout';
+import EntregadorLogin from './pages/entregador/Login';
+import EntregadorDashboard from './pages/entregador/Dashboard';
+import EntregadorRota from './pages/entregador/Rota';
+
 import SuperAdminLogin from './pages/superadmin/Login';
 import SuperAdminLayout from './pages/superadmin/SuperAdminLayout';
 import Tenants from './pages/superadmin/Tenants';
@@ -63,6 +70,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="churn" element={<Churn />} />
             <Route path="auditoria" element={<Auditoria />} />
           </Route>
+          
+          <Route path="/entregador/login" element={<EntregadorLogin />} />
+          <Route path="/entregador" element={<EntregadorLayout />}>
+            <Route index element={<EntregadorDashboard />} />
+            <Route path="rota/:id" element={<EntregadorRota />} />
+          </Route>
+
           <Route path="/" element={<Home />} />
           <Route path="/termos" element={<Termos />} />
           <Route path="/privacidade" element={<Privacidade />} />

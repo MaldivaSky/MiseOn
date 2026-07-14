@@ -102,7 +102,7 @@ export default function AdminLayout() {
         <Outlet context={ctx} />
       </div>
 
-      <nav className="fixed bottom-0 left-1/2 flex w-full max-w-3xl -translate-x-1/2 justify-around border-t bg-white dark:bg-gray-900 dark:border-gray-800 py-2 dark:border-gray-800 dark:bg-gray-900 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] dark:shadow-none print:hidden">
+      <nav className="fixed bottom-0 left-1/2 flex w-full max-w-3xl lg:max-w-5xl -translate-x-1/2 justify-around border-t bg-white dark:bg-gray-900 dark:border-gray-800 py-2 dark:border-gray-800 dark:bg-gray-900 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] dark:shadow-none print:hidden">
         {principal.map((i) => (
           <NavLink key={i.to} to={i.to}
             className={({ isActive }) => `flex flex-col items-center gap-0.5 px-4 py-1 text-xs ${isActive ? 'font-semibold text-[var(--cor-primaria)]' : 'text-gray-400 dark:text-gray-500 dark:text-gray-400'}`}>
