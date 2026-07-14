@@ -5,6 +5,7 @@ import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star, LogIn, LogOut
 import { supabase } from '../lib/supabase';
 import ModalAuthCliente from '../components/ModalAuthCliente';
 import ModalMinhaConta from '../components/ModalMinhaConta';
+import EnderecoMixin, { EnderecoFormData } from '../components/EnderecoMixin';
 import {
   Loja, Banner, Categoria, Produto, Cupom, TaxaEntrega, ItemCarrinho, Cliente,
   HorarioFuncionamento, MetodoPgto, fmt, precoItem,
@@ -648,8 +649,8 @@ function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, o
   const [tipo, setTipo] = useState<'DELIVERY' | 'RETIRADA_BALCAO'>('DELIVERY');
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
-  const [endereco, setEndereco] = useState('');
-  const [bairro, setBairro] = useState('');
+  const [enderecoObj, setEnderecoObj] = useState<EnderecoFormData | null>(null);
+  const [bairroManual, setBairroManual] = useState(''); // fallback para taxas se o endereço não preencher corretamente
   const [metodo, setMetodo] = useState<MetodoPgto>('PIX');
   const [trocoPara, setTrocoPara] = useState('');
   const [codCupom, setCodCupom] = useState('');
@@ -667,8 +668,27 @@ function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, o
       if (c) {
         setNome(c.nome ?? '');
         setTelefone(c.telefone ?? '');
-        setEndereco(c.endereco ?? '');
-        setBairro(c.bairro ?? '');
+        // Tentar buscar do enderecos_cliente o endereço padrão, ou usar o endereco do cliente (string)
+        supabase.from('enderecos_cliente').select('*').eq('cliente_id', c.id).eq('padrao', true).maybeSingle().then(({ data: end }) => {
+          if (end) {
+            setEnderecoObj({
+              cep: end.cep,
+              logradouro: end.logradouro,
+              numero: end.numero || '',
+              complemento: end.complemento || '',
+              bairro: end.bairro,
+              cidade: end.cidade,
+              uf: end.uf,
+              ponto_referencia: end.ponto_referencia || '',
+              sem_numero: !end.numero || end.numero === 'SN'
+            });
+            setBairroManual(end.bairro);
+          } else {
+             // Fallback
+             setEnderecoObj(null);
+             setBairroManual(c.bairro ?? '');
+          }
+        });
         if (c.forma_pagamento_preferida) setMetodo(c.forma_pagamento_preferida);
       } else if (user.user_metadata?.full_name || user.user_metadata?.name) {
         setNome(user.user_metadata.full_name ?? user.user_metadata.name);
@@ -678,7 +698,8 @@ function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, o
   }, [user, loja.id]);
 
   const subtotal = carrinho.reduce((s, i) => s + precoItem(i), 0);
-  const taxa = tipo === 'DELIVERY' ? Number(taxas.find((t) => t.bairro === bairro)?.valor ?? taxas[0]?.valor ?? 0) : 0;
+  const bairroAtual = enderecoObj?.bairro || bairroManual;
+  const taxa = tipo === 'DELIVERY' ? Number(taxas.find((t) => t.bairro.toLowerCase() === bairroAtual.toLowerCase())?.valor ?? taxas[0]?.valor ?? 0) : 0;
   const desconto = cupom
     ? cupom.tipo === 'FIXO' ? Number(cupom.valor) : (subtotal * Number(cupom.valor)) / 100
     : 0;
@@ -704,9 +725,14 @@ function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, o
     }
     if (!aberta) return setErro('A loja está fechada no momento.');
     if (!nome || !telefone) return setErro('Preencha nome e telefone.');
-    if (tipo === 'DELIVERY' && !endereco) return setErro('Preencha o endereço de entrega.');
+    if (tipo === 'DELIVERY' && (!enderecoObj || !enderecoObj.logradouro || !enderecoObj.numero)) return setErro('Preencha o endereço completo com número.');
     if (subtotal < Number(loja.pedido_minimo)) return setErro(`Pedido mínimo: ${fmt(Number(loja.pedido_minimo))}.`);
     setEnviando(true);
+
+    const enderecoFormatado = tipo === 'DELIVERY' && enderecoObj 
+      ? `${enderecoObj.logradouro}, ${enderecoObj.numero} ${enderecoObj.complemento ? `(${enderecoObj.complemento})` : ''}` 
+      : null;
+    const bairroFormatado = tipo === 'DELIVERY' && enderecoObj ? enderecoObj.bairro : null;
 
     // perfil do cliente autenticado — vira o "lead" que o lojista consulta depois
     const { data: clienteRow } = await supabase.from('clientes').upsert({
@@ -714,10 +740,22 @@ function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, o
       user_id: user.id,
       telefone, nome,
       email: user.email ?? null,
-      endereco: tipo === 'DELIVERY' ? endereco : null,
-      bairro: tipo === 'DELIVERY' ? bairro : null,
+      endereco: enderecoFormatado,
+      bairro: bairroFormatado,
       forma_pagamento_preferida: metodo,
     }, { onConflict: 'loja_id,user_id' }).select('id').single();
+
+    // Salvar o endereço no enderecos_cliente se não houver um ainda e for delivery
+    if (tipo === 'DELIVERY' && clienteRow?.id && enderecoObj) {
+       const { count } = await supabase.from('enderecos_cliente').select('*', { count: 'exact', head: true }).eq('cliente_id', clienteRow.id);
+       if (count === 0) {
+          await supabase.from('enderecos_cliente').insert({
+             cliente_id: clienteRow.id,
+             ...enderecoObj,
+             padrao: true
+          });
+       }
+    }
 
     const { data: pedido, error } = await supabase
       .from('pedidos')
@@ -728,8 +766,15 @@ function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, o
         telefone_contato: telefone,
         cliente_id: clienteRow?.id ?? null,
         cliente_user_id: user.id,
-        endereco_entrega: tipo === 'DELIVERY' ? endereco : null,
-        bairro: tipo === 'DELIVERY' ? bairro : null,
+        endereco_entrega: enderecoFormatado,
+        bairro: bairroFormatado,
+        cep: enderecoObj?.cep,
+        logradouro: enderecoObj?.logradouro,
+        numero: enderecoObj?.numero,
+        complemento: enderecoObj?.complemento,
+        cidade: enderecoObj?.cidade,
+        uf: enderecoObj?.uf,
+        ponto_referencia: enderecoObj?.ponto_referencia,
         subtotal, taxa_entrega: taxa, desconto,
         cupom_id: cupom?.id ?? null,
         valor_total: total,
@@ -791,7 +836,7 @@ function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, o
       (taxa ? `Entrega: ${fmt(taxa)}\n` : '') +
       (desconto ? `Desconto (${cupom?.codigo}): -${fmt(desconto)}\n` : '') +
       `*Total: ${fmt(total)}*\n\n` +
-      `${tipo === 'DELIVERY' ? `📍 ${endereco}${bairro ? ` — ${bairro}` : ''}` : '🏪 Retirada no balcão'}\n` +
+      `${tipo === 'DELIVERY' ? `📍 ${enderecoFormatado}${bairroFormatado ? ` — ${bairroFormatado}` : ''}` : '🏪 Retirada no balcão'}\n` +
       `👤 ${nome} · ${telefone}\n` +
       `💳 ${metodo}${metodo === 'DINHEIRO' && trocoPara ? ` (troco p/ ${fmt(Number(trocoPara))})` : ''}` +
       (metodo === 'PIX' && loja.pix_chave ? `\n🔑 Pix: ${loja.pix_chave}` : '');
@@ -865,12 +910,24 @@ function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, o
               <input value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="WhatsApp (11) 9…" className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
               {tipo === 'DELIVERY' && (
                 <>
-                  <input value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Endereço completo" className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
+                  <div className="rounded-xl border p-4 dark:border-gray-800 dark:bg-gray-900 shadow-sm">
+                    <h4 className="mb-3 text-sm font-bold dark:text-gray-200 flex items-center gap-2"><MapPin size={16} className="text-[var(--cor-primaria)]" /> Endereço de Entrega</h4>
+                    <EnderecoMixin 
+                      valorInicial={enderecoObj ?? undefined}
+                      onMudanca={setEnderecoObj} 
+                    />
+                  </div>
                   {taxas.length > 0 && (
-                    <select value={bairro} onChange={(e) => setBairro(e.target.value)} className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
-                      <option value="">Bairro (taxa de entrega)</option>
-                      {taxas.map((t) => <option key={t.id} value={t.bairro}>{t.bairro} — {fmt(Number(t.valor))}</option>)}
-                    </select>
+                    <div className="rounded-xl border p-3 dark:border-gray-800 dark:bg-gray-900 mt-2">
+                       <p className="text-xs text-gray-500 mb-1">Taxa por Bairro (Verifique se o seu está na lista ou selecione o mais próximo se houver erro)</p>
+                       <select value={bairroAtual} onChange={(e) => {
+                          setBairroManual(e.target.value);
+                          if (enderecoObj) setEnderecoObj({...enderecoObj, bairro: e.target.value});
+                       }} className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
+                         <option value="">Selecione o Bairro para a Taxa...</option>
+                         {taxas.map(t => <option key={t.id} value={t.bairro}>{t.bairro} - {fmt(Number(t.valor))}</option>)}
+                       </select>
+                    </div>
                   )}
                 </>
               )}

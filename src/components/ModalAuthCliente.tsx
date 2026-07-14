@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { X, LogIn, Mail, Lock } from 'lucide-react';
 
 export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const [modo, setModo] = useState<'LOGIN' | 'CADASTRO'>('LOGIN');
+  const [modo, setModo] = useState<'LOGIN' | 'CADASTRO' | 'MAGIC_LINK'>('LOGIN');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [carregando, setCarregando] = useState(false);
@@ -22,6 +22,10 @@ export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean;
       const { error } = await supabase.auth.signUp({ email, password: senha });
       if (error) setErro(error.message);
       else setSucesso('Conta criada! Verifique seu e-mail para confirmar (se necessário) ou faça login.');
+    } else if (modo === 'MAGIC_LINK') {
+      const { error } = await supabase.auth.signInWithOtp({ email });
+      if (error) setErro(error.message);
+      else setSucesso('Enviamos um link de acesso mágico para o seu e-mail!');
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
       if (error) setErro('E-mail ou senha inválidos.');
@@ -45,10 +49,10 @@ export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean;
         </button>
 
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-          {modo === 'LOGIN' ? 'Acesse sua conta' : 'Crie sua conta'}
+          {modo === 'LOGIN' ? 'Acesse sua conta' : modo === 'CADASTRO' ? 'Crie sua conta' : 'Acesso rápido'}
         </h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          {modo === 'LOGIN' ? 'Bem-vindo de volta! Faça login para continuar.' : 'Cadastre-se para comprar mais rápido.'}
+          {modo === 'LOGIN' ? 'Bem-vindo de volta! Faça login para continuar.' : modo === 'CADASTRO' ? 'Cadastre-se para comprar mais rápido.' : 'Receba um link mágico por e-mail para entrar na hora.'}
         </p>
 
         {erro && <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400">{erro}</div>}
@@ -66,27 +70,38 @@ export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean;
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-gray-950 dark:text-white dark:focus:border-blue-500"
             />
           </div>
-          <div className="relative">
-            <Lock className="absolute left-3 top-3.5 text-gray-400" size={18} />
-            <input
-              type="password"
-              required
-              minLength={6}
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              placeholder="Sua senha"
-              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-gray-950 dark:text-white dark:focus:border-blue-500"
-            />
-          </div>
+          {modo !== 'MAGIC_LINK' && (
+            <div className="relative">
+              <Lock className="absolute left-3 top-3.5 text-gray-400" size={18} />
+              <input
+                type="password"
+                required
+                minLength={6}
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                placeholder="Sua senha"
+                className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-gray-950 dark:text-white dark:focus:border-blue-500"
+              />
+            </div>
+          )}
 
           <button
             type="submit"
             disabled={carregando}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-50"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--cor-primaria)] py-3.5 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-50"
           >
-            {carregando ? 'Aguarde...' : modo === 'LOGIN' ? 'Entrar' : 'Cadastrar'}
+            {carregando ? 'Aguarde...' : modo === 'LOGIN' ? 'Entrar' : modo === 'CADASTRO' ? 'Cadastrar' : 'Enviar Link Mágico'}
           </button>
         </form>
+
+        {modo === 'LOGIN' && (
+          <button
+            onClick={() => { setModo('MAGIC_LINK'); setErro(''); setSucesso(''); }}
+            className="mt-4 w-full text-center text-sm font-medium text-[var(--cor-primaria)] hover:underline"
+          >
+            Esqueci a senha ou acessar sem senha
+          </button>
+        )}
 
         <div className="my-6 flex items-center gap-3 text-xs text-gray-400">
           <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800"></div>

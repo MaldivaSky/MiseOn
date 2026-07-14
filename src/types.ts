@@ -142,6 +142,13 @@ export interface Pedido {
   telefone_contato?: string;
   endereco_entrega?: string;
   bairro?: string;
+  cep?: string;
+  logradouro?: string;
+  numero_endereco?: string;
+  complemento?: string;
+  cidade?: string;
+  uf?: string;
+  ponto_referencia?: string;
   subtotal: number;
   taxa_entrega: number;
   desconto: number;
@@ -166,6 +173,29 @@ export interface Cliente {
   total_pedidos: number;
   ultimo_pedido?: string | null;
   criado_em: string;
+  enderecos?: EnderecoCliente[];
+  favoritos?: FavoritoCliente[];
+}
+
+export interface EnderecoCliente {
+  id: string;
+  cliente_id: string;
+  cep: string;
+  logradouro: string;
+  numero?: string;
+  complemento?: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+  ponto_referencia?: string;
+  padrao: boolean;
+}
+
+export interface FavoritoCliente {
+  id: string;
+  cliente_id: string;
+  produto_id: string;
+  produto?: Produto;
 }
 
 export interface ItemPedido {
