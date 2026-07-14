@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Check, Clock, ChefHat, Package, Bike, PartyPopper, XCircle } from 'lucide-react';
+import { Check, Clock, ChefHat, Package, Bike, PartyPopper, XCircle, Download, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Pedido, StatusPedido, fmt } from '../types';
 import { tocarSom } from '../lib/som';
@@ -42,6 +42,23 @@ export default function AcompanharPedido() {
   const [posicao, setPosicao] = useState<{ lat: number; lng: number } | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const statusAnterior = useRef<StatusPedido | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') setDeferredPrompt(null);
+  };
 
   const carregar = async () => {
     const { data } = await supabase
@@ -116,6 +133,20 @@ export default function AcompanharPedido() {
         </div>
       </header>
 
+      {/* Alerta de Retenção */}
+      <div className="bg-amber-100 dark:bg-amber-900/40 border-b border-amber-200 dark:border-amber-800 p-3 flex flex-col items-center justify-center text-center">
+        <p className="flex items-center gap-1.5 text-xs md:text-sm font-bold text-amber-800 dark:text-amber-400">
+          <AlertTriangle size={16} /> Não feche esta página!
+        </p>
+        <p className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">Seu pedido será atualizado aqui em tempo real.</p>
+        
+        {deferredPrompt && (
+          <button onClick={handleInstallClick} className="mt-3 flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">
+            <Download size={16} /> Instalar o App do Restaurante (Grátis)
+          </button>
+        )}
+      </div>
+
       <div className="mx-auto max-w-2xl p-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:p-6">
         {cancelado ? (
           <div className="flex items-center gap-2 rounded-2xl bg-red-50 p-4 text-red-600 dark:bg-red-950/40 dark:text-red-400">
@@ -171,7 +202,6 @@ export default function AcompanharPedido() {
           {pedido.tipo_pedido === 'DELIVERY' && (
             <p className="mt-3 text-center text-xs text-gray-400">Entrega em {pedido.endereco_entrega}{pedido.bairro ? ` — ${pedido.bairro}` : ''}</p>
           )}
-          <p className="mt-4 text-center text-[11px] text-gray-300 dark:text-gray-600">Mantenha esta página aberta ou salve o link para acompanhar as atualizações.</p>
         </div>
       </div>
     </div>

@@ -64,67 +64,119 @@ export default function PainelPedidos() {
   const encerrados = pedidos.filter((p) => ['FINALIZADO', 'CANCELADO'].includes(p.status));
 
   return (
-    <div className="p-4">
-      <h2 className="mb-3 font-bold dark:text-gray-100">Pedidos de hoje ({ativos.length} ativos)</h2>
-      <div className="space-y-3">
+    <div className="p-4 md:p-6 min-h-[calc(100vh-80px)]">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold dark:text-gray-100">Cozinha & Despacho</h2>
+          <p className="text-sm text-gray-500">{ativos.length} pedidos em andamento</p>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {[...ativos, ...encerrados].map((p) => (
-          <div key={p.id} className="rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800 dark:shadow-none">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-lg font-bold">#{p.numero}</span>
-                <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-semibold ${FLUXO[p.status].cor}`}>
+          <div key={p.id} className="flex flex-col rounded-2xl bg-white shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800 dark:shadow-none overflow-hidden">
+            {/* Header da Comanda */}
+            <div className={`p-4 border-b-4 ${p.tipo_pedido === 'DELIVERY' ? 'border-[var(--cor-primaria)]' : 'border-emerald-500'} dark:border-opacity-80`}>
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <span className="text-3xl font-black tracking-tight dark:text-white">#{p.numero}</span>
+                </div>
+                <span className={`rounded-lg px-2.5 py-1 text-xs font-bold uppercase tracking-wider ${FLUXO[p.status].cor}`}>
                   {p.status.replace('_', ' ')}
                 </span>
               </div>
-              <span className="text-xs text-gray-400">
-                {new Date(p.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-              </span>
+              <p className="text-sm font-semibold truncate dark:text-gray-200">{p.identificador_cliente}</p>
+              <div className="mt-1 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                <span>{p.telefone_contato}</span>
+                <span className="font-medium bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md">
+                  {new Date(p.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
             </div>
 
-            <p className="mt-1 text-sm font-medium">{p.identificador_cliente} · {p.telefone_contato}</p>
-            <p className="text-xs text-gray-500">
-              {p.tipo_pedido === 'DELIVERY' ? <>🛵 {p.endereco_entrega}{p.bairro ? ` — ${p.bairro}` : ''}</> : '🏪 Retirada no balcão'}
-            </p>
-
-            <ul className="mt-2 space-y-1 border-t pt-2 text-sm">
-              {p.itens_pedido?.map((i) => (
-                <li key={i.id}>
-                  <span className="font-medium">{i.quantidade}x {i.nome_produto}</span>
-                  {i.itens_pedido_opcoes?.map((o, x) => <span key={x} className="block pl-4 text-xs text-gray-500">+ {o.nome_opcao}</span>)}
-                  {i.observacao && <span className="block pl-4 text-xs italic text-amber-600">Obs: {i.observacao}</span>}
-                </li>
-              ))}
-            </ul>
-
-            <div className="mt-2 flex items-center justify-between border-t pt-2 text-sm">
-              <span className="text-gray-500">
-                {p.pagamentos?.[0]?.metodo}
-                {p.pagamentos?.[0]?.status === 'PAGO' && <span className="ml-1 font-semibold text-green-600">· PAGO ✓</span>}
-                {p.troco_para && <> · troco p/ {fmt(Number(p.troco_para))}</>}
-              </span>
-              <span className="font-bold">{fmt(Number(p.valor_total))}</span>
+            {/* Corpo da Comanda (Itens) */}
+            <div className="flex-1 p-4 bg-gray-50/50 dark:bg-gray-900/50">
+              <ul className="space-y-4">
+                {p.itens_pedido?.map((i) => (
+                  <li key={i.id} className="border-b border-gray-100 dark:border-gray-800 pb-3 last:border-0 last:pb-0">
+                    <div className="flex items-start gap-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-gray-200 dark:bg-gray-800 text-sm font-bold dark:text-white">
+                        {i.quantidade}
+                      </span>
+                      <div className="flex-1 pt-0.5">
+                        <span className="text-base font-bold leading-tight dark:text-gray-100">{i.nome_produto}</span>
+                        
+                        {i.itens_pedido_opcoes && i.itens_pedido_opcoes.length > 0 && (
+                          <div className="mt-1.5 space-y-1">
+                            {i.itens_pedido_opcoes.map((o, x) => (
+                              <span key={x} className="flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                                <span className="h-1 w-1 rounded-full bg-emerald-500"></span>
+                                + {o.nome_opcao}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {i.observacao && (
+                          <div className="mt-2 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 p-2">
+                            <span className="text-sm font-bold text-red-700 dark:text-red-400 uppercase leading-snug">
+                              ATENÇÃO: {i.observacao}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
 
-            <div className="mt-3 flex gap-2">
-              {FLUXO[p.status].prox && (
-                <button
-                  onClick={() => mudarStatus(p, FLUXO[p.status].prox!)}
-                  className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-green-600 py-2.5 text-sm font-semibold text-white"
-                >
-                  {p.status === 'PRONTO' ? <Bike size={15} /> : <Check size={15} />} {FLUXO[p.status].label}
+            {/* Rodapé da Comanda */}
+            <div className="border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+              <div className="mb-3 rounded-xl bg-gray-50 dark:bg-gray-800 p-2.5 text-sm">
+                {p.tipo_pedido === 'DELIVERY' ? (
+                  <div className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
+                    <Bike size={16} className="mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-gray-100">{p.endereco_entrega}</p>
+                      {p.bairro && <p className="text-xs text-gray-500 dark:text-gray-400">Bairro: {p.bairro}</p>}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 font-bold text-[var(--cor-primaria)]">
+                    🏪 Retirada no balcão
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between font-bold dark:text-white mb-4">
+                <span>Total</span>
+                <span className="text-lg">{fmt(Number(p.valor_total))}</span>
+              </div>
+
+              {/* Botões de Ação */}
+              <div className="flex gap-2">
+                {FLUXO[p.status].prox && (
+                  <button onClick={() => mudarStatus(p, FLUXO[p.status].prox!)}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--cor-primaria)] py-3 font-bold text-white shadow-sm hover:opacity-90">
+                    <Check size={18} /> {FLUXO[p.status].label}
+                  </button>
+                )}
+                <button onClick={() => { setImprimir(p); setTimeout(() => window.print(), 100); }}
+                  className="flex shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white p-3 text-gray-600 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
+                  <Printer size={20} />
                 </button>
-              )}
-              <button onClick={() => { setImprimir(p); setTimeout(() => window.print(), 100); }}
-                className="rounded-xl border px-3 py-2.5 text-gray-500"><Printer size={16} /></button>
-              {p.status === 'NOVO' && (
-                <button onClick={() => mudarStatus(p, 'CANCELADO')} className="rounded-xl border border-red-200 px-3 py-2.5 text-red-500">
-                  <XIcon size={16} />
-                </button>
-              )}
+                {['NOVO', 'ACEITO'].includes(p.status) && (
+                  <button onClick={() => { if (confirm('Cancelar pedido?')) mudarStatus(p, 'CANCELADO'); }}
+                    className="flex shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 p-3 text-red-600 hover:bg-red-100 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400">
+                    <XIcon size={20} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         ))}
-        {pedidos.length === 0 && <p className="py-10 text-center text-sm text-gray-400">Nenhum pedido nas últimas 24h.</p>}
+        {pedidos.length === 0 && <p className="col-span-full py-12 text-center text-gray-400">Nenhum pedido hoje ainda.</p>}
       </div>
 
       {/* Comanda térmica 80mm — 2 vias: cozinha (sem preço) + cliente (com preço) */}

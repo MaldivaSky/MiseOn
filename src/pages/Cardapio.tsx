@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
-import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star, LogIn, LogOut, History } from 'lucide-react';
+import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star, LogIn, LogOut, History, Lock, ShieldCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
   Loja, Banner, Categoria, Produto, Cupom, TaxaEntrega, ItemCarrinho, Cliente,
@@ -33,7 +33,20 @@ export default function Cardapio() {
   const [taxas, setTaxas] = useState<TaxaEntrega[]>([]);
   const [busca, setBusca] = useState('');
   const [catAtiva, setCatAtiva] = useState<string | null>(null);
-  const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
+  
+  const cartKey = `cart_${slug}`;
+  const [carrinho, setCarrinho] = useState<ItemCarrinho[]>(() => {
+    try {
+      const salvo = localStorage.getItem(cartKey);
+      return salvo ? JSON.parse(salvo) : [];
+    } catch { return []; }
+  });
+
+  useEffect(() => {
+    if (carrinho.length > 0) localStorage.setItem(cartKey, JSON.stringify(carrinho));
+    else localStorage.removeItem(cartKey);
+  }, [carrinho, cartKey]);
+
   const [produtoAberto, setProdutoAberto] = useState<Produto | null>(null);
   const [checkoutAberto, setCheckoutAberto] = useState(false);
   const [pedidoNumero, setPedidoNumero] = useState<number | null>(null);
@@ -823,10 +836,18 @@ function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, o
 
             {erro && <p className="mt-2 text-sm font-medium text-red-500">{erro}</p>}
 
+            <div className="mt-4 rounded-xl border border-green-100 bg-green-50 p-3 text-center dark:border-green-900/50 dark:bg-green-950/30">
+              <p className="flex items-center justify-center gap-1.5 text-xs font-bold text-green-700 dark:text-green-500">
+                <ShieldCheck size={16} /> Ambiente Seguro Efí Bank
+              </p>
+              <p className="mt-0.5 text-[10px] text-green-600 dark:text-green-600">Seus dados são criptografados de ponta a ponta.</p>
+            </div>
+
             <button onClick={enviar} disabled={enviando || carrinho.length === 0}
-              className="mt-3 w-full rounded-xl bg-[var(--cor-primaria)] py-3.5 font-semibold text-white disabled:opacity-40">
-              {enviando ? 'Enviando…' : `Enviar pedido · ${fmt(total)}`}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--cor-primaria)] py-3.5 font-semibold text-white shadow-sm disabled:opacity-40">
+              <Lock size={16} /> {enviando ? 'Processando…' : `Pagar com Segurança · ${fmt(total)}`}
             </button>
+            <p className="mt-2 text-center text-[10px] text-gray-400">Ao prosseguir, você concorda com nossos termos de uso.</p>
           </>
         )}
       </div>

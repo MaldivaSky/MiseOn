@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Mail, KeyRound, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 export default function Login() {
@@ -7,19 +8,49 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
+  const [sucesso, setSucesso] = useState('');
   const [carregando, setCarregando] = useState(false);
+  const [modo, setModo] = useState<'SENHA' | 'MAGIC_LINK'>('SENHA');
 
-  const entrar = async (e: React.FormEvent) => {
+  const tratarErro = (error: any) => {
+    if (error.message.includes('Invalid login credentials')) return 'E-mail ou senha incorretos.';
+    if (error.message.includes('Email not confirmed')) return 'Confirme seu e-mail antes de entrar.';
+    return 'Ocorreu um erro ao tentar entrar. Tente novamente.';
+  };
+
+  const entrarComSenha = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErro('');
-    setCarregando(true);
+    setErro(''); setSucesso(''); setCarregando(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
     setCarregando(false);
-    if (error) return setErro('E-mail ou senha inválidos.');
+    
+    if (error) {
+      setErro(tratarErro(error));
+      return;
+    }
     nav('/admin/pedidos');
   };
 
+  const enviarMagicLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return setErro('Digite seu e-mail para receber o link.');
+    
+    setErro(''); setSucesso(''); setCarregando(true);
+    const { error } = await supabase.auth.signInWithOtp({ 
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/admin` }
+    });
+    setCarregando(false);
+
+    if (error) {
+      setErro('Erro ao enviar o link. Verifique se o e-mail está correto.');
+      return;
+    }
+    setSucesso('Te enviamos um link mágico! Verifique sua caixa de entrada e clique nele para entrar sem senha.');
+  };
+
   const entrarComGoogle = async () => {
+    setCarregando(true);
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/admin` },
@@ -27,45 +58,97 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-      <form onSubmit={entrar} className="w-full max-w-sm rounded-2xl bg-white p-6 shadow">
-        <img src="/logo.png" alt="MiseOn" className="mx-auto mb-2 w-52" />
-        <p className="mb-4 text-center text-sm text-gray-500">Entre para gerenciar sua loja</p>
-        <input
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          type="email"
-          placeholder="E-mail"
-          className="mb-2 w-full rounded-xl border p-2.5 text-sm"
-        />
-        <input
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
-          type="password"
-          placeholder="Senha"
-          className="mb-3 w-full rounded-xl border p-2.5 text-sm"
-        />
-        {erro && <p className="mb-2 text-sm text-red-500">{erro}</p>}
-        <button
-          disabled={carregando}
-          className="w-full rounded-xl bg-blue-800 py-3 font-semibold text-white disabled:opacity-50"
-        >
-          {carregando ? 'Entrando…' : 'Entrar'}
-        </button>
-
-        <div className="my-3 flex items-center gap-2 text-xs text-gray-400">
-          <div className="h-px flex-1 bg-gray-200" /> ou <div className="h-px flex-1 bg-gray-200" />
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4 dark:bg-gray-950">
+      <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-xl dark:bg-gray-900 dark:border dark:border-gray-800">
+        
+        <div className="p-8 pb-6 text-center">
+          <img src="/logo.png" alt="MiseOn" className="mx-auto mb-4 w-48" />
+          <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">Bem-vindo de volta</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Entre para gerenciar sua operação</p>
         </div>
 
-        <button
-          type="button"
-          onClick={entrarComGoogle}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border py-3 text-sm font-semibold text-gray-700"
-        >
-          <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z" /><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6 29.6 4 24 4c-7.5 0-13.9 4.3-17.7 10.7z" /><path fill="#4CAF50" d="M24 44c5.5 0 10.4-1.9 14.3-5.1l-6.6-5.6C29.6 34.9 26.9 36 24 36c-5.3 0-9.7-3.4-11.3-8.1l-6.6 5.1C9.9 39.6 16.4 44 24 44z" /><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.7l6.6 5.6C41.5 36 44 30.5 44 24c0-1.3-.1-2.7-.4-3.5z" /></svg>
-          Entrar com Google
-        </button>
-      </form>
+        <div className="px-8 pb-8">
+          {erro && (
+            <div className="mb-6 flex items-start gap-2 rounded-xl bg-red-50 p-4 text-sm font-medium text-red-600 dark:bg-red-950/30 dark:text-red-400">
+              <AlertCircle size={18} className="mt-0.5 shrink-0" />
+              <p>{erro}</p>
+            </div>
+          )}
+
+          {sucesso && (
+            <div className="mb-6 flex items-start gap-2 rounded-xl bg-green-50 p-4 text-sm font-medium text-green-700 dark:bg-green-950/30 dark:text-green-400">
+              <CheckCircle2 size={18} className="mt-0.5 shrink-0" />
+              <p>{sucesso}</p>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={entrarComGoogle}
+            disabled={carregando}
+            className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white py-3 font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+          >
+            <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z" /><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6 29.6 4 24 4c-7.5 0-13.9 4.3-17.7 10.7z" /><path fill="#4CAF50" d="M24 44c5.5 0 10.4-1.9 14.3-5.1l-6.6-5.6C29.6 34.9 26.9 36 24 36c-5.3 0-9.7-3.4-11.3-8.1l-6.6 5.1C9.9 39.6 16.4 44 24 44z" /><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.7l6.6 5.6C41.5 36 44 30.5 44 24c0-1.3-.1-2.7-.4-3.5z" /></svg>
+            Entrar com Google
+          </button>
+
+          <div className="my-6 flex items-center">
+            <div className="flex-1 border-t border-gray-200 dark:border-gray-800"></div>
+            <span className="bg-white px-3 text-xs font-medium uppercase text-gray-400 dark:bg-gray-900 dark:text-gray-500">ou usando e-mail</span>
+            <div className="flex-1 border-t border-gray-200 dark:border-gray-800"></div>
+          </div>
+
+          <form onSubmit={modo === 'SENHA' ? entrarComSenha : enviarMagicLink}>
+            <div className="space-y-4">
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  type="email"
+                  required
+                  placeholder="seu@email.com"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-4 text-sm outline-none transition-all focus:border-[var(--cor-primaria)] focus:bg-white focus:ring-4 focus:ring-[var(--cor-primaria)]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:bg-gray-900"
+                />
+              </div>
+
+              {modo === 'SENHA' && (
+                <div className="relative">
+                  <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                    type="password"
+                    required
+                    placeholder="Sua senha"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-4 text-sm outline-none transition-all focus:border-[var(--cor-primaria)] focus:bg-white focus:ring-4 focus:ring-[var(--cor-primaria)]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:bg-gray-900"
+                  />
+                </div>
+              )}
+            </div>
+
+            <button
+              disabled={carregando}
+              className="mt-6 flex w-full items-center justify-center rounded-xl bg-[var(--cor-primaria)] py-3.5 font-bold text-white shadow-lg shadow-[var(--cor-primaria)]/30 transition-all hover:opacity-90 disabled:opacity-50"
+            >
+              {carregando ? (
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                modo === 'SENHA' ? 'Entrar no Painel' : 'Enviar Link Mágico'
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <button 
+              onClick={() => { setModo(modo === 'SENHA' ? 'MAGIC_LINK' : 'SENHA'); setErro(''); setSucesso(''); }}
+              className="text-sm font-semibold text-[var(--cor-primaria)] hover:underline"
+            >
+              {modo === 'SENHA' ? 'Esqueceu a senha? Receba um link de acesso' : 'Voltar para login com senha'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

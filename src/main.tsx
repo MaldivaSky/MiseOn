@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { registerSW } from 'virtual:pwa-register';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './index.css';
 import Home from './pages/Home';
@@ -27,6 +28,8 @@ import Onboarding from './pages/superadmin/Onboarding';
 import Churn from './pages/superadmin/Churn';
 import Auditoria from './pages/superadmin/Auditoria';
 import Splash from './components/Splash';
+
+registerSW({ immediate: true });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
