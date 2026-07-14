@@ -110,10 +110,10 @@ const CHECKLIST = [
   'Cardápio Digital + QR Code',
   'KDS (Tela da Cozinha)',
   'Controle de Estoque com Ficha Técnica',
+  'Central de Compras Automática',
+  'Motor de Custos Operacionais (Lucro Real)',
   'Pagamentos Pix + Cartão (Efí Bank)',
   'App de Entregas para Motoboy',
-  'CRM de Clientes e Recompras',
-  'Painel SuperAdmin multi-restaurante',
   'IA para descrever produtos',
 ];
 
@@ -180,7 +180,7 @@ export default function Home() {
           </h1>
 
           <p style={{ color: 'rgba(234,241,251,0.65)' }} className="mx-auto mt-6 max-w-2xl text-lg sm:text-xl leading-relaxed">
-            Abandone as planilhas e as taxas abusivas. Cardápio digital, comanda KDS, baixa automática de estoque por ficha técnica e pagamento direto na sua conta.
+            Abandone as planilhas e as taxas abusivas. Cardápio digital, comanda KDS, baixa automática de estoque, central de compras e cálculo do <b>Lucro Líquido Real</b> na sua mão.
           </p>
 
           {/* CTAs */}
