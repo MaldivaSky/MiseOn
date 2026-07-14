@@ -254,7 +254,10 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, onClose, onSalvo }
         (catNome ? `O produto é da categoria: ${catNome}. ` : '') +
         `A descrição deve ser curta (no máximo 3 linhas), direta, sem emojis exagerados, focando em texturas, sabores e desejo. Não use aspas na resposta.`;
 
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyB1uYiP4zcinQzY4NvprefrF4-ylYFCNYE', {
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) throw new Error('API Key do Gemini não configurada (.env).');
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
