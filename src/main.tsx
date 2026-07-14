@@ -13,6 +13,7 @@ import AcompanharPedido from './pages/Pedido';
 import Login from './pages/admin/Login';
 import PainelPedidos from './pages/admin/PainelPedidos';
 import Estoque from './pages/admin/Estoque';
+import Compras from './pages/admin/Compras';
 import Entregas from './pages/admin/Entregas';
 import Loja from './pages/admin/Loja';
 import CardapioAdmin from './pages/admin/Cardapio';
@@ -46,6 +47,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="entregas" element={<Entregas />} />
             <Route path="cardapio" element={<CardapioAdmin />} />
             <Route path="estoque" element={<Estoque />} />
+            <Route path="compras" element={<Compras />} />
             <Route path="financeiro" element={<Financeiro />} />
             <Route path="historico" element={<Historico />} />
             <Route path="marketing" element={<Marketing />} />

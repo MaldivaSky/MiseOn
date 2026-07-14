@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History, CreditCard } from 'lucide-react';
+import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History, CreditCard, ShoppingCart } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import ThemeToggle from '../../components/ThemeToggle';
 
@@ -65,6 +65,7 @@ export default function AdminLayout() {
         { to: '/admin/pedidos', icon: <ClipboardList size={20} />, label: 'Pedidos' },
         { to: '/admin/cardapio', icon: <UtensilsCrossed size={20} />, label: 'Cardápio' },
         { to: '/admin/estoque', icon: <Boxes size={20} />, label: 'Estoque' },
+        { to: '/admin/compras', icon: <ShoppingCart size={20} />, label: 'Compras' },
         { to: '/admin/entregas', icon: <Bike size={20} />, label: 'Entregas' },
       ];
 
