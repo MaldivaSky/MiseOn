@@ -13,8 +13,22 @@ const RECURSOS = [
     texto: 'Experiência de autoatendimento fluida com integração direta ao Kitchen Display System (KDS).',
     detalhe: 'Elimine atritos operacionais. Cada pedido feito no celular do cliente ou no PDV cai instantaneamente na tela da cozinha, cronometrado e organizado por prioridade.',
     mockup: (
-      <div className="flex flex-col h-full rounded-xl overflow-hidden border border-[rgba(10,92,196,0.3)] bg-[#070C18]">
-        <img src="/screenshots/pedidos.png" alt="Painel KDS Real" className="w-full h-full object-cover object-left-top hover:scale-105 transition-transform duration-700" />
+      <div className="flex flex-col gap-3 p-4 bg-[#070C18] rounded-xl h-full border border-gray-800">
+        <div className="flex items-center justify-between border-b border-gray-800 pb-3">
+          <div className="font-bold text-white text-sm">Cozinha · KDS</div>
+          <div className="text-xs bg-green-900/30 text-green-500 px-2 py-1 rounded">2 Pedidos Novos</div>
+        </div>
+        <div className="flex gap-3">
+          <div className="flex-1 bg-gray-900/50 border border-orange-500/30 rounded-lg p-3">
+            <div className="text-orange-500 text-xs font-bold mb-2">#1042 · PREPARANDO (04:12)</div>
+            <div className="text-sm text-gray-300">1x Combo Baguete 30cm</div>
+            <div className="text-xs text-gray-500 mt-1">Sem cebola, molho extra</div>
+          </div>
+          <div className="flex-1 bg-gray-900/50 border border-gray-800 rounded-lg p-3">
+            <div className="text-blue-500 text-xs font-bold mb-2">#1043 · NOVO (00:45)</div>
+            <div className="text-sm text-gray-300">2x Coca Cola 600ml</div>
+          </div>
+        </div>
       </div>
     )
   },
@@ -25,8 +39,24 @@ const RECURSOS = [
     texto: 'Gestão de inventário preditiva baseada em Engenharia de Cardápio.',
     detalhe: 'Controle de insumos via Ficha Técnica com precisão milimétrica. Vendeu um combo? O sistema dá baixa no pão, na carne e na embalagem automaticamente.',
     mockup: (
-      <div className="flex flex-col h-full rounded-xl overflow-hidden border border-[rgba(10,92,196,0.3)] bg-[#070C18]">
-        <img src="/screenshots/compras.png" alt="Estoque Real" className="w-full h-full object-cover object-left-top hover:scale-105 transition-transform duration-700" />
+      <div className="flex flex-col gap-3 p-4 bg-[#070C18] rounded-xl h-full border border-gray-800">
+        <div className="flex items-center justify-between border-b border-gray-800 pb-3">
+          <div className="font-bold text-white text-sm">Estoque · Insumos</div>
+          <Activity size={16} className="text-gray-500" />
+        </div>
+        <div className="space-y-2 mt-2">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-300">Pão Baguete 30cm</span>
+            <span className="text-orange-500 font-bold">12 unid. (Baixo)</span>
+          </div>
+          <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden"><div className="bg-orange-500 w-[15%] h-full"></div></div>
+          
+          <div className="flex justify-between items-center text-sm mt-3">
+            <span className="text-gray-300">Hambúrguer 180g</span>
+            <span className="text-green-500 font-bold">142 unid.</span>
+          </div>
+          <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden"><div className="bg-green-500 w-[75%] h-full"></div></div>
+        </div>
       </div>
     )
   },
@@ -37,8 +67,14 @@ const RECURSOS = [
     texto: 'Liquidação financeira transparente e automatizada via Efí Bank.',
     detalhe: 'Split de pagamentos nativo. Pix e Cartão caem direto na sua conta oficial, com taxas negociadas e conciliação bancária em tempo real sem intermediários.',
     mockup: (
-      <div className="flex flex-col h-full rounded-xl overflow-hidden border border-[rgba(10,92,196,0.3)] bg-[#070C18]">
-        <img src="/screenshots/pagamento.png" alt="Checkout Real" className="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-700" />
+      <div className="flex flex-col justify-center items-center gap-3 p-4 bg-[#070C18] rounded-xl h-full border border-gray-800">
+        <TrendingUp size={32} className="text-blue-500 mb-2" />
+        <div className="text-gray-400 text-xs uppercase tracking-widest">Saldo Disponível</div>
+        <div className="text-3xl font-bold text-white mb-4">R$ 14.250,00</div>
+        <div className="w-full bg-green-900/20 border border-green-500/20 rounded-lg p-3 flex justify-between items-center">
+          <span className="text-green-500 text-xs">Último Pix Recebido</span>
+          <span className="text-green-400 font-bold text-sm">+ R$ 38,90</span>
+        </div>
       </div>
     )
   },
@@ -49,8 +85,22 @@ const RECURSOS = [
     texto: 'Orquestração completa de frota com roteirização inteligente.',
     detalhe: 'Acompanhamento em tempo real (Live Tracking) para elevar a experiência do seu cliente final. Despache pedidos com um clique para a tela do seu motoboy.',
     mockup: (
-      <div className="flex flex-col h-full rounded-xl overflow-hidden border border-[rgba(10,92,196,0.3)] bg-[#070C18]">
-        <img src="/screenshots/entregas.png" alt="Mapa Entregador Real" className="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-700" />
+      <div className="flex flex-col gap-3 p-4 bg-[#070C18] rounded-xl h-full border border-gray-800 relative overflow-hidden">
+        {/* Fake Map Background */}
+        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, #0A5CC4 1px, transparent 1px)', backgroundSize: '16px 16px' }}></div>
+        <div className="relative z-10 flex items-center justify-between bg-black/60 backdrop-blur-md border border-gray-800 rounded-lg p-3 mb-auto">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white"><Bike size={16} /></div>
+            <div>
+              <div className="text-white text-sm font-bold">Motoboy Carlos</div>
+              <div className="text-gray-400 text-xs">A caminho · 2 min</div>
+            </div>
+          </div>
+        </div>
+        <div className="relative z-10 bg-black/60 backdrop-blur-md border border-gray-800 rounded-lg p-3">
+          <div className="text-gray-300 text-sm">Pedido #1042</div>
+          <div className="text-gray-500 text-xs truncate">Rua das Flores, 123 - Centro</div>
+        </div>
       </div>
     )
   },
