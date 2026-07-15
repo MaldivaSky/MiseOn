@@ -31,3 +31,8 @@ capture.js
 
 #arquivos md
 credenciais_testes.md
+
+# Certificados
+cert/
+*.p12
+*.pem
