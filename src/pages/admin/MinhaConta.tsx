@@ -14,14 +14,16 @@ export default function MinhaConta() {
   const [msgSenha, setMsgSenha] = useState<{ tipo: 'sucesso' | 'erro'; texto: string } | null>(null);
 
   // Perfil (Metadata)
+  const [email, setEmail] = useState('');
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
-  const [msgPerfil, setMsgPerfil] = useState<{ tipo: 'sucesso' | 'erro'; texto: string } | null>(null);
+  const [msgPerfil, setMsgPerfil] = useState<{ tipo: 'sucesso' | 'erro' | 'aviso'; texto: string } | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user);
+      setEmail(user?.email || '');
       setNome(user?.user_metadata?.full_name || user?.user_metadata?.nome || '');
       setTelefone(user?.user_metadata?.phone || user?.user_metadata?.telefone || '');
       setLoading(false);
@@ -58,14 +60,27 @@ export default function MinhaConta() {
     setMsgPerfil(null);
     setSalvandoPerfil(true);
 
-    const { error } = await supabase.auth.updateUser({
+    let mudouEmail = false;
+
+    // Atualiza metadados (nome, telefone)
+    const { error: errMeta } = await supabase.auth.updateUser({
       data: { full_name: nome, nome, telefone, phone: telefone }
     });
 
+    // Atualiza email se for diferente
+    let errEmail = null;
+    if (email && email !== user?.email) {
+      const { error } = await supabase.auth.updateUser({ email });
+      errEmail = error;
+      if (!error) mudouEmail = true;
+    }
+
     setSalvandoPerfil(false);
 
-    if (error) {
-      setMsgPerfil({ tipo: 'erro', texto: 'Não foi possível atualizar os dados.' });
+    if (errMeta || errEmail) {
+      setMsgPerfil({ tipo: 'erro', texto: 'Erro ao atualizar dados. ' + (errEmail?.message || '') });
+    } else if (mudouEmail) {
+      setMsgPerfil({ tipo: 'aviso', texto: 'Dados salvos! Para efetivar a troca do e-mail, confirme no link que enviamos para sua nova caixa de entrada.' });
     } else {
       setMsgPerfil({ tipo: 'sucesso', texto: 'Dados pessoais atualizados!' });
       setTimeout(() => setMsgPerfil(null), 4000);
@@ -100,7 +115,7 @@ export default function MinhaConta() {
             </h3>
 
             {msgPerfil && (
-              <div className={`mb-4 rounded-xl p-3 flex items-center gap-2 text-sm font-semibold ${msgPerfil.tipo === 'sucesso' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+              <div className={`mb-4 rounded-xl p-3 flex items-center gap-2 text-sm font-semibold ${msgPerfil.tipo === 'sucesso' ? 'bg-green-500/10 text-green-500' : msgPerfil.tipo === 'aviso' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500' : 'bg-red-500/10 text-red-500'}`}>
                 {msgPerfil.tipo === 'sucesso' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
                 {msgPerfil.texto}
               </div>
@@ -113,12 +128,12 @@ export default function MinhaConta() {
                   <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input 
                     type="email" 
-                    value={user?.email || ''} 
-                    disabled 
-                    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 py-3 pl-10 pr-3 text-sm text-gray-500 dark:text-gray-400 cursor-not-allowed" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 py-3 pl-10 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--cor-primaria)] dark:text-white" 
                   />
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">O e-mail de acesso não pode ser alterado por aqui.</p>
+                <p className="text-[10px] text-gray-400 mt-1">Ao alterar o e-mail, você precisará confirmar a mudança clicando no link enviado para o novo e-mail.</p>
               </label>
 
               <label className="block">

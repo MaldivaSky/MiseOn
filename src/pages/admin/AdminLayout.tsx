@@ -9,6 +9,8 @@ export interface CtxLoja {
   lojaNome: string;
   lojaSlug: string;
   papel: string; // admin | operador | entregador
+  status_assinatura?: string | null;
+  diasAtraso: number;
 }
 
 export default function AdminLayout() {
@@ -27,20 +29,44 @@ export default function AdminLayout() {
       if (!user) return nav('/admin/login');
       const { data } = await supabase
         .from('usuarios_loja')
-        .select('loja_id, papel, lojas(nome, cor_primaria, cor_secundaria, slug)')
+        .select('loja_id, papel, lojas(nome, cor_primaria, cor_secundaria, slug, criado_em)')
         .eq('user_id', user.id)
         .limit(1)
         .single();
       if (!data) { setSemLoja(true); return; }
       const papel = (data as any).papel ?? 'admin';
       const lojaInfo = (data as any).lojas;
-      setCtx({ lojaId: data.loja_id, lojaNome: lojaInfo?.nome ?? 'Minha loja', lojaSlug: lojaInfo?.slug ?? '', papel });
+
+      const vencBase = lojaInfo?.vencimento_assinatura || lojaInfo?.criado_em;
+      const vencimento = vencBase ? new Date(vencBase) : new Date();
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+      vencimento.setHours(0, 0, 0, 0);
+      const diffMs = hoje.getTime() - vencimento.getTime();
+      let diasAtraso = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      if (diasAtraso < 0) diasAtraso = 0; // Ainda não venceu
+      if (lojaInfo?.status_assinatura === 'ATIVO') diasAtraso = 0;
+
+      setCtx({ 
+        lojaId: data.loja_id, 
+        lojaNome: lojaInfo?.nome ?? 'Minha loja', 
+        lojaSlug: lojaInfo?.slug ?? '', 
+        papel,
+        status_assinatura: lojaInfo?.status_assinatura,
+        diasAtraso
+      });
+
       if (lojaInfo?.cor_primaria) document.documentElement.style.setProperty('--cor-primaria', lojaInfo.cor_primaria);
       if (lojaInfo?.cor_secundaria) document.documentElement.style.setProperty('--cor-secundaria', lojaInfo.cor_secundaria);
-      // entregador cai direto na fila de entregas
-      if (papel === 'entregador' && !location.pathname.includes('/entregas')) nav('/admin/entregas');
+      
+      // Motor de Bloqueio Seco (Lockdown)
+      if (diasAtraso > 5 && papel === 'admin' && !location.pathname.includes('/assinatura')) {
+        nav('/admin/assinatura');
+      } else if (papel === 'entregador' && !location.pathname.includes('/entregas')) {
+        nav('/admin/entregas');
+      }
     })();
-  }, []);
+  }, [nav, loc.pathname]);
 
   const sair = async () => { await supabase.auth.signOut(); nav('/admin/login'); };
 
@@ -58,6 +84,19 @@ export default function AdminLayout() {
     return (
       <div className="flex h-screen items-center justify-center bg-[#F8FAFC] dark:bg-[#0B1120]">
         <div className="w-8 h-8 border-4 border-[#004198] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Se bloqueado e for admin, a UI morre e força a tela de assinatura
+  const isLockdown = ctx.diasAtraso > 5;
+  if (isLockdown && ctx.papel !== 'admin') {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-3 p-8 text-center bg-gray-50 dark:bg-[#0B1120] text-gray-900 dark:text-gray-100">
+        <Store size={48} className="text-red-500 mb-2" />
+        <h1 className="font-bold text-xl text-red-600">Loja Temporariamente Suspensa</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">O acesso ao sistema operacional está suspenso. Peça para o administrador da loja regularizar a assinatura na plataforma.</p>
+        <button onClick={sair} className="mt-4 rounded-xl border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 px-8 py-3 text-sm font-bold shadow-sm transition-all active:scale-95">Sair do Sistema</button>
       </div>
     );
   }
@@ -214,6 +253,25 @@ export default function AdminLayout() {
 
         {/* ── CONTEÚDO DA PÁGINA (SCROLLÁVEL) ── */}
         <main className="flex-1 overflow-y-auto pb-20 lg:pb-0 relative custom-scrollbar">
+          
+          {/* BANNER DE CARÊNCIA INFECHÁVEL (DIAS 1 A 5) */}
+          {ctx.diasAtraso > 0 && ctx.diasAtraso <= 5 && (
+            <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-3 sm:px-6 flex items-center justify-between shadow-inner">
+              <div className="flex items-center gap-3">
+                <div className="bg-red-500 text-white p-1.5 rounded-lg animate-pulse">
+                  <CreditCard size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-red-700 dark:text-red-400 leading-tight">Assinatura Vencida (Atraso: {ctx.diasAtraso} {ctx.diasAtraso === 1 ? 'dia' : 'dias'})</h3>
+                  <p className="text-[11px] text-red-600/80 dark:text-red-400/80 mt-0.5">O sistema será totalmente bloqueado em {6 - ctx.diasAtraso} dias.</p>
+                </div>
+              </div>
+              <button onClick={() => nav('/admin/assinatura')} className="whitespace-nowrap px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[11px] uppercase tracking-wider font-bold rounded-lg shadow-sm transition-colors">
+                Pagar Agora
+              </button>
+            </div>
+          )}
+
           <div className="mx-auto max-w-6xl w-full">
             <Outlet context={ctx} />
           </div>
