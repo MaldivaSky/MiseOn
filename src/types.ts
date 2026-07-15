@@ -6,6 +6,7 @@ export type MetodoPgto = 'PIX' | 'CREDITO' | 'DEBITO' | 'DINHEIRO';
 export type TipoRemetente = 'CLIENTE' | 'LOJA' | 'ENTREGADOR';
 export type TipoRemuneracao = 'FIXO' | 'POR_ENTREGA' | 'DESLIGADO';
 export type StatusRota = 'PENDENTE' | 'EM_ANDAMENTO' | 'FINALIZADA';
+export type EntregaModo = 'BAIRRO' | 'DISTANCIA' | 'HIBRIDO';
 
 export interface LeadCadastro {
   id: string;
@@ -31,6 +32,9 @@ export interface Loja {
   cor_secundaria: string;
   fonte?: string;
   cor_texto?: string;
+  cor_fundo_claro?: string | null;
+  cor_fundo_escuro?: string | null;
+  tema_cardapio?: 'claro' | 'escuro' | null;
   whatsapp: string;
   telefone?: string;
   endereco?: string;
@@ -39,13 +43,15 @@ export interface Loja {
   pedido_minimo: number;
   aberto_manual?: boolean | null;
   pix_chave?: string;
-  efi_payee_code?: string; // habilita cartão de crédito online (Efí)
+  efi_payee_code?: string; // habilita cartão de crédito online + split de cartão (Efí)
+  efi_titular_documento?: string | null; // CPF/CNPJ do titular da conta Efí (favorecido do split Pix)
+  efi_conta?: string | null; // número da conta Efí do lojista (favorecido do split Pix)
   status_assinatura?: 'ATIVO' | 'ATRASADO' | 'CANCELADO' | 'TESTE' | 'VITALICIO' | null;
   vencimento_assinatura?: string | null;
   // Entrega / geolocalização
   lat?: number | null;
   lng?: number | null;
-  entrega_modo?: 'BAIRRO' | 'DISTANCIA' | null;
+  entrega_modo?: EntregaModo | null;
   entrega_taxa_base?: number | null;
   entrega_taxa_km?: number | null;
   entrega_raio_km?: number | null;
@@ -165,6 +171,18 @@ export interface TaxaEntrega {
   ativo?: boolean;
 }
 
+export interface FaixaEntrega {
+  id: string;
+  loja_id: string;
+  nome?: string | null;
+  km_ate: number;
+  taxa_fixa?: number | null;
+  taxa_por_km?: number | null;
+  pedido_minimo?: number | null;
+  ordem?: number | null;
+  ativo?: boolean | null;
+}
+
 export interface ItemCarrinho {
   produto: Produto;
   quantidade: number;
@@ -183,6 +201,7 @@ export interface ItemPedido {
 
 export interface Pedido {
   id: string;
+  loja_id?: string;
   numero: number;
   tipo_pedido: TipoPedido;
   status: StatusPedido;

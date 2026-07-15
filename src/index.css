@@ -18,13 +18,23 @@
   --cor-fundo-escuro: #070C18;
   --cor-texto-claro: #EAF1FB;
   --cor-texto: #111827;
+  --cor-texto-suave: #6b7280;
+  --cor-texto-fraco: #9ca3af;
+  --cor-fundo: #f9fafb;
+  --cor-surface: #ffffff;
+  --cor-surface-muted: #f8fafc;
+  --cor-card: #ffffff;
+  --cor-borda: #e5e7eb;
+  --cor-borda-forte: #d1d5db;
+  --cor-destaque: rgba(17, 24, 39, 0.05);
   --fonte-loja: 'Manrope', 'Inter', sans-serif;
 }
 
 .dark { color-scheme: dark; }
 
-.loja-marca { font-family: var(--fonte-loja); color: var(--cor-texto); }
-.dark .loja-marca { color: #f3f4f6; }
+/* Vitrine white-label: fundo e fonte vêm da identidade escolhida pelo lojista. */
+.loja-marca { font-family: var(--fonte-loja); color: var(--cor-texto); background: var(--cor-fundo); }
+.dark .loja-marca { color: var(--cor-texto); }
 
 body {
   color: #111827;
@@ -175,3 +185,124 @@ html { -webkit-tap-highlight-color: transparent; }
 * { scrollbar-width:none; }
 .card-hover { transition:transform .15s ease,box-shadow .15s ease; }
 .card-hover:active { transform:scale(.98); }
+
+.vitrine-glass {
+  background: color-mix(in srgb, var(--cor-surface) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cor-borda) 78%, transparent);
+  box-shadow:
+    0 18px 45px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(16px);
+}
+
+.vitrine-panel {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cor-card) 96%, white 4%), var(--cor-card));
+  border: 1px solid var(--cor-borda);
+  box-shadow:
+    0 20px 45px rgba(15, 23, 42, 0.10),
+    0 4px 14px rgba(15, 23, 42, 0.05);
+}
+
+.vitrine-search {
+  background: color-mix(in srgb, var(--cor-surface) 95%, white 5%);
+  border: 1px solid var(--cor-borda);
+  box-shadow:
+    0 12px 28px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.vitrine-search:focus-within {
+  border-color: color-mix(in srgb, var(--cor-primaria) 46%, var(--cor-borda));
+  box-shadow:
+    0 16px 36px rgba(15, 23, 42, 0.10),
+    0 0 0 4px color-mix(in srgb, var(--cor-primaria) 14%, transparent);
+  transform: translateY(-1px);
+}
+
+.vitrine-chip {
+  border: 1px solid var(--cor-borda);
+  background: color-mix(in srgb, var(--cor-surface) 96%, white 4%);
+  color: var(--cor-texto-suave);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background-color .16s ease, color .16s ease;
+}
+
+.vitrine-chip:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--cor-primaria) 35%, var(--cor-borda));
+  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.09);
+}
+
+.vitrine-chip.is-active {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--cor-primaria), color-mix(in srgb, var(--cor-primaria) 72%, white 28%));
+  color: #fff;
+  box-shadow:
+    0 16px 30px color-mix(in srgb, var(--cor-primaria) 30%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.20);
+}
+
+.vitrine-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--cor-borda);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cor-card) 98%, white 2%), var(--cor-card));
+  box-shadow:
+    0 16px 36px rgba(15, 23, 42, 0.08),
+    0 4px 14px rgba(15, 23, 42, 0.05);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+
+.vitrine-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--cor-primaria) 12%, transparent), transparent 48%);
+  opacity: 0;
+  transition: opacity .18s ease;
+  pointer-events: none;
+}
+
+.vitrine-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--cor-primaria) 28%, var(--cor-borda));
+  box-shadow:
+    0 24px 48px rgba(15, 23, 42, 0.14),
+    0 8px 22px rgba(15, 23, 42, 0.08);
+}
+
+.vitrine-card:hover::before {
+  opacity: 1;
+}
+
+.vitrine-card:active {
+  transform: scale(.985);
+}
+
+.vitrine-card:hover .vitrine-card-media {
+  transform: scale(1.04);
+}
+
+.vitrine-card-media {
+  transition: transform .25s ease;
+}
+
+.vitrine-card-cta {
+  color: var(--cor-texto-fraco);
+  transition: transform .18s ease, color .18s ease, opacity .18s ease;
+  opacity: .86;
+}
+
+.vitrine-card:hover .vitrine-card-cta {
+  color: var(--cor-primaria);
+  transform: translateX(3px);
+  opacity: 1;
+}
+
+.vitrine-floating-cart {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--cor-primaria) 90%, black 10%), var(--cor-primaria));
+  box-shadow:
+    0 22px 44px color-mix(in srgb, var(--cor-primaria) 28%, transparent),
+    0 8px 18px rgba(15, 23, 42, 0.18);
+}

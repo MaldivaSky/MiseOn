@@ -1,56 +1,96 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useParams } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Check, Clock, ChefHat, Package, Bike, PartyPopper, XCircle, Download, AlertTriangle } from 'lucide-react';
+import { Bike, Check, ChefHat, Clock, Compass, Download, MapPin, Package, PartyPopper, ShieldCheck, Sparkles, XCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { Pedido, StatusPedido, fmt } from '../types';
+import { fmt, type Loja, type Pedido, type StatusPedido, type TipoPedido } from '../types';
 import { tocarSom } from '../lib/som';
+import { aplicarTema, obterTemaPreferido, type PreferenciaTema } from '../lib/tema';
+import { fonteFamilia, obterFundoLojaPorTema, obterTokensLoja } from '../lib/personalizacao';
 import ThemeToggle from '../components/ThemeToggle';
 
-const ETAPAS: { status: StatusPedido; label: string; icon: ReactNode }[] = [
+const ETAPAS_DELIVERY: { status: StatusPedido; label: string; icon: ReactNode }[] = [
   { status: 'NOVO', label: 'Recebido', icon: <Clock size={16} /> },
   { status: 'ACEITO', label: 'Aceito', icon: <Check size={16} /> },
   { status: 'PREPARANDO', label: 'Preparando', icon: <ChefHat size={16} /> },
-  { status: 'PRONTO', label: 'Pronto', icon: <Package size={16} /> },
+  { status: 'PRONTO', label: 'Pronto para sair', icon: <Package size={16} /> },
   { status: 'EM_ROTA', label: 'Em rota', icon: <Bike size={16} /> },
   { status: 'FINALIZADO', label: 'Entregue', icon: <PartyPopper size={16} /> },
 ];
 
-const MENSAGEM_STATUS: Partial<Record<StatusPedido, string>> = {
-  ACEITO: '✅ Seu pedido foi aceito pela loja!',
-  PREPARANDO: '👨‍🍳 Seu pedido está sendo preparado!',
-  PRONTO: '📦 Seu pedido está pronto!',
-  EM_ROTA: '🛵 Seu pedido saiu para entrega!',
-  FINALIZADO: '🎉 Pedido entregue — bom apetite!',
-  CANCELADO: '❌ Seu pedido foi cancelado.',
+const ETAPAS_RETIRADA: { status: StatusPedido; label: string; icon: ReactNode }[] = [
+  { status: 'NOVO', label: 'Recebido', icon: <Clock size={16} /> },
+  { status: 'ACEITO', label: 'Aceito', icon: <Check size={16} /> },
+  { status: 'PREPARANDO', label: 'Preparando', icon: <ChefHat size={16} /> },
+  { status: 'PRONTO', label: 'Pronto para retirada', icon: <Package size={16} /> },
+  { status: 'FINALIZADO', label: 'Finalizado', icon: <PartyPopper size={16} /> },
+];
+
+const STATUS_LABEL: Record<StatusPedido, string> = {
+  NOVO: 'Recebido',
+  ACEITO: 'Aceito',
+  PREPARANDO: 'Em preparo',
+  PRONTO: 'Pronto',
+  EM_ROTA: 'Em rota',
+  FINALIZADO: 'Entregue',
+  CANCELADO: 'Cancelado',
 };
+
+function mensagemPrincipal(status: StatusPedido, tipo: TipoPedido, temRota?: boolean) {
+  if (status === 'NOVO') return 'Recebemos seu pedido e já estamos organizando a operação.';
+  if (status === 'ACEITO') return 'Seu pedido foi aceito e entrou oficialmente na fila da cozinha.';
+  if (status === 'PREPARANDO') return 'A cozinha está preparando tudo agora.';
+  if (status === 'PRONTO') {
+    if (tipo === 'DELIVERY') {
+      return temRota
+        ? 'Seu pedido já está embalado e aguardando o início da sua entrega.'
+        : 'Seu pedido está pronto e aguardando o despacho da entrega.';
+    }
+    return 'Seu pedido está pronto para retirada no balcão.';
+  }
+  if (status === 'EM_ROTA') return 'Seu entregador já iniciou a sua entrega.';
+  if (status === 'FINALIZADO') return tipo === 'DELIVERY' ? 'Pedido entregue com sucesso. Bom apetite!' : 'Pedido concluído. Obrigado pela preferência!';
+  return 'Seu pedido foi cancelado.';
+}
+
+function mensagemToast(status: StatusPedido, tipo: TipoPedido, temRota?: boolean) {
+  if (status === 'ACEITO') return '✅ Seu pedido foi aceito pela loja!';
+  if (status === 'PREPARANDO') return '👨‍🍳 Seu pedido está sendo preparado com muito carinho!';
+  if (status === 'PRONTO') {
+    return tipo === 'DELIVERY'
+      ? (temRota ? '📦 Seu pedido está pronto e aguardando o início da sua entrega!' : '📦 Seu pedido está pronto e aguardando despacho!')
+      : '🛍️ Seu pedido está pronto para retirada!';
+  }
+  if (status === 'EM_ROTA') return '🛵 O entregador já está a caminho com seu pedido!';
+  if (status === 'FINALIZADO') return tipo === 'DELIVERY' ? '🎉 Pedido entregue! Bom apetite!' : '🎉 Pedido finalizado! Bom apetite!';
+  if (status === 'CANCELADO') return '❌ Seu pedido infelizmente foi cancelado.';
+  return undefined;
+}
 
 const iconeMoto = L.divIcon({
   html: '<div style="font-size:26px;line-height:1">🛵</div>',
   className: '', iconSize: [26, 26], iconAnchor: [13, 13],
 });
-const iconeCasa = L.divIcon({
-  html: '<div style="font-size:24px;line-height:1">📍</div>',
-  className: '', iconSize: [24, 24], iconAnchor: [12, 24],
-});
 
-function MapUpdater({ posicao }: { posicao: {lat: number, lng: number} }) {
+function MapUpdater({ posicao }: { posicao: { lat: number; lng: number } }) {
   const map = useMap();
   useEffect(() => {
-    map.flyTo([posicao.lat, posicao.lng], map.getZoom(), { animate: true, duration: 1.5 });
-  }, [posicao.lat, posicao.lng, map]);
+    map.flyTo([posicao.lat, posicao.lng], map.getZoom(), { animate: true, duration: 1.4 });
+  }, [map, posicao.lat, posicao.lng]);
   return null;
 }
 
 export default function AcompanharPedido() {
   const { id } = useParams();
   const [pedido, setPedido] = useState<Pedido | null>(null);
+  const [loja, setLoja] = useState<Partial<Loja> | null>(null);
   const [posicao, setPosicao] = useState<{ lat: number; lng: number } | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
-  const statusAnterior = useRef<StatusPedido | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const statusAnterior = useRef<StatusPedido | null>(null);
+  const [temaCliente, setTemaCliente] = useState<PreferenciaTema>(() => obterTemaPreferido());
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -74,30 +114,75 @@ export default function AcompanharPedido() {
       .select('*, itens_pedido(*, itens_pedido_opcoes(*)), pagamentos(metodo, status, valor_pago)')
       .eq('id', id)
       .single();
-    const p = (data as Pedido) ?? null;
-    setPedido(p);
-    if (p && statusAnterior.current === null) statusAnterior.current = p.status;
+
+    const atual = (data as Pedido) ?? null;
+    setPedido(atual);
+    if (atual && statusAnterior.current === null) statusAnterior.current = atual.status;
+
+    if (atual?.loja_id) {
+      const { data: lojaData } = await supabase
+        .from('lojas')
+        .select('slug, nome, logo_url, cor_primaria, cor_secundaria, cor_texto, cor_fundo_claro, cor_fundo_escuro, fonte, tema_cardapio')
+        .eq('id', atual.loja_id)
+        .maybeSingle();
+      setLoja(lojaData ?? null);
+    }
   };
+
+  useEffect(() => {
+    if (!loja) return;
+    const padrao = loja.tema_cardapio === 'escuro' ? 'escuro' : 'claro';
+    setTemaCliente(obterTemaPreferido(padrao));
+    const sincronizarTema = (event: Event) => {
+      const tema = (event as CustomEvent<{ tema: PreferenciaTema }>).detail?.tema;
+      if (tema === 'claro' || tema === 'escuro') setTemaCliente(tema);
+    };
+    window.addEventListener('miseon:tema', sincronizarTema as EventListener);
+    return () => window.removeEventListener('miseon:tema', sincronizarTema as EventListener);
+  }, [loja?.slug, loja?.tema_cardapio]);
+
+  useEffect(() => {
+    if (!loja) return;
+    const raiz = document.documentElement;
+    const fundo = obterFundoLojaPorTema(temaCliente, loja);
+    const tokens = obterTokensLoja(fundo, temaCliente, loja.cor_texto || loja.cor_primaria || '#FC5B24');
+    raiz.style.setProperty('--cor-fundo', fundo);
+    raiz.style.setProperty('--cor-primaria', loja.cor_primaria || '#FC5B24');
+    raiz.style.setProperty('--cor-secundaria', loja.cor_secundaria || '#0A5CC4');
+    raiz.style.setProperty('--fonte-loja', fonteFamilia(loja.fonte));
+    raiz.style.setProperty('--cor-texto', tokens.texto);
+    raiz.style.setProperty('--cor-texto-suave', tokens.textoSuave);
+    raiz.style.setProperty('--cor-texto-fraco', tokens.textoFraco);
+    raiz.style.setProperty('--cor-surface', tokens.surface);
+    raiz.style.setProperty('--cor-surface-muted', tokens.surfaceMuted);
+    raiz.style.setProperty('--cor-card', tokens.card);
+    raiz.style.setProperty('--cor-borda', tokens.border);
+    raiz.style.setProperty('--cor-borda-forte', tokens.borderStrong);
+    raiz.style.setProperty('--cor-destaque', tokens.destaque);
+    aplicarTema(temaCliente);
+  }, [loja, temaCliente]);
 
   useEffect(() => {
     if (!id) return;
     carregar();
     const canal = supabase
       .channel(`pedido-${id}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pedidos', filter: `id=eq.${id}` },
-        (payload) => {
-          const novo = payload.new as Pedido;
-          const msg = MENSAGEM_STATUS[novo.status];
-          if (statusAnterior.current && statusAnterior.current !== novo.status && msg) {
-            tocarSom();
-            if ('Notification' in window && Notification.permission === 'granted') new Notification(msg, { body: `Pedido #${novo.numero}` });
-            setAviso(msg);
-            setTimeout(() => setAviso(null), 6000);
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pedidos', filter: `id=eq.${id}` }, (payload) => {
+        const novo = payload.new as Pedido;
+        const msg = mensagemToast(novo.status, novo.tipo_pedido, !!novo.rota_id);
+        if (statusAnterior.current && statusAnterior.current !== novo.status && msg) {
+          tocarSom();
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(msg, { body: `Pedido #${novo.numero}` });
           }
-          statusAnterior.current = novo.status;
-          carregar();
-        })
+          setAviso(msg);
+          setTimeout(() => setAviso(null), 6000);
+        }
+        statusAnterior.current = novo.status;
+        carregar();
+      })
       .subscribe();
+
     if ('Notification' in window) Notification.requestPermission?.();
     return () => { supabase.removeChannel(canal); };
   }, [id]);
@@ -111,105 +196,257 @@ export default function AcompanharPedido() {
     buscarPosicao();
     const canal = supabase
       .channel(`entrega-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'localizacao_entregador', filter: `pedido_id=eq.${id}` },
-        (payload) => {
-          const e = payload.new as { lat?: number; lng?: number };
-          if (e.lat && e.lng) setPosicao({ lat: Number(e.lat), lng: Number(e.lng) });
-        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'localizacao_entregador', filter: `pedido_id=eq.${id}` }, (payload) => {
+        const atual = payload.new as { lat?: number; lng?: number };
+        if (atual?.lat && atual?.lng) setPosicao({ lat: Number(atual.lat), lng: Number(atual.lng) });
+      })
       .subscribe();
     return () => { supabase.removeChannel(canal); };
   }, [id, pedido?.status]);
 
-  if (!pedido) return <div className="flex h-screen items-center justify-center text-gray-400 dark:bg-gray-950">Carregando pedido…</div>;
+  const etapasAtuais = useMemo(
+    () => pedido?.tipo_pedido === 'DELIVERY' ? ETAPAS_DELIVERY : ETAPAS_RETIRADA,
+    [pedido?.tipo_pedido],
+  );
 
-  const idxAtual = ETAPAS.findIndex((e) => e.status === pedido.status);
+  if (!pedido) {
+    return <div className="flex h-screen items-center justify-center text-gray-400 dark:bg-gray-950">Carregando pedido...</div>;
+  }
+
+  const idxAtual = etapasAtuais.findIndex((e) => e.status === pedido.status);
   const cancelado = pedido.status === 'CANCELADO';
+  const progresso = cancelado ? 0 : Math.max(18, Math.round(((idxAtual + 1) / etapasAtuais.length) * 100));
+  const temTrackingAoVivo = pedido.tipo_pedido === 'DELIVERY' && pedido.status === 'EM_ROTA';
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-10 dark:bg-gray-950">
+    <div className="loja-marca min-h-screen pb-12">
       {aviso && (
-        <div className="fade fixed left-1/2 top-3 z-50 w-[92%] max-w-md -translate-x-1/2 rounded-xl bg-gray-900 px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">
+        <div className="fade fixed left-1/2 top-3 z-50 w-[92%] max-w-md -translate-x-1/2 rounded-2xl bg-gray-900 px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">
           {aviso}
         </div>
       )}
-      <header className="relative bg-[var(--cor-primaria)] p-5 text-white">
-        <div className="mx-auto max-w-2xl">
-          <div className="absolute right-4 top-4"><ThemeToggle className="rounded-full border border-white/30 bg-black/10 p-2 text-white" /></div>
-          <p className="text-sm opacity-80">Pedido</p>
-          <h1 className="text-2xl font-bold">#{pedido.numero}</h1>
-          <p className="text-sm opacity-90">{pedido.identificador_cliente}</p>
+
+      <header className="relative overflow-hidden px-4 pb-6 pt-6 text-white" style={{ background: `linear-gradient(135deg, ${loja?.cor_primaria || 'var(--cor-primaria)'}, ${loja?.cor_secundaria || 'var(--cor-secundaria)'})` }}>
+        <div className="mx-auto max-w-4xl">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/75">Acompanhamento em tempo real</p>
+              <h1 className="mt-2 text-3xl font-black">Pedido #{pedido.numero}</h1>
+              <p className="mt-1 text-sm text-white/85">{pedido.identificador_cliente}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link
+                to="/lojas"
+                className="rounded-full border border-white/20 bg-black/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-black/20"
+              >
+                <span className="inline-flex items-center gap-2"><Compass size={14} /> Hall de lojas</span>
+              </Link>
+              <ThemeToggle className="rounded-full border border-white/20 bg-black/10 p-2 text-white backdrop-blur-sm transition hover:bg-black/20" />
+              {loja?.slug && (
+                <Link
+                  to={`/${loja.slug}/meus-pedidos`}
+                  className="rounded-full border border-white/20 bg-black/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-black/20"
+                >
+                  Meus pedidos
+                </Link>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-3xl border border-white/15 bg-black/10 p-5 backdrop-blur-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-white/70">Status atual</p>
+                <p className="mt-1 text-xl font-black">{STATUS_LABEL[pedido.status]}</p>
+                <p className="mt-2 max-w-2xl text-sm text-white/80">{mensagemPrincipal(pedido.status, pedido.tipo_pedido, !!pedido.rota_id)}</p>
+              </div>
+              {!cancelado && (
+                <div className="min-w-[120px] rounded-2xl bg-white/10 px-4 py-3 text-center">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-white/65">Progresso</p>
+                  <p className="mt-1 text-2xl font-black">{progresso}%</p>
+                </div>
+              )}
+            </div>
+            {!cancelado && (
+              <div className="mt-4 h-2 rounded-full bg-white/15">
+                <div className="h-2 rounded-full bg-white transition-all" style={{ width: `${progresso}%` }} />
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
-      {/* Alerta de Retenção */}
-      <div className="bg-amber-100 dark:bg-amber-900/40 border-b border-amber-200 dark:border-amber-800 p-3 flex flex-col items-center justify-center text-center">
-        <p className="flex items-center gap-1.5 text-xs md:text-sm font-bold text-amber-800 dark:text-amber-400">
-          <AlertTriangle size={16} /> Não feche esta página!
-        </p>
-        <p className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">Seu pedido será atualizado aqui em tempo real.</p>
-        
-        {deferredPrompt && (
-          <button onClick={handleInstallClick} className="mt-3 flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">
-            <Download size={16} /> Instalar o App do Restaurante (Grátis)
-          </button>
-        )}
+      <div className="mx-auto mt-4 max-w-4xl px-4">
+        <div className="rounded-3xl border p-4 shadow-sm" style={{ background: 'var(--cor-surface)', borderColor: 'var(--cor-borda)' }}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-2xl p-2.5" style={{ background: 'var(--cor-destaque)', color: 'var(--cor-primaria)' }}>
+                <Sparkles size={18} />
+              </div>
+              <div>
+                <p className="font-semibold" style={{ color: 'var(--cor-texto)' }}>Seu pedido continua salvo mesmo se você sair desta tela.</p>
+                <p className="mt-1 text-sm" style={{ color: 'var(--cor-texto-suave)' }}>
+                  As atualizações continuam aparecendo em tempo real em <b>Meus pedidos</b> e aqui no link direto do pedido.
+                </p>
+              </div>
+            </div>
+            {deferredPrompt && (
+              <button onClick={handleInstallClick} className="flex items-center gap-2 rounded-2xl bg-[var(--cor-primaria)] px-4 py-3 text-sm font-bold text-white transition hover:brightness-110">
+                <Download size={16} /> Instalar app
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="mx-auto max-w-2xl p-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:p-6">
-        {cancelado ? (
-          <div className="flex items-center gap-2 rounded-2xl bg-red-50 p-4 text-red-600 dark:bg-red-950/40 dark:text-red-400">
-            <XCircle size={20} /> <p className="text-sm font-semibold">Pedido cancelado.</p>
-          </div>
-        ) : (
-          <div className="rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 shadow-sm dark:bg-gray-900">
-            {ETAPAS.map((e, i) => (
-              <div key={e.status} className="flex items-start gap-3 pb-4 last:pb-0">
-                <div className="flex flex-col items-center">
-                  <div className={`flex h-8 w-8 items-center justify-center rounded-full ${i <= idxAtual ? 'bg-[var(--cor-primaria)] text-white' : 'bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600 dark:text-gray-300'}`}>
-                    {e.icon}
-                  </div>
-                  {i < ETAPAS.length - 1 && <div className={`mt-1 h-6 w-0.5 ${i < idxAtual ? 'bg-[var(--cor-primaria)]' : 'bg-gray-100 dark:bg-gray-800'}`} />}
-                </div>
-                <p className={`pt-1.5 text-sm font-medium ${i <= idxAtual ? 'text-gray-800 dark:text-gray-100' : 'text-gray-300 dark:text-gray-600 dark:text-gray-300'}`}>{e.label}</p>
+      <div className="mx-auto mt-4 grid max-w-4xl gap-4 px-4 lg:grid-cols-[1.1fr_0.9fr]">
+        <section className="rounded-3xl border p-5 shadow-sm" style={{ background: 'var(--cor-card)', borderColor: 'var(--cor-borda)' }}>
+          {cancelado ? (
+            <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-600 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-400">
+              <XCircle size={20} />
+              <div>
+                <p className="font-bold">Pedido cancelado</p>
+                <p className="text-sm opacity-80">A loja marcou este pedido como cancelado.</p>
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {etapasAtuais.map((etapa, index) => {
+                const concluida = index <= idxAtual;
+                const atual = index === idxAtual;
+                return (
+                  <div key={etapa.status} className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-2xl border transition-all ${concluida ? 'border-transparent text-white shadow-md' : ''}`} style={concluida ? { background: 'var(--cor-primaria)' } : { borderColor: 'var(--cor-borda)', color: 'var(--cor-texto-fraco)', background: 'var(--cor-surface-muted)' }}>
+                        {etapa.icon}
+                      </div>
+                      {index < etapasAtuais.length - 1 && (
+                        <div className="mt-2 h-8 w-0.5 rounded-full" style={{ background: index < idxAtual ? 'var(--cor-primaria)' : 'var(--cor-borda)' }} />
+                      )}
+                    </div>
+                    <div className="pt-1">
+                      <p className="font-bold" style={{ color: concluida ? 'var(--cor-texto)' : 'var(--cor-texto-fraco)' }}>{etapa.label}</p>
+                      {atual && <p className="mt-1 text-xs font-semibold" style={{ color: 'var(--cor-primaria)' }}>Etapa atual</p>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
-        <div>
-          {pedido.status === 'EM_ROTA' && posicao && (
-            <div className="mt-4 overflow-hidden rounded-2xl border shadow-sm dark:border-gray-800 lg:mt-0">
-              <MapContainer center={[posicao.lat, posicao.lng]} zoom={15} style={{ height: 260, width: '100%' }}>
+        <div className="space-y-4">
+          {temTrackingAoVivo && posicao && (
+            <section className="overflow-hidden rounded-3xl border shadow-sm" style={{ borderColor: 'var(--cor-borda)' }}>
+              <div className="flex items-center justify-between border-b px-4 py-3" style={{ background: 'var(--cor-surface)', borderColor: 'var(--cor-borda)' }}>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--cor-texto-fraco)' }}>Live tracking</p>
+                  <p className="font-bold" style={{ color: 'var(--cor-texto)' }}>Seu entregador está em rota</p>
+                </div>
+                <span className="rounded-full px-2.5 py-1 text-[11px] font-bold text-white" style={{ background: 'var(--cor-primaria)' }}>Ao vivo</span>
+              </div>
+              <MapContainer center={[posicao.lat, posicao.lng]} zoom={15} style={{ height: 280, width: '100%' }}>
                 <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <MapUpdater posicao={posicao} />
                 <Marker position={[posicao.lat, posicao.lng]} icon={iconeMoto}>
-                  <Popup>Seu entregador está aqui 🛵</Popup>
+                  <Popup>Seu entregador está aqui.</Popup>
                 </Marker>
               </MapContainer>
-            </div>
-          )}
-          {pedido.status === 'EM_ROTA' && !posicao && (
-            <p className="mt-3 text-center text-xs text-gray-400">Aguardando o entregador iniciar o compartilhamento de localização…</p>
+            </section>
           )}
 
-          <div className="mt-4 rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-4 shadow-sm dark:bg-gray-900 lg:mt-4">
-            <p className="mb-2 text-sm font-semibold dark:text-gray-100">Itens</p>
-            <ul className="space-y-1 text-sm">
-              {pedido.itens_pedido?.map((i) => (
-                <li key={i.id}>
-                  <span className="font-medium dark:text-gray-200">{i.quantidade}x {i.nome_produto}</span>
-                  {i.itens_pedido_opcoes?.map((o, x) => <span key={x} className="block pl-4 text-xs text-gray-500 dark:text-gray-400">+ {o.nome_opcao}</span>)}
+          {temTrackingAoVivo && !posicao && (
+            <section className="rounded-3xl border p-4 shadow-sm" style={{ background: 'var(--cor-surface)', borderColor: 'var(--cor-borda)' }}>
+              <p className="font-semibold" style={{ color: 'var(--cor-texto)' }}>A entrega do seu pedido já começou.</p>
+              <p className="mt-1 text-sm" style={{ color: 'var(--cor-texto-suave)' }}>
+                O mapa aparece assim que o app do entregador enviar a primeira localização deste pedido.
+              </p>
+            </section>
+          )}
+
+          {pedido.tipo_pedido === 'DELIVERY' && pedido.status === 'PRONTO' && !!pedido.rota_id && (
+            <section className="rounded-3xl border p-4 shadow-sm" style={{ background: 'var(--cor-surface)', borderColor: 'var(--cor-borda)' }}>
+              <p className="font-semibold" style={{ color: 'var(--cor-texto)' }}>Sua entrega está na fila do entregador.</p>
+              <p className="mt-1 text-sm" style={{ color: 'var(--cor-texto-suave)' }}>
+                O rastreio só começa quando a sua entrega for iniciada. Isso evita mostrar um trajeto que ainda está atendendo outro cliente.
+              </p>
+            </section>
+          )}
+
+          <section className="rounded-3xl border p-5 shadow-sm" style={{ background: 'var(--cor-card)', borderColor: 'var(--cor-borda)' }}>
+            <p className="mb-3 text-sm font-bold" style={{ color: 'var(--cor-texto)' }}>Resumo do pedido</p>
+            <ul className="space-y-2 text-sm">
+              {pedido.itens_pedido?.map((item) => (
+                <li key={item.id}>
+                  <span className="font-medium" style={{ color: 'var(--cor-texto)' }}>{item.quantidade}x {item.nome_produto}</span>
+                  {item.itens_pedido_opcoes?.map((opcao, idx) => (
+                    <span key={idx} className="block pl-4 text-xs" style={{ color: 'var(--cor-texto-suave)' }}>+ {opcao.nome_opcao}</span>
+                  ))}
                 </li>
               ))}
             </ul>
-            <div className="mt-3 flex justify-between border-t pt-2 text-sm font-bold dark:border-gray-800 dark:text-gray-100">
-              <span>Total</span><span>{fmt(Number(pedido.valor_total))}</span>
+            <div className="mt-4 space-y-2 border-t pt-3 text-sm" style={{ borderColor: 'var(--cor-borda)' }}>
+              <div className="flex items-center justify-between" style={{ color: 'var(--cor-texto-suave)' }}>
+                <span>Subtotal</span>
+                <span>{fmt(Number(pedido.subtotal))}</span>
+              </div>
+              {Number(pedido.taxa_entrega) > 0 && (
+                <div className="flex items-center justify-between" style={{ color: 'var(--cor-texto-suave)' }}>
+                  <span>Taxa de entrega</span>
+                  <span>{fmt(Number(pedido.taxa_entrega))}</span>
+                </div>
+              )}
+              {Number(pedido.desconto) > 0 && (
+                <div className="flex items-center justify-between text-green-600 dark:text-green-400">
+                  <span>Desconto</span>
+                  <span>-{fmt(Number(pedido.desconto))}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-1 text-base font-black" style={{ color: 'var(--cor-texto)' }}>
+                <span>Total</span>
+                <span style={{ color: 'var(--cor-primaria)' }}>{fmt(Number(pedido.valor_total))}</span>
+              </div>
             </div>
-          </div>
 
-          {pedido.tipo_pedido === 'DELIVERY' && (
-            <p className="mt-3 text-center text-xs text-gray-400">Entrega em {pedido.endereco_entrega}{pedido.bairro ? ` — ${pedido.bairro}` : ''}</p>
-          )}
+            {pedido.tipo_pedido === 'DELIVERY' && (
+              <div className="mt-4 rounded-2xl p-4" style={{ background: 'var(--cor-surface-muted)' }}>
+                <p className="mb-1 flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--cor-texto)' }}>
+                  <MapPin size={14} />
+                  Endereço de entrega
+                </p>
+                <p className="text-sm" style={{ color: 'var(--cor-texto-suave)' }}>
+                  {pedido.endereco_entrega}
+                  {pedido.numero_endereco ? `, ${pedido.numero_endereco}` : ''}
+                  {pedido.bairro ? ` - ${pedido.bairro}` : ''}
+                  {pedido.complemento ? ` · ${pedido.complemento}` : ''}
+                </p>
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-3xl border p-4 shadow-sm" style={{ background: 'var(--cor-surface)', borderColor: 'var(--cor-borda)' }}>
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl p-2.5" style={{ background: 'var(--cor-destaque)', color: 'var(--cor-primaria)' }}>
+                <ShieldCheck size={18} />
+              </div>
+              <div>
+                <p className="font-semibold" style={{ color: 'var(--cor-texto)' }}>Atualizações protegidas e em tempo real</p>
+                <p className="mt-1 text-sm" style={{ color: 'var(--cor-texto-suave)' }}>
+                  Quando a loja muda o status ou o entregador inicia sua entrega, esta tela é atualizada automaticamente.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {loja?.slug && (
+                    <Link to={`/${loja.slug}`} className="inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-semibold" style={{ background: 'var(--cor-destaque)', color: 'var(--cor-texto)' }}>
+                      <Package size={14} /> Voltar ao cardapio
+                    </Link>
+                  )}
+                  <Link to="/lojas" className="inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-semibold" style={{ background: 'var(--cor-surface-muted)', color: 'var(--cor-texto)' }}>
+                    <Compass size={14} /> Trocar restaurante
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </div>

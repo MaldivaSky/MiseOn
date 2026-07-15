@@ -7,11 +7,12 @@ import {
 import { supabase } from '../lib/supabase';
 import EnderecoMixin, { EnderecoFormData } from './EnderecoMixin';
 import {
-  Loja, Cupom, TaxaEntrega, ItemCarrinho, Cliente,
+  Loja, Cupom, TaxaEntrega, ItemCarrinho, Cliente, FaixaEntrega,
   MetodoPgto, fmt, precoItem,
 } from '../types';
 import { maskTelefone } from '../lib/mascaras';
 import { calcularEntrega, ResultadoEntrega } from '../lib/geo';
+import { enderecoParaLabel, salvarLocalizacaoCliente } from '../lib/localizacao-cliente';
 
 const entrarComGoogle = (url: string) =>
   supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: url } });
@@ -20,11 +21,15 @@ const ROTULO_PGTO: Record<MetodoPgto, string> = {
   PIX: 'Pix', CREDITO: 'Crédito', DEBITO: 'Débito', DINHEIRO: 'Dinheiro',
 };
 
+const mensagemErroSupabase = (fallback: string, error?: { message?: string } | null) =>
+  error?.message ? `${fallback} ${error.message}` : fallback;
+
 interface Props {
   loja: Loja;
   aberta: boolean;
   carrinho: ItemCarrinho[];
   taxas: TaxaEntrega[];
+  faixasDistancia: FaixaEntrega[];
   user: User | null;
   setCarrinho: (c: ItemCarrinho[]) => void;
   onClose: () => void;
@@ -34,7 +39,7 @@ interface Props {
 }
 
 export default function CheckoutDrawer({
-  loja, aberta, carrinho, taxas, user,
+  loja, aberta, carrinho, taxas, faixasDistancia, user,
   setCarrinho, onClose, onSucesso, onCartao, onAbrirAuth,
 }: Props) {
   const [tipo, setTipo] = useState<'DELIVERY' | 'RETIRADA_BALCAO'>('DELIVERY');
@@ -116,12 +121,24 @@ export default function CheckoutDrawer({
         enderecoQuery,
         bairro: bairroAtual,
         taxasBairro: taxas.map((t) => ({ bairro: t.bairro, valor: t.valor })),
+        faixasDistancia,
       });
-      if (!cancelado) { setEntrega(res); setCalcTaxa(false); }
+      if (!cancelado) {
+        setEntrega(res);
+        if (res.geo) {
+          salvarLocalizacaoCliente({
+            origem: 'endereco',
+            lat: res.geo.lat,
+            lng: res.geo.lng,
+            label: enderecoParaLabel(enderecoObj ?? undefined) || bairroAtual,
+          });
+        }
+        setCalcTaxa(false);
+      }
     }, 700);
     return () => { cancelado = true; clearTimeout(id); setCalcTaxa(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tipo, enderecoQuery, bairroAtual, loja.id]);
+    }, [tipo, enderecoQuery, bairroAtual, loja.id, faixasDistancia]);
 
   // --- Calculos financeiros ---
   const subtotal = carrinho.reduce((s, i) => s + precoItem(i), 0);
@@ -137,7 +154,10 @@ export default function CheckoutDrawer({
   // Formas de pagamento conforme as flags da loja
   const aceitaOnline = loja.aceita_online !== false;
   const aceitaEntrega = loja.aceita_entrega !== false;
-  const metodosOnline: MetodoPgto[] = aceitaOnline ? ['PIX', 'CREDITO'] : [];
+  const cartaoOnlineConfigurado = !!loja.efi_payee_code?.trim();
+  const metodosOnline: MetodoPgto[] = aceitaOnline
+    ? ['PIX', ...(cartaoOnlineConfigurado ? (['CREDITO'] as MetodoPgto[]) : [])]
+    : [];
   const metodosEntrega: MetodoPgto[] = aceitaEntrega ? ['DINHEIRO', 'DEBITO'] : [];
   const metodosDisponiveis = [...metodosOnline, ...metodosEntrega];
   useEffect(() => {
@@ -178,25 +198,42 @@ export default function CheckoutDrawer({
     const bairroFormatado = tipo === 'DELIVERY' && enderecoObj ? enderecoObj.bairro : null;
 
     // Upsert cliente (perfil / lead que o lojista consulta depois)
-    const { data: clienteRow } = await supabase.from('clientes').upsert({
+    const { data: clienteRow, error: erroCliente } = await supabase.from('clientes').upsert({
       loja_id: loja.id, user_id: user.id, nome: nome.trim(),
       telefone, email: user.email ?? null,
       bairro: bairroFormatado ?? bairroManual,
       ...(metodo ? { forma_pagamento_preferida: metodo } : {}),
     }, { onConflict: 'loja_id,user_id' }).select('id').maybeSingle();
 
+    if (erroCliente) {
+      setEnviando(false);
+      return setErro(mensagemErroSupabase('Erro ao salvar os dados do cliente.', erroCliente));
+    }
+
     // Salvar endereco padrao (so cria se o cliente ainda nao tem nenhum)
     if (tipo === 'DELIVERY' && enderecoObj && clienteRow?.id) {
-      const { count } = await supabase.from('enderecos_cliente')
+      const { count, error: erroCountEndereco } = await supabase.from('enderecos_cliente')
         .select('*', { count: 'exact', head: true }).eq('cliente_id', clienteRow.id);
+      if (erroCountEndereco) {
+        setEnviando(false);
+        return setErro(mensagemErroSupabase('Erro ao verificar endereco padrao do cliente.', erroCountEndereco));
+      }
       if (!count) {
-        await supabase.from('enderecos_cliente').insert({
+        const { error: erroEndereco } = await supabase.from('enderecos_cliente').insert({
           cliente_id: clienteRow.id, cep: enderecoObj.cep,
-          logradouro: enderecoObj.logradouro, numero: enderecoObj.numero,
-          complemento: enderecoObj.complemento, bairro: enderecoObj.bairro,
-          cidade: enderecoObj.cidade, uf: enderecoObj.uf,
-          ponto_referencia: enderecoObj.ponto_referencia, padrao: true,
+          logradouro: enderecoObj.logradouro,
+          numero: enderecoObj.sem_numero ? 'SN' : (enderecoObj.numero || null),
+          complemento: enderecoObj.complemento || null,
+          bairro: enderecoObj.bairro,
+          cidade: enderecoObj.cidade,
+          uf: (enderecoObj.uf || '').toUpperCase(),
+          ponto_referencia: enderecoObj.ponto_referencia || null,
+          padrao: true,
         });
+        if (erroEndereco) {
+          setEnviando(false);
+          return setErro(mensagemErroSupabase('Erro ao salvar endereco padrao do cliente.', erroEndereco));
+        }
       }
     }
 
@@ -224,11 +261,14 @@ export default function CheckoutDrawer({
       troco_para: metodo === 'DINHEIRO' && trocoPara ? Number(trocoPara) : null,
     }).select('id, numero').single();
 
-    if (erroPedido || !pedido) { setEnviando(false); return setErro('Erro ao criar pedido. Tente novamente.'); }
+    if (erroPedido || !pedido) {
+      setEnviando(false);
+      return setErro(mensagemErroSupabase('Erro ao criar pedido.', erroPedido));
+    }
 
     // Itens do pedido + opcoes (tabelas itens_pedido / itens_pedido_opcoes)
     for (const item of carrinho) {
-      const { data: it } = await supabase.from('itens_pedido').insert({
+      const { data: it, error: erroItem } = await supabase.from('itens_pedido').insert({
         pedido_id: pedido.id,
         produto_id: item.produto.id,
         nome_produto: item.produto.nome,
@@ -236,53 +276,52 @@ export default function CheckoutDrawer({
         quantidade: item.quantidade,
         observacao: item.observacao ?? null,
       }).select('id').single();
+      if (erroItem || !it) {
+        setEnviando(false);
+        return setErro(mensagemErroSupabase(`Erro ao salvar item do pedido (${item.produto.nome}).`, erroItem));
+      }
       if (it && item.opcoesSelecionadas.length) {
-        await supabase.from('itens_pedido_opcoes').insert(
+        const { error: erroOpcoes } = await supabase.from('itens_pedido_opcoes').insert(
           item.opcoesSelecionadas.map((o) => ({
             item_id: it.id, opcao_id: o.id, nome_opcao: o.nome, preco_adicional: o.preco_adicional,
           })),
         );
+        if (erroOpcoes) {
+          setEnviando(false);
+          return setErro(mensagemErroSupabase(`Erro ao salvar complementos do item ${item.produto.nome}.`, erroOpcoes));
+        }
       }
     }
 
     // Pagamento
-    await supabase.from('pagamentos').insert({ pedido_id: pedido.id, metodo, valor_pago: total });
+    const { error: erroPagamento } = await supabase.from('pagamentos').insert({ pedido_id: pedido.id, metodo, valor_pago: total });
+    if (erroPagamento) {
+      setEnviando(false);
+      return setErro(mensagemErroSupabase('Erro ao registrar pagamento do pedido.', erroPagamento));
+    }
 
     // Cartao de credito online (Efi — tokenizacao no proximo modal)
-    if (metodo === 'CREDITO' && loja.efi_payee_code && onCartao) {
+    if (metodo === 'CREDITO') {
+      if (!cartaoOnlineConfigurado || !onCartao) {
+        setEnviando(false);
+        return setErro('Cartão online ainda não está configurado para esta loja.');
+      }
       setEnviando(false);
       onCartao({ pedidoId: pedido.id, numero: pedido.numero, total });
       return;
     }
 
-    // Pix dentro da plataforma (Efi). Se nao configurado, cai no Pix estatico via WhatsApp.
     let pixInfo: { copia_e_cola: string; qr_imagem?: string } | null = null;
     if (metodo === 'PIX') {
       const { data: cob, error: e2 } = await supabase.functions.invoke('pix-criar-cobranca', {
         body: { pedido_id: pedido.id },
       });
-      if (!e2 && cob?.copia_e_cola) pixInfo = cob;
+      if (e2 || cob?.error) {
+        setEnviando(false);
+        return setErro(`Falha na plataforma de pagamento: ${e2?.message || cob?.error || 'Erro desconhecido ao gerar Pix'}`);
+      }
+      if (cob?.copia_e_cola) pixInfo = cob;
     }
-
-    // Mensagem WhatsApp
-    const linhas = carrinho.map((i) => {
-      const ops = i.opcoesSelecionadas.map((o) => `\n   + ${o.nome}`).join('');
-      return `* ${i.quantidade}x ${i.produto.nome}${ops}${i.observacao ? `\n   Obs: ${i.observacao}` : ''}`;
-    }).join('\n');
-    const msg =
-      `*NOVO PEDIDO #${pedido.numero}* - ${loja.nome}\n\n${linhas}\n\n` +
-      `Subtotal: ${fmt(subtotal)}\n` +
-      (taxa ? `Entrega: ${fmt(taxa)}\n` : '') +
-      (desconto ? `Desconto (${cupom?.codigo}): -${fmt(desconto)}\n` : '') +
-      `*Total: ${fmt(total)}*\n\n` +
-      `${tipo === 'DELIVERY' ? `Endereco: ${enderecoFormatado}${bairroFormatado ? ` - ${bairroFormatado}` : ''}` : 'Retirada no balcao'}\n` +
-      `Cliente: ${nome} | ${telefone}\n` +
-      `Pagamento: ${metodo}${metodo === 'DINHEIRO' && trocoPara ? ` (troco p/ ${fmt(Number(trocoPara))})` : ''}` +
-      (metodo === 'PIX' && loja.pix_chave ? `\nPix: ${loja.pix_chave}` : '');
-
-    const numeroLimpo = loja.whatsapp.replace(/\D/g, '');
-    const numeroDDI = numeroLimpo.startsWith('55') ? numeroLimpo : `55${numeroLimpo}`;
-    // window.open(`https://wa.me/${numeroDDI}?text=${encodeURIComponent(msg)}`, '_blank');
 
     setEnviando(false);
     onSucesso(pedido.numero, pedido.id, pixInfo);
@@ -465,15 +504,20 @@ export default function CheckoutDrawer({
                         <>
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-semibold dark:text-gray-200">
-                              ~{entrega.distanciaKm} km da loja
+                              ~{entrega.distanciaKm} km da loja{entrega.faixaNome ? ` · ${entrega.faixaNome}` : ''}
                             </span>
                             <span className={`text-sm font-black ${foraDeArea ? 'text-red-600 dark:text-red-400' : 'text-[var(--cor-primaria)]'}`}>
                               {foraDeArea ? 'Fora da área' : fmt(taxa)}
                             </span>
                           </div>
-                          {foraDeArea && loja.entrega_raio_km != null && (
+                          {!foraDeArea && entrega.faixaNome && (
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              Faixa aplicada automaticamente conforme a distância do cliente.
+                            </p>
+                          )}
+                          {foraDeArea && entrega.raioConsideradoKm != null && (
                             <p className="mt-1 text-xs font-bold text-red-600 dark:text-red-400">
-                              Fora do raio de {Number(loja.entrega_raio_km)} km desta loja.
+                              Fora do raio de {Number(entrega.raioConsideradoKm)} km desta loja.
                             </p>
                           )}
                         </>

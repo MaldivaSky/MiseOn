@@ -498,7 +498,6 @@ function GestaoEntregadores({ lojaId }: { lojaId: string }) {
         rota_id: rotaData.id,
         entregador_id: entregadorSelecionado,
         ordem_entrega: idx + 1,
-        status: 'EM_ROTA',
       }).eq('id', pedId)
     );
 

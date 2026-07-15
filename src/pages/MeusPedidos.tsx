@@ -1,88 +1,308 @@
-import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, LogIn, Package } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { Bike, ChevronLeft, Clock3, Compass, LogIn, Package, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { Pedido, StatusPedido, fmt } from '../types';
+import { fmt, type Loja, type Pedido, type StatusPedido } from '../types';
+import { aplicarTema, obterTemaPreferido, type PreferenciaTema } from '../lib/tema';
+import { fonteFamilia, obterFundoLojaPorTema, obterTokensLoja } from '../lib/personalizacao';
+import ThemeToggle from '../components/ThemeToggle';
 
 const STATUS_LABEL: Record<StatusPedido, string> = {
-  NOVO: 'Recebido', ACEITO: 'Aceito', PREPARANDO: 'Preparando',
-  PRONTO: 'Pronto', EM_ROTA: 'Em rota', FINALIZADO: 'Entregue', CANCELADO: 'Cancelado',
+  NOVO: 'Recebido',
+  ACEITO: 'Aceito',
+  PREPARANDO: 'Em preparo',
+  PRONTO: 'Pronto',
+  EM_ROTA: 'Em rota',
+  FINALIZADO: 'Entregue',
+  CANCELADO: 'Cancelado',
 };
-const STATUS_COR: Record<StatusPedido, string> = {
-  NOVO: 'bg-amber-100 text-amber-700', ACEITO: 'bg-blue-100 text-blue-700', PREPARANDO: 'bg-indigo-100 text-indigo-700',
-  PRONTO: 'bg-purple-100 text-purple-700', EM_ROTA: 'bg-cyan-100 text-cyan-700',
-  FINALIZADO: 'bg-green-100 text-green-700', CANCELADO: 'bg-red-100 text-red-600',
+
+const STATUS_TOM: Record<StatusPedido, string> = {
+  NOVO: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+  ACEITO: 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+  PREPARANDO: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400',
+  PRONTO: 'bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400',
+  EM_ROTA: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-400',
+  FINALIZADO: 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400',
+  CANCELADO: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400',
 };
+
+const STATUS_PESO: Record<StatusPedido, number> = {
+  NOVO: 1,
+  ACEITO: 2,
+  PREPARANDO: 3,
+  PRONTO: 4,
+  EM_ROTA: 5,
+  FINALIZADO: 6,
+  CANCELADO: 0,
+};
+
+const entrar = () => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } });
+
+function descricaoStatus(pedido: Pedido) {
+  if (pedido.status === 'NOVO') return 'Recebemos seu pedido e a loja já foi avisada.';
+  if (pedido.status === 'ACEITO') return 'Pedido aceito e seguindo para a cozinha.';
+  if (pedido.status === 'PREPARANDO') return 'A cozinha está preparando seu pedido agora.';
+  if (pedido.status === 'PRONTO') return pedido.tipo_pedido === 'DELIVERY'
+    ? (pedido.rota_id ? 'Pedido embalado, aguardando o início da sua entrega.' : 'Pedido pronto, aguardando despacho.')
+    : 'Pedido pronto para retirada.';
+  if (pedido.status === 'EM_ROTA') return 'Seu entregador já iniciou a sua entrega.';
+  if (pedido.status === 'FINALIZADO') return 'Pedido concluído com sucesso.';
+  return 'Pedido cancelado pela loja.';
+}
 
 export default function MeusPedidos() {
   const { slug } = useParams();
   const [logado, setLogado] = useState<boolean | null>(null);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [loja, setLoja] = useState<Partial<Loja> | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [temaCliente, setTemaCliente] = useState<PreferenciaTema>(() => obterTemaPreferido());
+
+  useEffect(() => {
+    if (!loja) return;
+    const padrao = loja.tema_cardapio === 'escuro' ? 'escuro' : 'claro';
+    setTemaCliente(obterTemaPreferido(padrao));
+    const sincronizarTema = (event: Event) => {
+      const tema = (event as CustomEvent<{ tema: PreferenciaTema }>).detail?.tema;
+      if (tema === 'claro' || tema === 'escuro') setTemaCliente(tema);
+    };
+    window.addEventListener('miseon:tema', sincronizarTema as EventListener);
+    return () => window.removeEventListener('miseon:tema', sincronizarTema as EventListener);
+  }, [loja?.slug, loja?.tema_cardapio]);
+
+  useEffect(() => {
+    if (!loja) return;
+    const raiz = document.documentElement;
+    const fundo = obterFundoLojaPorTema(temaCliente, loja);
+    const tokens = obterTokensLoja(fundo, temaCliente, loja.cor_texto || loja.cor_primaria || '#FC5B24');
+    raiz.style.setProperty('--cor-fundo', fundo);
+    raiz.style.setProperty('--cor-primaria', loja.cor_primaria || '#FC5B24');
+    raiz.style.setProperty('--cor-secundaria', loja.cor_secundaria || '#0A5CC4');
+    raiz.style.setProperty('--fonte-loja', fonteFamilia(loja.fonte));
+    raiz.style.setProperty('--cor-texto', tokens.texto);
+    raiz.style.setProperty('--cor-texto-suave', tokens.textoSuave);
+    raiz.style.setProperty('--cor-texto-fraco', tokens.textoFraco);
+    raiz.style.setProperty('--cor-surface', tokens.surface);
+    raiz.style.setProperty('--cor-surface-muted', tokens.surfaceMuted);
+    raiz.style.setProperty('--cor-card', tokens.card);
+    raiz.style.setProperty('--cor-borda', tokens.border);
+    raiz.style.setProperty('--cor-borda-forte', tokens.borderStrong);
+    raiz.style.setProperty('--cor-destaque', tokens.destaque);
+    aplicarTema(temaCliente);
+  }, [loja, temaCliente]);
 
   useEffect(() => {
     if (!slug) return;
-    (async () => {
+    let userId: string | null = null;
+
+    const carregar = async () => {
+      setCarregando(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLogado(false); setCarregando(false); return; }
+      if (!user) {
+        setLogado(false);
+        setPedidos([]);
+        setCarregando(false);
+        return;
+      }
+
+      userId = user.id;
       setLogado(true);
 
-      const { data: loja } = await supabase.from('lojas').select('id').eq('slug', slug).single();
-      if (!loja) { setCarregando(false); return; }
+      const { data: lojaData } = await supabase
+        .from('lojas')
+        .select('id, slug, nome, logo_url, cor_primaria, cor_secundaria, cor_texto, cor_fundo_claro, cor_fundo_escuro, fonte, tema_cardapio')
+        .eq('slug', slug)
+        .maybeSingle();
+
+      if (!lojaData) {
+        setCarregando(false);
+        return;
+      }
+
+      setLoja(lojaData);
 
       const { data } = await supabase
         .from('pedidos')
         .select('*, itens_pedido(*)')
-        .eq('loja_id', loja.id)
+        .eq('loja_id', lojaData.id)
         .eq('cliente_user_id', user.id)
         .order('criado_em', { ascending: false });
+
       setPedidos((data as Pedido[]) ?? []);
       setCarregando(false);
-    })();
+    };
+
+    carregar();
+
+    const authSub = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.id !== userId) carregar();
+    });
+
+    const canal = supabase
+      .channel(`meus-pedidos-${slug}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => {
+        carregar();
+      })
+      .subscribe();
+
+    return () => {
+      authSub.data.subscription.unsubscribe();
+      supabase.removeChannel(canal);
+    };
   }, [slug]);
 
-  const entrar = () => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } });
+  const ativos = useMemo(
+    () => pedidos.filter((pedido) => !['FINALIZADO', 'CANCELADO'].includes(pedido.status)).sort((a, b) => STATUS_PESO[b.status] - STATUS_PESO[a.status]),
+    [pedidos],
+  );
+  const historico = useMemo(
+    () => pedidos.filter((pedido) => ['FINALIZADO', 'CANCELADO'].includes(pedido.status)),
+    [pedidos],
+  );
+
+  const ultimoPedidoSalvo = useMemo(() => {
+    if (!slug) return null;
+    try {
+      const bruto = localStorage.getItem(`miseon_ultimo_pedido_${slug}`);
+      return bruto ? JSON.parse(bruto) as { pedidoId: string; numero: number } : null;
+    } catch {
+      return null;
+    }
+  }, [slug]);
 
   return (
-    <div className="mx-auto min-h-screen max-w-lg bg-gray-50 pb-10">
-      <header className="flex items-center gap-2 bg-white dark:bg-gray-900 dark:border-gray-800 p-4 shadow-sm">
-        <Link to={`/${slug}`} className="text-gray-400"><ChevronLeft size={20} /></Link>
-        <h1 className="font-bold">Meus pedidos</h1>
+    <div className="loja-marca min-h-screen pb-10">
+      <header className="sticky top-0 z-20 border-b px-4 py-4 shadow-sm backdrop-blur-md" style={{ background: 'color-mix(in srgb, var(--cor-surface) 88%, transparent)', borderColor: 'var(--cor-borda)' }}>
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+          <Link to={`/${slug}`} className="rounded-full p-2" style={{ color: 'var(--cor-texto-suave)', background: 'var(--cor-destaque)' }}>
+            <ChevronLeft size={18} />
+          </Link>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={{ color: 'var(--cor-texto-fraco)' }}>Central do cliente</p>
+            <h1 className="font-black" style={{ color: 'var(--cor-texto)' }}>Meus pedidos</h1>
+          </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link to="/lojas" className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold" style={{ borderColor: 'var(--cor-borda)', color: 'var(--cor-texto-suave)', background: 'var(--cor-surface)' }}>
+              <Compass size={14} /> Lojas
+            </Link>
+            <ThemeToggle className="rounded-full border p-2" />
+          </div>
+        </div>
       </header>
 
-      <div className="p-4">
+      <div className="mx-auto max-w-3xl px-4 pt-5">
         {logado === false && (
-          <div className="mt-6 rounded-2xl border border-dashed p-6 text-center">
-            <p className="text-sm font-semibold">Entre pra ver seu histórico</p>
-            <button onClick={entrar} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-800 py-3 text-sm font-semibold text-white">
+          <div className="mt-6 rounded-3xl border border-dashed p-6 text-center" style={{ background: 'var(--cor-surface)', borderColor: 'var(--cor-borda-forte)' }}>
+            <p className="text-lg font-bold" style={{ color: 'var(--cor-texto)' }}>Entre para ver seus pedidos e acompanhar tudo em tempo real.</p>
+            <p className="mt-2 text-sm" style={{ color: 'var(--cor-texto-suave)' }}>
+              Seu histórico, pedidos em preparo e entregas em andamento ficam centralizados aqui.
+            </p>
+            <button onClick={entrar} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--cor-primaria)] px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110">
               <LogIn size={16} /> Entrar com Google
             </button>
           </div>
         )}
 
-        {carregando && logado !== false && <p className="py-10 text-center text-sm text-gray-400">Carregando…</p>}
+        {carregando && logado !== false && (
+          <p className="py-12 text-center text-sm" style={{ color: 'var(--cor-texto-fraco)' }}>Carregando seus pedidos...</p>
+        )}
 
         {logado && !carregando && (
-          <div className="space-y-2">
-            {pedidos.map((p) => (
-              <Link key={p.id} to={`/pedido/${p.id}`} className="card-hover flex items-center justify-between rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 shadow-sm">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold">#{p.numero}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_COR[p.status]}`}>{STATUS_LABEL[p.status]}</span>
+          <div className="space-y-6">
+            <section className="rounded-3xl border p-5 shadow-sm" style={{ background: 'var(--cor-surface)', borderColor: 'var(--cor-borda)' }}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-2xl p-2.5" style={{ background: 'var(--cor-destaque)', color: 'var(--cor-primaria)' }}>
+                    <Sparkles size={18} />
                   </div>
-                  <p className="text-xs text-gray-400">{new Date(p.criado_em).toLocaleString('pt-BR')}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{p.itens_pedido?.length ?? 0} item(ns)</p>
+                  <div>
+                    <p className="font-semibold" style={{ color: 'var(--cor-texto)' }}>Acompanhe tudo daqui, sem depender de ficar na tela do pedido.</p>
+                    <p className="mt-1 text-sm" style={{ color: 'var(--cor-texto-suave)' }}>
+                      Sempre que a loja aceitar, preparar, despachar ou concluir uma entrega, esta central é atualizada automaticamente.
+                    </p>
+                  </div>
                 </div>
-                <span className="font-bold">{fmt(Number(p.valor_total))}</span>
-              </Link>
-            ))}
-            {pedidos.length === 0 && (
-              <div className="py-10 text-center text-sm text-gray-400">
-                <Package size={28} className="mx-auto mb-2 text-gray-300" />
-                Você ainda não fez nenhum pedido aqui.
+                {ultimoPedidoSalvo && (
+                  <Link to={`/pedido/${ultimoPedidoSalvo.pedidoId}`} className="rounded-2xl bg-[var(--cor-primaria)] px-4 py-3 text-sm font-bold text-white transition hover:brightness-110">
+                    Retomar pedido #{ultimoPedidoSalvo.numero}
+                  </Link>
+                )}
               </div>
-            )}
+            </section>
+
+            <section>
+              <div className="mb-3 flex items-center gap-2">
+                <Bike size={18} className="text-[var(--cor-primaria)]" />
+                <h2 className="font-bold" style={{ color: 'var(--cor-texto)' }}>Em andamento</h2>
+              </div>
+              {ativos.length === 0 ? (
+                <div className="rounded-3xl border p-6 text-center" style={{ background: 'var(--cor-surface)', borderColor: 'var(--cor-borda)' }}>
+                  <Package size={28} className="mx-auto mb-3" style={{ color: 'var(--cor-texto-fraco)' }} />
+                  <p className="font-semibold" style={{ color: 'var(--cor-texto)' }}>Nenhum pedido em andamento no momento.</p>
+                  <Link to="/lojas" className="mt-4 inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold" style={{ background: 'var(--cor-destaque)', color: 'var(--cor-texto)' }}>
+                    <Compass size={15} /> Explorar restaurantes
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {ativos.map((pedido) => (
+                    <Link key={pedido.id} to={`/pedido/${pedido.id}`} className="block rounded-3xl border p-4 shadow-sm transition hover:shadow-md" style={{ background: 'var(--cor-card)', borderColor: 'var(--cor-borda)' }}>
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-lg font-black" style={{ color: 'var(--cor-texto)' }}>#{pedido.numero}</span>
+                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${STATUS_TOM[pedido.status]}`}>{STATUS_LABEL[pedido.status]}</span>
+                          </div>
+                          <p className="mt-2 text-sm" style={{ color: 'var(--cor-texto-suave)' }}>{descricaoStatus(pedido)}</p>
+                          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs" style={{ color: 'var(--cor-texto-fraco)' }}>
+                            <span className="inline-flex items-center gap-1"><Clock3 size={13} /> {new Date(pedido.criado_em).toLocaleString('pt-BR')}</span>
+                            <span>{pedido.itens_pedido?.length ?? 0} item(ns)</span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-black" style={{ color: 'var(--cor-primaria)' }}>{fmt(Number(pedido.valor_total))}</p>
+                          <span className="mt-3 inline-flex rounded-full px-3 py-1 text-[11px] font-semibold" style={{ background: 'var(--cor-destaque)', color: 'var(--cor-texto)' }}>
+                            {pedido.status === 'EM_ROTA' ? 'Acompanhar ao vivo' : 'Ver detalhes'}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section>
+              <div className="mb-3 flex items-center gap-2">
+                <Package size={18} className="text-[var(--cor-primaria)]" />
+                <h2 className="font-bold" style={{ color: 'var(--cor-texto)' }}>Histórico</h2>
+              </div>
+              {historico.length === 0 ? (
+                <div className="rounded-3xl border p-6 text-center" style={{ background: 'var(--cor-surface)', borderColor: 'var(--cor-borda)' }}>
+                  <p className="text-sm" style={{ color: 'var(--cor-texto-suave)' }}>Seu histórico ainda não tem pedidos finalizados.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {historico.map((pedido) => (
+                    <Link key={pedido.id} to={`/pedido/${pedido.id}`} className="block rounded-3xl border p-4 shadow-sm transition hover:shadow-md" style={{ background: 'var(--cor-card)', borderColor: 'var(--cor-borda)' }}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-black" style={{ color: 'var(--cor-texto)' }}>#{pedido.numero}</span>
+                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${STATUS_TOM[pedido.status]}`}>{STATUS_LABEL[pedido.status]}</span>
+                          </div>
+                          <p className="mt-1 text-xs" style={{ color: 'var(--cor-texto-fraco)' }}>{new Date(pedido.criado_em).toLocaleString('pt-BR')}</p>
+                        </div>
+                        <span className="font-bold" style={{ color: 'var(--cor-texto)' }}>{fmt(Number(pedido.valor_total))}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
         )}
       </div>

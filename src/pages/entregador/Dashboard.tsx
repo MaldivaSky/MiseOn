@@ -103,10 +103,13 @@ export default function EntregadorDashboard() {
   const iniciarRota = async () => {
     if (!rotaAtiva) return;
     await supabase.from('rotas_entrega').update({ status: 'EM_ANDAMENTO' }).eq('id', rotaAtiva.id);
-    // Todos os pedidos da rota vão para EM_ROTA
-    const promessas = rotaAtiva.pedidos.map((p: any) => 
-      supabase.from('pedidos').update({ status: 'EM_ROTA' }).eq('id', p.id)
-    );
+    const pedidosOrdenados = [...(rotaAtiva.pedidos || [])].sort((a: any, b: any) => (a.ordem_entrega || 0) - (b.ordem_entrega || 0));
+    const primeiroAtivo = pedidosOrdenados.find((p: any) => !['FINALIZADO', 'CANCELADO'].includes(p.status));
+    const promessas = pedidosOrdenados
+      .filter((p: any) => !['FINALIZADO', 'CANCELADO'].includes(p.status))
+      .map((p: any) =>
+        supabase.from('pedidos').update({ status: p.id === primeiroAtivo?.id ? 'EM_ROTA' : 'PRONTO' }).eq('id', p.id),
+      );
     await Promise.all(promessas);
     carregar();
   };

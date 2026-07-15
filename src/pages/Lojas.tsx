@@ -1,11 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, MapPin, ArrowRight, ChevronLeft } from 'lucide-react';
+import type { User } from '@supabase/supabase-js';
+import { Search, MapPin, ArrowRight, ChevronLeft, Compass, Sparkles, LocateFixed, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import MiseOnLogo from '../components/MiseOnLogo';
 import { MiseOnLoader } from '../components/MiseOnLoader';
+import type { FaixaEntrega } from '../types';
+import { geocode, lojaAtendeDistancia, type LatLng } from '../lib/geo';
+import { carregarLocalizacaoCliente, enderecoParaLabel, enderecoParaQuery, salvarLocalizacaoCliente } from '../lib/localizacao-cliente';
 
 interface LojaResumo {
+  id: string;
   slug: string;
   nome: string;
   descricao?: string;
@@ -13,26 +18,135 @@ interface LojaResumo {
   banner_url?: string;
   endereco?: string;
   cor_primaria: string;
+  aceita_entrega?: boolean | null;
+  lat?: number | null;
+  lng?: number | null;
+  entrega_modo?: 'BAIRRO' | 'DISTANCIA' | 'HIBRIDO' | null;
+  entrega_taxa_base?: number | null;
+  entrega_taxa_km?: number | null;
+  entrega_raio_km?: number | null;
+  entrega_taxa_padrao?: number | null;
 }
 
 export default function Lojas() {
   const [lojas, setLojas] = useState<LojaResumo[]>([]);
+  const [faixasEntrega, setFaixasEntrega] = useState<FaixaEntrega[]>([]);
   const [busca, setBusca] = useState('');
   const [carregando, setCarregando] = useState(true);
+  const [ultimaLojaSlug, setUltimaLojaSlug] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [localizacaoCliente, setLocalizacaoCliente] = useState<LatLng | null>(null);
+  const [labelLocalizacao, setLabelLocalizacao] = useState('');
+  const [localizando, setLocalizando] = useState(false);
+  const [tentouDescobrir, setTentouDescobrir] = useState(false);
+
+  useEffect(() => {
+    setUltimaLojaSlug(localStorage.getItem('miseon_ultima_loja'));
+    const salva = carregarLocalizacaoCliente();
+    if (salva) {
+      setLocalizacaoCliente({ lat: salva.lat, lng: salva.lng });
+      setLabelLocalizacao(salva.label ?? '');
+    }
+    supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null));
+    const onLocalizacao = (event: Event) => {
+      const payload = (event as CustomEvent).detail;
+      if (payload?.lat && payload?.lng) {
+        setLocalizacaoCliente({ lat: payload.lat, lng: payload.lng });
+        setLabelLocalizacao(payload.label ?? '');
+      }
+    };
+    window.addEventListener('miseon:localizacao-cliente', onLocalizacao as EventListener);
+    return () => {
+      sub.subscription.unsubscribe();
+      window.removeEventListener('miseon:localizacao-cliente', onLocalizacao as EventListener);
+    };
+  }, []);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      const [{ data }, { data: faixas }] = await Promise.all([
+        supabase
         .from('lojas')
-        .select('slug, nome, descricao, logo_url, banner_url, endereco, cor_primaria')
+        .select('id, slug, nome, descricao, logo_url, banner_url, endereco, cor_primaria, aceita_entrega, lat, lng, entrega_modo, entrega_taxa_base, entrega_taxa_km, entrega_raio_km, entrega_taxa_padrao')
         .eq('ativo', true)
-        .order('nome');
+        .order('nome'),
+        supabase.from('faixas_entrega').select('*').eq('ativo', true).order('ordem').order('km_ate'),
+      ]);
       setLojas((data as LojaResumo[]) ?? []);
+      setFaixasEntrega((faixas as FaixaEntrega[]) ?? []);
       setCarregando(false);
     })();
   }, []);
 
+  useEffect(() => {
+    if (!user || localizacaoCliente || tentouDescobrir) return;
+    setTentouDescobrir(true);
+    (async () => {
+      const { data: clientes } = await supabase
+        .from('clientes')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(20);
+
+      const ids = (clientes ?? []).map((c) => c.id);
+      if (!ids.length) return;
+
+      const { data: enderecos } = await supabase
+        .from('enderecos_cliente')
+        .select('cep, logradouro, numero, bairro, cidade, uf, padrao')
+        .in('cliente_id', ids)
+        .order('padrao', { ascending: false })
+        .limit(10);
+
+      const preferido = enderecos?.[0];
+      if (!preferido) return;
+
+      const query = enderecoParaQuery(preferido);
+      const geo = await geocode(query);
+      if (!geo) return;
+
+      const label = enderecoParaLabel(preferido);
+      salvarLocalizacaoCliente({ origem: 'endereco', lat: geo.lat, lng: geo.lng, label });
+      setLocalizacaoCliente(geo);
+      setLabelLocalizacao(label);
+    })();
+  }, [user, localizacaoCliente, tentouDescobrir]);
+
+  const usarLocalizacaoAtual = () => {
+    if (!navigator.geolocation) return;
+    setLocalizando(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const geo = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        salvarLocalizacaoCliente({ origem: 'gps', ...geo, label: 'Sua localização atual' });
+        setLocalizacaoCliente(geo);
+        setLabelLocalizacao('Sua localização atual');
+        setLocalizando(false);
+      },
+      () => setLocalizando(false),
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  };
+
   const visiveis = lojas.filter((l) => !busca || l.nome.toLowerCase().includes(busca.toLowerCase()));
+  const ultimaLoja = useMemo(() => lojas.find((l) => l.slug === ultimaLojaSlug) ?? null, [lojas, ultimaLojaSlug]);
+  const lojasElegiveis = useMemo(() => {
+    const cards = visiveis.map((loja) => {
+      const faixas = faixasEntrega.filter((f) => f.loja_id === loja.id);
+      const precisaFiltro = user && localizacaoCliente && loja.aceita_entrega !== false && (loja.entrega_modo === 'DISTANCIA' || loja.entrega_modo === 'HIBRIDO') && loja.lat != null && loja.lng != null;
+      const cobertura = precisaFiltro ? lojaAtendeDistancia(loja, localizacaoCliente, faixas) : null;
+      return {
+        ...loja,
+        distanciaKm: cobertura?.distanciaKm ?? null,
+        taxaEntrega: cobertura?.taxa ?? null,
+        faixaNome: cobertura?.faixa?.nome ?? null,
+        elegivel: cobertura ? cobertura.atende : true,
+      };
+    });
+    return cards.filter((loja) => loja.elegivel);
+  }, [visiveis, faixasEntrega, user, localizacaoCliente]);
+  const qtdOcultas = visiveis.length - lojasElegiveis.length;
 
   return (
     <div style={{ background: '#070C18', color: '#EAF1FB', fontFamily: "'Inter', sans-serif" }} className="min-h-screen">
@@ -50,6 +164,61 @@ export default function Lojas() {
         <h1 style={{ fontFamily: "'Sora', sans-serif" }} className="text-3xl font-extrabold tracking-tight">Lojas na MiseOn</h1>
         <p style={{ color: 'rgba(234,241,251,0.6)' }} className="mt-1 mb-5 text-sm">Escolha uma loja e peça direto pelo cardápio, sem app.</p>
 
+        <div
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)' }}
+          className="mb-5 rounded-2xl p-4"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#FC5B24]">Cobertura inteligente de entrega</p>
+              <p className="mt-1 text-sm font-semibold text-white">
+                {user
+                  ? (localizacaoCliente ? 'Mostrando restaurantes que atendem sua localização' : 'Ative sua localização para filtrar restaurantes por raio de entrega')
+                  : 'Faça login para filtrar automaticamente restaurantes que atendem sua região'}
+              </p>
+              {labelLocalizacao && (
+                <p className="mt-1 text-xs" style={{ color: 'rgba(234,241,251,0.6)' }}>
+                  Base atual: {labelLocalizacao}
+                </p>
+              )}
+              {qtdOcultas > 0 && (
+                <p className="mt-1 text-xs text-emerald-400">
+                  {qtdOcultas} loja(s) fora do seu raio foram ocultadas para evitar pedido inviável.
+                </p>
+              )}
+            </div>
+            <button
+              onClick={usarLocalizacaoAtual}
+              disabled={localizando}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#FC5B24]/40 bg-[#FC5B24]/10 px-4 py-3 text-sm font-semibold text-[#FC5B24] transition hover:bg-[#FC5B24]/20 disabled:opacity-60"
+            >
+              {localizando ? <Loader2 size={16} className="animate-spin" /> : <LocateFixed size={16} />}
+              Usar minha localização
+            </button>
+          </div>
+        </div>
+
+        {ultimaLoja && (
+          <Link
+            to={`/${ultimaLoja.slug}`}
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)' }}
+            className="mb-5 flex items-center justify-between gap-4 rounded-2xl p-4 transition hover:-translate-y-0.5 hover:border-white/20"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl text-white shadow-lg" style={{ background: ultimaLoja.cor_primaria }}>
+                <Compass size={18} />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-[#FC5B24]">Ultimo restaurante visitado</p>
+                <p className="font-bold text-white">{ultimaLoja.nome}</p>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1 text-sm font-semibold text-white">
+              Retomar <ArrowRight size={15} />
+            </span>
+          </Link>
+        )}
+
         {/* Busca */}
         <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
           className="mb-5 flex items-center gap-2 rounded-2xl px-4 py-3 transition-all duration-300 focus-within:border-[#FC5B24]/50 focus-within:shadow-[0_0_0_4px_rgba(252,91,36,0.10)]">
@@ -63,7 +232,7 @@ export default function Lojas() {
           <div className="py-10"><MiseOnLoader status="Buscando lojas na sua região" rows={3} /></div>
         ) : (
           <div className="space-y-3">
-            {visiveis.map((l, i) => (
+            {lojasElegiveis.map((l, i) => (
               <Link key={l.slug} to={`/${l.slug}`}
                 style={{
                   background: 'rgba(255,255,255,0.03)',
@@ -88,14 +257,29 @@ export default function Lojas() {
                       {l.nome.trim()[0]?.toUpperCase()}
                     </div>}
                 <div className="relative z-10 min-w-0 flex-1">
-                  <p style={{ fontFamily: "'Sora', sans-serif" }} className="truncate text-base font-bold text-white">{l.nome}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p style={{ fontFamily: "'Sora', sans-serif" }} className="truncate text-base font-bold text-white">{l.nome}</p>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                      <Sparkles size={10} /> Operante
+                    </span>
+                    {l.distanciaKm != null && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/70">
+                        <MapPin size={10} /> {l.distanciaKm} km
+                      </span>
+                    )}
+                  </div>
                   {l.descricao && <p className="truncate text-xs" style={{ color: 'rgba(234,241,251,0.6)' }}>{l.descricao}</p>}
                   {l.endereco && <p className="mt-1 flex items-center gap-1 truncate text-xs" style={{ color: 'rgba(234,241,251,0.45)' }}><MapPin size={11} /> {l.endereco}</p>}
+                  {(l.faixaNome || l.taxaEntrega != null) && (
+                    <p className="mt-1 text-[11px] font-semibold" style={{ color: 'rgba(234,241,251,0.62)' }}>
+                      {l.faixaNome ? `${l.faixaNome} · ` : ''}{l.taxaEntrega != null ? `Entrega a partir de R$ ${Number(l.taxaEntrega).toFixed(2).replace('.', ',')}` : ''}
+                    </p>
+                  )}
                 </div>
                 <ArrowRight size={18} style={{ color: 'rgba(234,241,251,0.4)' }} className="relative z-10 shrink-0 transition-all duration-300 group-hover:translate-x-1 group-hover:text-white" />
               </Link>
             ))}
-            {visiveis.length === 0 && <p className="py-16 text-center text-sm" style={{ color: 'rgba(234,241,251,0.5)' }}>Nenhuma loja encontrada.</p>}
+            {lojasElegiveis.length === 0 && <p className="py-16 text-center text-sm" style={{ color: 'rgba(234,241,251,0.5)' }}>Nenhuma loja encontrada para sua busca ou cobertura atual.</p>}
           </div>
         )}
 

@@ -36,6 +36,18 @@ export default function EntregadorRota() {
     setLoading(false);
   };
 
+  const sincronizarPedidoAtivo = async (pedidos: any[], pedidoAtivoId?: string | null) => {
+    const ativos = (pedidos || []).filter((p: any) => !['FINALIZADO', 'CANCELADO'].includes(p.status));
+    const alvo = pedidoAtivoId ?? ativos[0]?.id;
+    if (!alvo) return;
+
+    await Promise.all(
+      ativos.map((p: any) =>
+        supabase.from('pedidos').update({ status: p.id === alvo ? 'EM_ROTA' : 'PRONTO' }).eq('id', p.id),
+      ),
+    );
+  };
+
   useEffect(() => {
     carregar();
     return () => pararGps();
@@ -67,8 +79,11 @@ export default function EntregadorRota() {
 
   useEffect(() => {
     if (rota && rota.status === 'EM_ANDAMENTO') {
-      const paradaAtual = rota.pedidos.find((p: any) => p.status === 'EM_ROTA');
+      const paradaAtual =
+        rota.pedidos.find((p: any) => p.status === 'EM_ROTA')
+        || rota.pedidos.find((p: any) => !['FINALIZADO', 'CANCELADO'].includes(p.status));
       if (paradaAtual) {
+        if (paradaAtual.status !== 'EM_ROTA') sincronizarPedidoAtivo(rota.pedidos, paradaAtual.id).then(() => carregar());
         iniciarGpsParaPedido(paradaAtual.id);
       } else {
         pararGps();
@@ -117,6 +132,11 @@ export default function EntregadorRota() {
 
   const finalizarEntrega = async (pedido: any) => {
     await supabase.from('pedidos').update({ status: 'FINALIZADO' }).eq('id', pedido.id);
+    await supabase.from('localizacao_entregador').delete().eq('pedido_id', pedido.id);
+    const restantes = (rota?.pedidos || []).filter((p: any) => p.id !== pedido.id && !['FINALIZADO', 'CANCELADO'].includes(p.status));
+    if (restantes.length > 0) {
+      await sincronizarPedidoAtivo(restantes, restantes[0].id);
+    }
     pararGps();
     carregar();
   };

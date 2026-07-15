@@ -56,12 +56,26 @@ export interface ConfigEntrega {
   entrega_taxa_padrao?: number | null;
 }
 
+export interface FaixaEntregaCalculo {
+  id?: string;
+  nome?: string | null;
+  km_ate: number;
+  taxa_fixa?: number | null;
+  taxa_por_km?: number | null;
+  pedido_minimo?: number | null;
+  ordem?: number | null;
+  ativo?: boolean | null;
+}
+
 export interface ResultadoEntrega {
   taxa: number;
   distanciaKm: number | null;
   foraDeArea: boolean;
   origem: 'DISTANCIA' | 'BAIRRO' | 'PADRAO' | 'NENHUM';
   geo: LatLng | null;
+  faixaId?: string | null;
+  faixaNome?: string | null;
+  raioConsideradoKm?: number | null;
 }
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -73,6 +87,71 @@ export function taxaDaDistancia(loja: ConfigEntrega, distanciaKm: number): { tax
   const raio = loja.entrega_raio_km != null ? Number(loja.entrega_raio_km) : null;
   const fora = raio != null && distanciaKm > raio;
   return { taxa: r2(base + perKm * distanciaKm), fora };
+}
+
+export function obterRaioMaximo(loja: ConfigEntrega, faixasDistancia: FaixaEntregaCalculo[] = []) {
+  const raioLoja = loja.entrega_raio_km != null ? Number(loja.entrega_raio_km) : null;
+  const raioFaixas = faixasDistancia
+    .filter((f) => f.ativo !== false)
+    .map((f) => Number(f.km_ate))
+    .filter((km) => Number.isFinite(km) && km > 0);
+
+  const maiorFaixa = raioFaixas.length ? Math.max(...raioFaixas) : null;
+  return raioLoja ?? maiorFaixa;
+}
+
+export function taxaPorFaixa(
+  loja: ConfigEntrega,
+  distanciaKm: number,
+  faixasDistancia: FaixaEntregaCalculo[],
+): { taxa: number; fora: boolean; faixa: FaixaEntregaCalculo | null; raio: number | null } {
+  const faixasAtivas = [...faixasDistancia]
+    .filter((f) => f.ativo !== false)
+    .sort((a, b) => Number(a.km_ate) - Number(b.km_ate));
+
+  const faixa = faixasAtivas.find((f) => distanciaKm <= Number(f.km_ate)) ?? null;
+  const raio = obterRaioMaximo(loja, faixasAtivas);
+
+  if (!faixa) {
+    return { taxa: 0, fora: raio != null ? distanciaKm > raio : true, faixa: null, raio };
+  }
+
+  const base = Number(loja.entrega_taxa_base ?? 0);
+  const taxaFixa = faixa.taxa_fixa != null ? Number(faixa.taxa_fixa) : null;
+  const taxaKm = faixa.taxa_por_km != null ? Number(faixa.taxa_por_km) : Number(loja.entrega_taxa_km ?? 0);
+  const taxa = taxaFixa != null ? taxaFixa : r2(base + taxaKm * distanciaKm);
+
+  return {
+    taxa,
+    fora: raio != null ? distanciaKm > raio : false,
+    faixa,
+    raio,
+  };
+}
+
+export function lojaAtendeDistancia(
+  loja: ConfigEntrega,
+  geoCliente: LatLng,
+  faixasDistancia: FaixaEntregaCalculo[] = [],
+) {
+  if (loja.lat == null || loja.lng == null) {
+    return { atende: true, distanciaKm: null as number | null, taxa: 0, faixa: null as FaixaEntregaCalculo | null, raio: obterRaioMaximo(loja, faixasDistancia) };
+  }
+
+  const distanciaKm = r2(haversineKm({ lat: Number(loja.lat), lng: Number(loja.lng) }, geoCliente));
+  if (loja.entrega_modo === 'HIBRIDO' && faixasDistancia.some((f) => f.ativo !== false)) {
+    const faixa = taxaPorFaixa(loja, distanciaKm, faixasDistancia);
+    return { atende: !faixa.fora, distanciaKm, taxa: faixa.taxa, faixa: faixa.faixa, raio: faixa.raio };
+  }
+
+  const linear = taxaDaDistancia(loja, distanciaKm);
+  return {
+    atende: !linear.fora,
+    distanciaKm,
+    taxa: linear.taxa,
+    faixa: null,
+    raio: obterRaioMaximo(loja, faixasDistancia),
+  };
 }
 
 /**
@@ -89,17 +168,38 @@ export async function calcularEntrega(
     geoCliente?: LatLng | null;
     bairro?: string;
     taxasBairro?: { bairro: string; valor: number | string }[];
+    faixasDistancia?: FaixaEntregaCalculo[];
   },
 ): Promise<ResultadoEntrega> {
-  const { enderecoQuery, bairro, taxasBairro = [] } = params;
+  const { enderecoQuery, bairro, taxasBairro = [], faixasDistancia = [] } = params;
 
   // 1) Distância
-  if (loja.entrega_modo === 'DISTANCIA' && loja.lat != null && loja.lng != null) {
+  if ((loja.entrega_modo === 'DISTANCIA' || loja.entrega_modo === 'HIBRIDO') && loja.lat != null && loja.lng != null) {
     const geo = params.geoCliente ?? (enderecoQuery ? await geocode(enderecoQuery) : null);
     if (geo) {
       const distanciaKm = r2(haversineKm({ lat: Number(loja.lat), lng: Number(loja.lng) }, geo));
+      if (loja.entrega_modo === 'HIBRIDO' && faixasDistancia.some((f) => f.ativo !== false)) {
+        const faixa = taxaPorFaixa(loja, distanciaKm, faixasDistancia);
+        return {
+          taxa: faixa.taxa,
+          distanciaKm,
+          foraDeArea: faixa.fora,
+          origem: 'DISTANCIA',
+          geo,
+          faixaId: faixa.faixa?.id ?? null,
+          faixaNome: faixa.faixa?.nome ?? null,
+          raioConsideradoKm: faixa.raio,
+        };
+      }
       const { taxa, fora } = taxaDaDistancia(loja, distanciaKm);
-      return { taxa, distanciaKm, foraDeArea: fora, origem: 'DISTANCIA', geo };
+      return {
+        taxa,
+        distanciaKm,
+        foraDeArea: fora,
+        origem: 'DISTANCIA',
+        geo,
+        raioConsideradoKm: obterRaioMaximo(loja, faixasDistancia),
+      };
     }
   }
 
@@ -111,5 +211,12 @@ export async function calcularEntrega(
 
   // 3) Padrão
   const padrao = Number(loja.entrega_taxa_padrao ?? 0);
-  return { taxa: padrao, distanciaKm: null, foraDeArea: false, origem: padrao > 0 ? 'PADRAO' : 'NENHUM', geo: null };
+  return {
+    taxa: padrao,
+    distanciaKm: null,
+    foraDeArea: false,
+    origem: padrao > 0 ? 'PADRAO' : 'NENHUM',
+    geo: null,
+    raioConsideradoKm: obterRaioMaximo(loja, faixasDistancia),
+  };
 }
