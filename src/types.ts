@@ -40,7 +40,7 @@ export interface Loja {
   aberto_manual?: boolean | null;
   pix_chave?: string;
   efi_payee_code?: string; // habilita cartão de crédito online (Efí)
-  status_assinatura?: 'ATIVO' | 'ATRASADO' | 'CANCELADO' | 'TESTE' | null;
+  status_assinatura?: 'ATIVO' | 'ATRASADO' | 'CANCELADO' | 'TESTE' | 'VITALICIO' | null;
   vencimento_assinatura?: string | null;
   // Entrega / geolocalização
   lat?: number | null;

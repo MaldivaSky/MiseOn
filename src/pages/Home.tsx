@@ -142,13 +142,7 @@ export default function Home() {
             >
               Acessos
             </a>
-            <a
-              href="/admin/login"
-              style={{ color: '#EAF1FB' }}
-              className="text-sm font-semibold opacity-70 transition hover:opacity-100"
-            >
-              Login Lojista
-            </a>
+
             <a
               href="/cadastre-se"
               style={{ background: '#FC5B24', color: '#fff', fontFamily: "'Sora', sans-serif" }}

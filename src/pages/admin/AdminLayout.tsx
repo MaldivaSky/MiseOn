@@ -45,7 +45,7 @@ export default function AdminLayout() {
       const diffMs = hoje.getTime() - vencimento.getTime();
       let diasAtraso = Math.floor(diffMs / (1000 * 60 * 60 * 24));
       if (diasAtraso < 0) diasAtraso = 0; // Ainda não venceu
-      if (lojaInfo?.status_assinatura === 'ATIVO') diasAtraso = 0;
+      if (lojaInfo?.status_assinatura === 'ATIVO' || lojaInfo?.status_assinatura === 'VITALICIO') diasAtraso = 0;
 
       setCtx({ 
         lojaId: data.loja_id, 

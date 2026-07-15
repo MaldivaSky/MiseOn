@@ -274,7 +274,7 @@ export default function Tenants() {
                       {['trial', 'basico', 'pro'].map((p) => <option key={p} value={p}>{p.toUpperCase()}</option>)}
                     </select>
                     <select value={l.status_assinatura} onChange={(e) => mudarStatus(l, e.target.value)} className="w-full rounded-lg border border-white/20 bg-gray-900 p-1.5 text-xs text-white">
-                      {['trial', 'ativa', 'atrasada', 'cancelada'].map((s) => <option key={s} value={s}>{s.toUpperCase()}</option>)}
+                      {['trial', 'ativa', 'atrasada', 'cancelada', 'vitalicio'].map((s) => <option key={s} value={s}>{s.toUpperCase()}</option>)}
                     </select>
                   </div>
                 </div>
