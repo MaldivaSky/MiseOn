@@ -7,6 +7,9 @@ import { fmt } from '../types';
 
 type Aba = 'DADOS' | 'ENDERECOS' | 'PEDIDOS' | 'FAVORITOS';
 
+const mensagemErroSupabase = (fallback: string, error?: { message?: string } | null) =>
+  error?.message ? `${fallback} ${error.message}` : fallback;
+
 export default function ModalMinhaConta({
   isOpen,
   onClose,
@@ -41,6 +44,28 @@ export default function ModalMinhaConta({
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState('');
+
+  const garantirCliente = async () => {
+    const nomeFallback = nome.trim() || userEmail?.split('@')[0] || 'Cliente';
+    const { data, error } = await supabase
+      .from('clientes')
+      .upsert({
+        loja_id: lojaId,
+        user_id: userId,
+        nome: nomeFallback,
+        telefone: telefone || null,
+        email: userEmail ?? null,
+      }, { onConflict: 'loja_id,user_id' })
+      .select('id')
+      .single();
+
+    if (error || !data?.id) {
+      throw new Error(error?.message || 'Nao foi possivel identificar o cliente para salvar os dados.');
+    }
+
+    setClienteId(data.id);
+    return data.id;
+  };
 
   const carregarDados = async () => {
     setCarregando(true);
@@ -95,42 +120,58 @@ export default function ModalMinhaConta({
   const salvarDadosPerfil = async () => {
     setSalvando(true);
     setMensagem('');
-    const { error } = await supabase.from('clientes').upsert({
-      loja_id: lojaId,
-      user_id: userId,
-      nome,
-      telefone,
-      email: userEmail ?? null,
-      updated_at: new Date().toISOString(),
-    });
-
-    if (error) setMensagem('Erro ao salvar os dados.');
-    else {
+    try {
+      await garantirCliente();
       setMensagem('Dados atualizados com sucesso!');
       setTimeout(() => setMensagem(''), 3000);
+    } catch (error) {
+      setMensagem(mensagemErroSupabase('Erro ao salvar os dados.', error as { message?: string }));
     }
     setSalvando(false);
   };
 
   const salvarNovoEndereco = async () => {
-    if (!clienteId || !novoEndereco.cep || !novoEndereco.logradouro || !novoEndereco.bairro || !novoEndereco.cidade) {
+    if (!novoEndereco.cep || !novoEndereco.logradouro || !novoEndereco.bairro || !novoEndereco.cidade || !novoEndereco.uf) {
       setMensagem('Preencha os campos obrigatórios do endereço.');
       setTimeout(() => setMensagem(''), 3000);
       return;
     }
+
+    let clienteIdAtual = clienteId;
+    if (!clienteIdAtual) {
+      try {
+        clienteIdAtual = await garantirCliente();
+      } catch (error) {
+        setMensagem(mensagemErroSupabase('Erro ao preparar o cliente para salvar o endereco.', error as { message?: string }));
+        setTimeout(() => setMensagem(''), 4000);
+        return;
+      }
+    }
+
+    const payload = {
+      cliente_id: clienteIdAtual,
+      cep: novoEndereco.cep,
+      logradouro: novoEndereco.logradouro,
+      numero: novoEndereco.sem_numero ? 'SN' : (novoEndereco.numero || null),
+      complemento: novoEndereco.complemento || null,
+      bairro: novoEndereco.bairro,
+      cidade: novoEndereco.cidade,
+      uf: (novoEndereco.uf || '').toUpperCase(),
+      ponto_referencia: novoEndereco.ponto_referencia || null,
+      padrao: enderecos.length === 0,
+    };
+
     setSalvando(true);
-    const { error } = await supabase.from('enderecos_cliente').insert({
-      cliente_id: clienteId,
-      ...novoEndereco,
-      padrao: enderecos.length === 0 // se for o primeiro, é padrão
-    });
+    const { error } = await supabase.from('enderecos_cliente').insert(payload);
     
     if (error) {
-      setMensagem('Erro ao salvar endereço.');
+      setMensagem(mensagemErroSupabase('Erro ao salvar endereço.', error));
     } else {
       setCriandoEndereco(false);
       setNovoEndereco({});
       await carregarDados(); // recarrega endereços
+      setMensagem('Endereço salvo com sucesso!');
+      setTimeout(() => setMensagem(''), 3000);
     }
     setSalvando(false);
   };
@@ -139,17 +180,36 @@ export default function ModalMinhaConta({
     if (!clienteId) return;
     setSalvando(true);
     // Remove o padrão antigo
-    await supabase.from('enderecos_cliente').update({ padrao: false }).eq('cliente_id', clienteId);
+    const { error: limparError } = await supabase.from('enderecos_cliente').update({ padrao: false }).eq('cliente_id', clienteId);
     // Seta o novo
-    await supabase.from('enderecos_cliente').update({ padrao: true }).eq('id', id);
+    if (limparError) {
+      setMensagem(mensagemErroSupabase('Erro ao atualizar endereço padrão.', limparError));
+      setSalvando(false);
+      return;
+    }
+    const { error: padraoError } = await supabase.from('enderecos_cliente').update({ padrao: true }).eq('id', id);
+    if (padraoError) {
+      setMensagem(mensagemErroSupabase('Erro ao atualizar endereço padrão.', padraoError));
+      setSalvando(false);
+      return;
+    }
     await carregarDados();
+    setMensagem('Endereço padrão atualizado!');
+    setTimeout(() => setMensagem(''), 3000);
     setSalvando(false);
   };
   
   const deletarEndereco = async (id: string) => {
     setSalvando(true);
-    await supabase.from('enderecos_cliente').delete().eq('id', id);
+    const { error } = await supabase.from('enderecos_cliente').delete().eq('id', id);
+    if (error) {
+      setMensagem(mensagemErroSupabase('Erro ao excluir endereço.', error));
+      setSalvando(false);
+      return;
+    }
     await carregarDados();
+    setMensagem('Endereço excluído com sucesso!');
+    setTimeout(() => setMensagem(''), 3000);
     setSalvando(false);
   };
   
