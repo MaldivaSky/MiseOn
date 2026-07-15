@@ -40,6 +40,19 @@ export interface Loja {
   aberto_manual?: boolean | null;
   pix_chave?: string;
   efi_payee_code?: string; // habilita cartão de crédito online (Efí)
+  status_assinatura?: 'ATIVO' | 'ATRASADO' | 'CANCELADO' | 'TESTE' | null;
+  vencimento_assinatura?: string | null;
+  // Entrega / geolocalização
+  lat?: number | null;
+  lng?: number | null;
+  entrega_modo?: 'BAIRRO' | 'DISTANCIA' | null;
+  entrega_taxa_base?: number | null;
+  entrega_taxa_km?: number | null;
+  entrega_raio_km?: number | null;
+  entrega_taxa_padrao?: number | null;
+  // Formas de pagamento aceitas
+  aceita_online?: boolean | null;   // Pix/Crédito via Efí (pague agora)
+  aceita_entrega?: boolean | null;  // Dinheiro/maquininha (pague na entrega)
 }
 
 export interface HorarioFuncionamento {
@@ -183,6 +196,9 @@ export interface Pedido {
   complemento?: string;
   cidade?: string;
   uf?: string;
+  distancia_km?: number | null;
+  lat?: number | null;
+  lng?: number | null;
   ponto_referencia?: string;
   subtotal: number;
   taxa_entrega: number;
