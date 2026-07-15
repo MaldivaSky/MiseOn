@@ -38,6 +38,7 @@ function OSCard({
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [isProduzindo, setIsProduzindo] = useState(false);
+  const [modalFuroAberto, setModalFuroAberto] = useState(false);
 
   // Meta dados gerados ao concluir
   const [dadosFinais, setDadosFinais] = useState<{
@@ -84,13 +85,23 @@ function OSCard({
   };
 
   const handleIniciar = () => {
+    if (!podeProduzir && !semFicha) {
+      setModalFuroAberto(true);
+      return;
+    }
+    setStatus('ANDAMENTO');
+    setStartTime(Date.now());
+    setElapsed(0);
+  };
+
+  const confirmarFuro = () => {
+    setModalFuroAberto(false);
     setStatus('ANDAMENTO');
     setStartTime(Date.now());
     setElapsed(0);
   };
 
   const handleFinalizar = async () => {
-    if (!podeProduzir) return;
     setIsProduzindo(true);
     
     // Calcula datas
@@ -293,9 +304,10 @@ function OSCard({
         </div>
 
         {!podeProduzir && !semFicha && (
-          <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-red-600 dark:text-red-400">
-            <AlertTriangle size={14} /> Faltam insumos brutos. Reponha antes de produzir.
-          </p>
+          <div className="mt-3 flex items-start gap-2 text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 p-2 rounded-lg border border-red-100 dark:border-red-900/50">
+            <AlertTriangle size={16} className="shrink-0 mt-0.5" /> 
+            <p>Estoque digital divergente. A produção exigirá <b>Furo de Estoque</b> (balanço negativo).</p>
+          </div>
         )}
 
         <div className="mt-4 flex gap-2">
@@ -305,9 +317,13 @@ function OSCard({
                 className="flex items-center justify-center px-4 py-3 rounded-xl font-bold text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
                 <Printer size={16} />
               </button>
-              <button onClick={handleIniciar} disabled={!podeProduzir}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-black text-sm text-white bg-blue-600 shadow-lg shadow-blue-500/25 hover:scale-[1.02] transition-all disabled:opacity-40 disabled:hover:scale-100 disabled:shadow-none">
-                <Play size={16} /> Iniciar Produção
+              <button onClick={handleIniciar} 
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-black text-sm text-white transition-all shadow-lg hover:scale-[1.02] ${
+                  podeProduzir || semFicha 
+                    ? 'bg-blue-600 shadow-blue-500/25' 
+                    : 'bg-red-600 shadow-red-500/25'
+                }`}>
+                <Play size={16} /> {podeProduzir || semFicha ? 'Iniciar Produção' : 'Forçar Produção (Furo)'}
               </button>
             </>
           ) : (
@@ -318,6 +334,53 @@ function OSCard({
           )}
         </div>
       </div>
+
+      {/* MODAL DE FURO DE ESTOQUE */}
+      {modalFuroAberto && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 animate-in fade-in" onClick={() => setModalFuroAberto(false)}>
+          <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md p-6 shadow-2xl border border-red-500/30" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4 text-red-600 dark:text-red-500">
+              <AlertTriangle size={32} />
+              <h3 className="font-black text-xl">Risco de Furo de Estoque</h3>
+            </div>
+            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 leading-relaxed">
+              O sistema aponta que a cozinha não tem insumos brutos suficientes. Na vida real, isso significa que seu <b>estoque físico divergiu do digital</b> (ex: uma compra de emergência não foi dada a entrada).
+            </p>
+            
+            <div className="bg-red-50 dark:bg-red-900/10 rounded-xl p-3 mb-5 border border-red-100 dark:border-red-900/30">
+              <p className="text-[10px] font-black uppercase text-red-800 dark:text-red-400 mb-2 tracking-wider">Insumos que ficarão negativos:</p>
+              <div className="space-y-2">
+                {itens.filter(i => !i.ok).map(i => {
+                  const saldoApos = Number(i.ins?.quantidade_atual) - i.necessario;
+                  return (
+                    <div key={i.ins?.id} className="flex justify-between items-center text-sm">
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">{i.ins?.nome}</span>
+                      <span className="font-bold text-red-600 dark:text-red-400 tabular-nums">
+                        {Number(i.ins?.quantidade_atual)} ➔ <span className="bg-red-100 dark:bg-red-900/50 px-1.5 py-0.5 rounded">{saldoApos}</span> {i.ins?.unidade_medida}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            
+            <p className="text-sm font-medium mb-6 text-gray-700 dark:text-gray-300">
+              Deseja <b>Forçar a Produção</b>? A operação da cozinha não será travada, mas você ou o gerente precisarão realizar um balanço de correção amanhã.
+            </p>
+            
+            <div className="flex gap-3">
+              <button onClick={() => setModalFuroAberto(false)} 
+                className="flex-1 py-3.5 font-bold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={confirmarFuro} 
+                className="flex-1 flex items-center justify-center gap-2 py-3.5 font-black text-white bg-red-600 rounded-xl hover:bg-red-700 shadow-lg shadow-red-600/30 transition-transform hover:scale-[1.02]">
+                <Flame size={18} /> Autorizar Furo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
