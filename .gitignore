@@ -36,3 +36,5 @@ credenciais_testes.md
 cert/
 *.p12
 *.pem
+cert_base64.txt
+.trae-supabase-home/

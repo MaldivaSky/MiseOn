@@ -2,7 +2,9 @@
 // Porte do EfiPixService do MySuperStore (backend/apps/payments/services.py)
 //
 // Secrets necessários (supabase secrets set):
-//   EFI_CLIENT_ID, EFI_CLIENT_SECRET, EFI_PIX_KEY, EFI_CERT_BASE64 (P12/PEM), EFI_SANDBOX=true|false
+//   EFI_PIX_CLIENT_ID/EFI_PIX_CLIENT_SECRET
+//   ou EFI_CLIENT_ID/EFI_CLIENT_SECRET
+//   + EFI_PIX_KEY, EFI_CERT_BASE64 (PEM em base64), EFI_SANDBOX=true|false
 //
 // Fluxo: front cria o pedido -> chama esta function -> retorna txid + copia-e-cola
 // A confirmação chega via pix-webhook.
@@ -13,15 +15,45 @@ const EFI_URL = Deno.env.get('EFI_SANDBOX') === 'true'
   ? 'https://pix-h.api.efipay.com.br'
   : 'https://pix.api.efipay.com.br';
 
-// mTLS: Deno.createHttpClient com o certificado do Efí
-async function efiFetch(path: string, init: RequestInit, token?: string) {
-  const certPem = atob(Deno.env.get('EFI_CERT_BASE64') ?? '');
-  // Certificado convertido para PEM (cert + key). Ver README para converter o .p12:
-  //   openssl pkcs12 -in cert.p12 -out cert.pem -nodes
+// CORS: sem isto o navegador bloqueia a chamada do checkout antes de chegar na Efí.
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+const json = (data: unknown, init: ResponseInit = {}) =>
+  new Response(JSON.stringify(data), {
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...cors, ...(init.headers ?? {}) },
+  });
+
+function envFirst(...names: string[]): string {
+  for (const name of names) {
+    const value = Deno.env.get(name)?.trim();
+    if (value) return value;
+  }
+  throw new Error(`Secret ausente: informe um destes nomes -> ${names.join(', ')}`);
+}
+
+// Credenciais Efí usadas na cobrança. No modelo "conta própria por tenant", vêm da
+// tabela loja_efi_credenciais; se a loja não tiver, caem para as da plataforma (env).
+type EfiCreds = { clientId: string; clientSecret: string; certPem: string; pixKey: string };
+
+function credsPlataforma(): EfiCreds {
+  return {
+    clientId: envFirst('EFI_PIX_CLIENT_ID', 'EFI_CLIENT_ID'),
+    clientSecret: envFirst('EFI_PIX_CLIENT_SECRET', 'EFI_CLIENT_SECRET'),
+    certPem: atob(envFirst('EFI_CERT_BASE64')),
+    pixKey: envFirst('EFI_PIX_KEY'),
+  };
+}
+
+// mTLS: Deno.createHttpClient com o certificado (cert+key em PEM) da conta usada.
+async function efiFetch(creds: EfiCreds, path: string, init: RequestInit, token?: string) {
   const client = Deno.createHttpClient({
     // @ts-ignore — API de mTLS do Deno
-    cert: certPem,
-    key: certPem,
+    cert: creds.certPem,
+    key: creds.certPem,
   });
   return fetch(`${EFI_URL}${path}`, {
     ...init,
@@ -35,9 +67,9 @@ async function efiFetch(path: string, init: RequestInit, token?: string) {
   });
 }
 
-async function getToken(): Promise<string> {
-  const auth = btoa(`${Deno.env.get('EFI_PIX_CLIENT_ID')}:${Deno.env.get('EFI_PIX_CLIENT_SECRET')}`);
-  const res = await efiFetch('/oauth/token', {
+async function getToken(creds: EfiCreds): Promise<string> {
+  const auth = btoa(`${creds.clientId}:${creds.clientSecret}`);
+  const res = await efiFetch(creds, '/oauth/token', {
     method: 'POST',
     headers: { Authorization: `Basic ${auth}` },
     body: JSON.stringify({ grant_type: 'client_credentials' }),
@@ -48,9 +80,10 @@ async function getToken(): Promise<string> {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
     const { pedido_id } = await req.json();
-    if (!pedido_id) return Response.json({ error: 'pedido_id obrigatório' }, { status: 400 });
+    if (!pedido_id) return json({ error: 'pedido_id obrigatório' }, { status: 400 });
 
     // service role: roda no servidor, ignora RLS
     const supabase = createClient(
@@ -60,46 +93,103 @@ Deno.serve(async (req) => {
 
     const { data: pedido } = await supabase
       .from('pedidos')
-      .select('id, numero, valor_total, identificador_cliente, loja_id, lojas(nome, efi_payee_code)')
+      .select('id, numero, valor_total, identificador_cliente, loja_id, lojas(nome, efi_titular_documento, efi_conta)')
       .eq('id', pedido_id)
       .single();
-    if (!pedido) return Response.json({ error: 'pedido não encontrado' }, { status: 404 });
+    if (!pedido) return json({ error: 'pedido não encontrado' }, { status: 404 });
 
-    const token = await getToken();
+    // Modelo "conta própria por tenant": usa as credenciais Efí da própria loja se
+    // estiverem completas; senão, cai para as da plataforma (com split de repasse).
+    const { data: cred } = await supabase
+      .from('loja_efi_credenciais')
+      .select('efi_client_id, efi_client_secret, efi_pix_key, efi_cert_base64')
+      .eq('loja_id', pedido.loja_id)
+      .maybeSingle();
+    const contaPropria = !!(cred?.efi_client_id && cred?.efi_client_secret && cred?.efi_cert_base64 && cred?.efi_pix_key);
+    const creds: EfiCreds = contaPropria
+      ? {
+          clientId: String(cred!.efi_client_id).trim(),
+          clientSecret: String(cred!.efi_client_secret).trim(),
+          certPem: atob(String(cred!.efi_cert_base64).trim()),
+          pixKey: String(cred!.efi_pix_key).trim(),
+        }
+      : credsPlataforma();
+
+    const token = await getToken(creds);
 
     // txid: 26–35 chars alfanuméricos (regra Efí — mesmo padrão do MySuperStore)
-    const txid = (pedido_id as string).replace(/-/g, '') + String(pedido.numero).padStart(3, '0');
+    const pedidoBase = String(pedido_id).replace(/-/g, '').slice(0, 32);
+    const numeroFragmento = String(Number(pedido.numero) % 1000).padStart(3, '0');
+    const txid = `${pedidoBase}${numeroFragmento}`.slice(0, 35);
 
-    const payeeCodeLojista = (pedido as any).lojas?.efi_payee_code;
+    // Dados do favorecido do split Pix (conta Efí do lojista). O Pix, ao contrário do
+    // cartão, NÃO usa o payee_code — exige CPF/CNPJ do titular + número da conta Efí.
+    const docLojista = String((pedido as any).lojas?.efi_titular_documento ?? '').replace(/\D/g, '');
+    const contaLojista = String((pedido as any).lojas?.efi_conta ?? '').replace(/\D/g, '');
 
+    // IMPORTANTE: a API Pix da Efí NÃO aceita "split" dentro do corpo da cobrança
+    // imediata (PUT /v2/cob/{txid}) — isso retorna json_invalido/additionalProperties.
+    // O split é um fluxo separado: cria-se uma configuração e vincula-se à cobrança (abaixo).
     const body: any = {
       calendario: { expiracao: 3600 },
       valor: { original: Number(pedido.valor_total).toFixed(2) },
-      chave: Deno.env.get('EFI_PIX_KEY'),
+      chave: creds.pixKey,
       solicitacaoPagador: `Pedido #${pedido.numero} — ${(pedido as any).lojas?.nome ?? 'MiseOn'}`.slice(0, 140),
     };
 
-    // Lógica SaaS de Split (Mercado Profissional)
-    // Se a loja cadastrou a própria conta Efí, o dinheiro cai DIRETO para ela
-    if (payeeCodeLojista && payeeCodeLojista.trim().length > 5) {
-      body.split = [
-        {
-          recebedor: { conta: payeeCodeLojista.trim() },
-          valor: { porcentagem: "100.00" }, // O lojista recebe 100% da venda
-          opcaoTarifa: "assumir_tarifa", // O lojista arca com o custo do Pix (geralmente % fixo)
-          lancamentoContaPosCredito: true
-        }
-      ];
-    }
-
-    const res = await efiFetch(`/v2/cob/${txid}`, { method: 'PUT', body: JSON.stringify(body) }, token);
+    const res = await efiFetch(creds, `/v2/cob/${txid}`, { method: 'PUT', body: JSON.stringify(body) }, token);
     const charge = await res.json();
     if (!charge.txid) throw new Error(`Efí cobrança falhou: ${JSON.stringify(charge)}`);
+
+    // REPASSE AO LOJISTA (Split Pix) — best-effort: se falhar, a cobrança continua
+    // válida e paga na conta da plataforma (repasse manual), sem travar o checkout.
+    // Fluxo Efí: POST /v2/gn/split/config -> PUT /v2/gn/split/cob/{txid}/vinculo/{id}.
+    // Favorecido identificado por { cpf|cnpj, conta } (conta = número da conta Efí).
+    // split_status vai na resposta para diagnóstico (não é dado sensível).
+    let splitStatus: string;
+    if (contaPropria) {
+      // Conta própria do tenant: a venda já nasceu e caiu direto na conta dele. Sem split.
+      splitStatus = 'conta_propria';
+    } else if (!docLojista || !contaLojista) {
+      splitStatus = 'sem_dados_repasse'; // loja não configurou CPF/CNPJ + conta Efí
+    } else {
+      try {
+        const docKey = docLojista.length > 11 ? 'cnpj' : 'cpf';
+        const cfgBody = {
+          descricao: `Repasse MiseOn -> ${(pedido as any).lojas?.nome ?? 'loja'}`.slice(0, 140),
+          lancamento: { imediato: true },
+          split: {
+            divisaoTarifa: 'assumir_total',
+            minhaParte: { tipo: 'porcentagem', valor: '0.00' },
+            repasses: [
+              {
+                tipo: 'porcentagem',
+                valor: '100.00', // lojista recebe 100% da venda
+                favorecido: { [docKey]: docLojista, conta: contaLojista },
+              },
+            ],
+          },
+        };
+        const cfgRes = await efiFetch(creds, '/v2/gn/split/config', { method: 'POST', body: JSON.stringify(cfgBody) }, token);
+        const cfg = await cfgRes.json();
+        const cfgId = cfg?.id ?? cfg?.identificador ?? cfg?.split_config_id;
+        if (cfgId) {
+          const vinc = await efiFetch(creds, `/v2/gn/split/cob/${charge.txid}/vinculo/${cfgId}`, { method: 'PUT' }, token);
+          splitStatus = vinc.ok ? 'vinculado' : `vinculo_falhou:${JSON.stringify(await vinc.json())}`.slice(0, 400);
+        } else {
+          splitStatus = `config_sem_id:${JSON.stringify(cfg)}`.slice(0, 400);
+          console.error('Split: config sem id ->', JSON.stringify(cfg));
+        }
+      } catch (splitErr) {
+        splitStatus = `erro:${String(splitErr)}`.slice(0, 400);
+        console.error('Split falhou (cobrança segue válida):', String(splitErr));
+      }
+    }
 
     // QR Code (copia e cola vem direto; imagem via loc)
     let qrImagem: string | null = null;
     if (charge.loc?.id) {
-      const qr = await efiFetch(`/v2/loc/${charge.loc.id}/qrcode`, { method: 'GET' }, token);
+      const qr = await efiFetch(creds, `/v2/loc/${charge.loc.id}/qrcode`, { method: 'GET' }, token);
       const qrData = await qr.json();
       qrImagem = qrData.imagemQrcode ?? null;
     }
@@ -110,14 +200,15 @@ Deno.serve(async (req) => {
       .eq('pedido_id', pedido_id)
       .eq('metodo', 'PIX');
 
-    return Response.json({
+    return json({
       txid: charge.txid,
       copia_e_cola: charge.pixCopiaECola ?? charge.location,
       qr_imagem: qrImagem,
       expiracao: 3600,
+      split_status: splitStatus,
     });
   } catch (e) {
     console.error(e);
-    return Response.json({ error: String(e) }, { status: 500 });
+    return json({ error: String(e) }, { status: 500 });
   }
 });

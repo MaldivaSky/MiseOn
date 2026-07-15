@@ -28,12 +28,13 @@ Guia completo pro lojista em **[EFI-SETUP.md](EFI-SETUP.md)**. Resumo do que pre
 | Item | Onde usa |
 |---|---|
 | Chave Pix | Supabase secret `EFI_PIX_KEY` |
-| Client ID / Client Secret | Supabase secrets `EFI_CLIENT_ID` / `EFI_CLIENT_SECRET` |
+| Client ID / Client Secret do Pix | Supabase secrets `EFI_PIX_CLIENT_ID` / `EFI_PIX_CLIENT_SECRET` ou fallback `EFI_CLIENT_ID` / `EFI_CLIENT_SECRET` |
+| Client ID / Client Secret de Cobranças | Supabase secrets `EFI_COBRANCAS_CLIENT_ID` / `EFI_COBRANCAS_CLIENT_SECRET` ou fallback `EFI_CLIENT_ID` / `EFI_CLIENT_SECRET` |
 | Certificado `.p12` (convertido pra base64) | Supabase secret `EFI_CERT_BASE64` |
 
 Comando pra aplicar (depois de ter os 4 itens):
 ```bash
-supabase secrets set EFI_CLIENT_ID=... EFI_CLIENT_SECRET=... EFI_PIX_KEY=... EFI_CERT_BASE64="$(cat efi_base64.txt)" EFI_SANDBOX=false
+supabase secrets set EFI_CLIENT_ID=... EFI_CLIENT_SECRET=... EFI_COBRANCAS_CLIENT_ID=... EFI_COBRANCAS_CLIENT_SECRET=... EFI_PIX_KEY=... EFI_CERT_BASE64="$(cat efi_base64.txt)" EFI_SANDBOX=false
 ```
 Status: ⚠️ pendente — depende de você (ou o lojista) terminar o cadastro na Efí.
 

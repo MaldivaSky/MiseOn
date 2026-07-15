@@ -111,9 +111,11 @@ openssl pkcs12 -in producao.p12 -out efi.pem -nodes
 base64 -w0 efi.pem > efi_base64.txt
 
 supabase secrets set EFI_CLIENT_ID=... EFI_CLIENT_SECRET=... \
+  EFI_COBRANCAS_CLIENT_ID=... EFI_COBRANCAS_CLIENT_SECRET=... \
   EFI_PIX_KEY=chave-pix EFI_CERT_BASE64="$(cat efi_base64.txt)" EFI_SANDBOX=false
 
 supabase functions deploy pix-criar-cobranca
+supabase functions deploy cartao-pagar
 supabase functions deploy pix-webhook --no-verify-jwt
 ```
 

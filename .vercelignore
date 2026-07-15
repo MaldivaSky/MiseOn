@@ -1,0 +1,7 @@
+.env.local
+cert_base64.txt
+*.p12
+*.pem
+CREDENCIAIS.md
+.trae-supabase-home/
+supabase/

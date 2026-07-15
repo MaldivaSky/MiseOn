@@ -11,8 +11,30 @@ const EFI_COB_URL = Deno.env.get('EFI_SANDBOX') === 'true'
 const PLAN_NAME = 'MiseOn Profissional';
 const PLAN_VALUE = 15000; // R$ 150,00 em centavos
 
+// CORS: sem isto o navegador bloqueia a chamada do painel antes de chegar na Efí.
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+const json = (data: unknown, init: ResponseInit = {}) =>
+  new Response(JSON.stringify(data), {
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...cors, ...(init.headers ?? {}) },
+  });
+
+function envFirst(...names: string[]): string {
+  for (const name of names) {
+    const value = Deno.env.get(name)?.trim();
+    if (value) return value;
+  }
+  throw new Error(`Secret ausente: informe um destes nomes -> ${names.join(', ')}`);
+}
+
 async function getToken(): Promise<string> {
-  const auth = btoa(`${Deno.env.get('EFI_COBRANCAS_CLIENT_ID')}:${Deno.env.get('EFI_COBRANCAS_CLIENT_SECRET')}`);
+  const clientId = envFirst('EFI_COBRANCAS_CLIENT_ID', 'EFI_CLIENT_ID');
+  const clientSecret = envFirst('EFI_COBRANCAS_CLIENT_SECRET', 'EFI_CLIENT_SECRET');
+  const auth = btoa(`${clientId}:${clientSecret}`);
   const res = await fetch(`${EFI_COB_URL}/v1/authorize`, {
     method: 'POST',
     headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
@@ -50,10 +72,11 @@ async function getOrCreatePlan(token: string): Promise<number> {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
     const { loja_id, payment_token, customer } = await req.json();
     if (!loja_id || !payment_token || !customer?.name || !customer?.cpf) {
-      return Response.json({ error: 'Faltam dados obrigatórios' }, { status: 400 });
+      return json({ error: 'Faltam dados obrigatórios' }, { status: 400 });
     }
 
     const supabase = createClient(
@@ -101,7 +124,7 @@ Deno.serve(async (req) => {
     });
     const payData = await payRes.json();
     if (payData.code !== 200 || !['active', 'paid'].includes(String(payData?.data?.status))) {
-      return Response.json({ error: payData?.message ?? 'Cartão recusado', detail: payData }, { status: 402 });
+      return json({ error: payData?.message ?? 'Cartão recusado', detail: payData }, { status: 402 });
     }
 
     // 4. Sucesso! Atualiza o banco de dados da loja
@@ -113,7 +136,7 @@ Deno.serve(async (req) => {
       vencimento_assinatura: novoVencimento.toISOString(),
     }).eq('id', loja_id);
 
-    return Response.json({
+    return json({
       success: true,
       subscription_id: subscriptionId,
       status: payData.data.status,
@@ -122,6 +145,6 @@ Deno.serve(async (req) => {
 
   } catch (e) {
     console.error(e);
-    return Response.json({ error: String(e) }, { status: 500 });
+    return json({ error: String(e) }, { status: 500 });
   }
 });
