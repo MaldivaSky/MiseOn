@@ -191,6 +191,13 @@ export default function Cardapio() {
     setProdutoAberto(null);
   };
 
+  const cancelarPedidoPendente = async (pedidoId: string) => {
+    await Promise.all([
+      supabase.from('pagamentos').update({ status: 'CANCELADO' }).eq('pedido_id', pedidoId).eq('status', 'PENDENTE'),
+      supabase.from('pedidos').update({ status: 'CANCELADO' }).eq('id', pedidoId).eq('status', 'NOVO'),
+    ]);
+  };
+
   if (!loja)
     return <div className="flex h-screen items-center justify-center text-gray-400">Carregando cardápio…</div>;
 
@@ -470,7 +477,10 @@ export default function Cardapio() {
           }} />
       )}
 
-      {cartao && <CartaoModal loja={loja} info={cartao} onFechar={() => setCartao(null)} onAprovado={() => {
+      {cartao && <CartaoModal loja={loja} info={cartao} onFechar={async () => {
+        await cancelarPedidoPendente(cartao.pedidoId);
+        setCartao(null);
+      }} onAprovado={() => {
         guardarUltimoPedido(slug, cartao.pedidoId, cartao.numero);
         setCartao(null); setPedidoNumero(cartao.numero); setPedidoId(cartao.pedidoId);
       }} />}

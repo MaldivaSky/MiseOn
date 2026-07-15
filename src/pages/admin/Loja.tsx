@@ -243,6 +243,41 @@ export default function Loja() {
       return;
     }
 
+    const [{ data: horariosSnapshot }, { data: faixasSnapshot }] = await Promise.all([
+      supabase.from('horarios_funcionamento').select('dia_semana, abre, fecha').eq('loja_id', lojaId),
+      supabase.from('faixas_entrega').select('nome, km_ate, taxa_fixa, taxa_por_km, pedido_minimo, ordem, ativo').eq('loja_id', lojaId).order('ordem').order('km_ate'),
+    ]);
+
+    const restaurarHorariosOriginais = async () => {
+      if (!horariosSnapshot?.length) return null;
+      const { error } = await supabase.from('horarios_funcionamento').insert(
+        horariosSnapshot.map((h) => ({
+          loja_id: lojaId,
+          dia_semana: h.dia_semana,
+          abre: h.abre,
+          fecha: h.fecha,
+        })),
+      );
+      return error?.message ?? null;
+    };
+
+    const restaurarFaixasOriginais = async () => {
+      if (!faixasSnapshot?.length) return null;
+      const { error } = await supabase.from('faixas_entrega').insert(
+        faixasSnapshot.map((faixa) => ({
+          loja_id: lojaId,
+          nome: faixa.nome,
+          km_ate: faixa.km_ate,
+          taxa_fixa: faixa.taxa_fixa,
+          taxa_por_km: faixa.taxa_por_km,
+          pedido_minimo: faixa.pedido_minimo,
+          ordem: faixa.ordem,
+          ativo: faixa.ativo,
+        })),
+      );
+      return error?.message ?? null;
+    };
+
     const { error: erroLoja } = await supabase.from('lojas').update({
       nome: form.nome,
       descricao: form.descricao || null,
@@ -296,8 +331,13 @@ export default function Loja() {
       }));
       const { error: erroInserirHorarios } = await supabase.from('horarios_funcionamento').insert(novos);
       if (erroInserirHorarios) {
+        const erroRestauracao = await restaurarHorariosOriginais();
         setSalvando(false);
-        setErro('Erro ao salvar horários da loja: ' + erroInserirHorarios.message);
+        setErro(
+          'Erro ao salvar horários da loja: ' +
+          erroInserirHorarios.message +
+          (erroRestauracao ? ` | Falha ao restaurar horários anteriores: ${erroRestauracao}` : ''),
+        );
         return;
       }
     }
@@ -311,8 +351,13 @@ export default function Loja() {
     if (faixasNormalizadas.length > 0) {
       const { error: erroInserirFaixas } = await supabase.from('faixas_entrega').insert(faixasNormalizadas.map(({ id, ...faixa }) => faixa));
       if (erroInserirFaixas) {
+        const erroRestauracao = await restaurarFaixasOriginais();
         setSalvando(false);
-        setErro('Erro ao salvar faixas de entrega: ' + erroInserirFaixas.message);
+        setErro(
+          'Erro ao salvar faixas de entrega: ' +
+          erroInserirFaixas.message +
+          (erroRestauracao ? ` | Falha ao restaurar faixas anteriores: ${erroRestauracao}` : ''),
+        );
         return;
       }
     }

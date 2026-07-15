@@ -165,6 +165,17 @@ export default function CheckoutDrawer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aceitaOnline, aceitaEntrega]);
 
+  const descartarPedidoIncompleto = async (pedidoId: string) => {
+    await supabase.from('pedidos').delete().eq('id', pedidoId);
+  };
+
+  const cancelarPedidoPendente = async (pedidoId: string) => {
+    await Promise.all([
+      supabase.from('pagamentos').update({ status: 'CANCELADO' }).eq('pedido_id', pedidoId).eq('status', 'PENDENTE'),
+      supabase.from('pedidos').update({ status: 'CANCELADO' }).eq('id', pedidoId).eq('status', 'NOVO'),
+    ]);
+  };
+
   const aplicarCupom = async () => {
     setErro('');
     const { data } = await supabase.from('cupons').select('*')
@@ -189,6 +200,8 @@ export default function CheckoutDrawer({
       return setErro('Seu endereco esta fora da area de entrega desta loja.');
     if (subtotal < Number(loja.pedido_minimo))
       return setErro(`Pedido minimo: ${fmt(Number(loja.pedido_minimo))}.`);
+    if (metodo === 'CREDITO' && (!cartaoOnlineConfigurado || !onCartao))
+      return setErro('Cartão online ainda não está configurado para esta loja.');
     setEnviando(true);
 
     const ref = tipo === 'DELIVERY' ? (enderecoObj?.ponto_referencia || '').trim() : '';
@@ -277,6 +290,7 @@ export default function CheckoutDrawer({
         observacao: item.observacao ?? null,
       }).select('id').single();
       if (erroItem || !it) {
+        await descartarPedidoIncompleto(pedido.id);
         setEnviando(false);
         return setErro(mensagemErroSupabase(`Erro ao salvar item do pedido (${item.produto.nome}).`, erroItem));
       }
@@ -287,6 +301,7 @@ export default function CheckoutDrawer({
           })),
         );
         if (erroOpcoes) {
+          await descartarPedidoIncompleto(pedido.id);
           setEnviando(false);
           return setErro(mensagemErroSupabase(`Erro ao salvar complementos do item ${item.produto.nome}.`, erroOpcoes));
         }
@@ -296,18 +311,15 @@ export default function CheckoutDrawer({
     // Pagamento
     const { error: erroPagamento } = await supabase.from('pagamentos').insert({ pedido_id: pedido.id, metodo, valor_pago: total });
     if (erroPagamento) {
+      await descartarPedidoIncompleto(pedido.id);
       setEnviando(false);
       return setErro(mensagemErroSupabase('Erro ao registrar pagamento do pedido.', erroPagamento));
     }
 
     // Cartao de credito online (Efi — tokenizacao no proximo modal)
     if (metodo === 'CREDITO') {
-      if (!cartaoOnlineConfigurado || !onCartao) {
-        setEnviando(false);
-        return setErro('Cartão online ainda não está configurado para esta loja.');
-      }
       setEnviando(false);
-      onCartao({ pedidoId: pedido.id, numero: pedido.numero, total });
+      onCartao?.({ pedidoId: pedido.id, numero: pedido.numero, total });
       return;
     }
 
@@ -317,6 +329,7 @@ export default function CheckoutDrawer({
         body: { pedido_id: pedido.id },
       });
       if (e2 || cob?.error) {
+        await cancelarPedidoPendente(pedido.id);
         setEnviando(false);
         return setErro(`Falha na plataforma de pagamento: ${e2?.message || cob?.error || 'Erro desconhecido ao gerar Pix'}`);
       }
