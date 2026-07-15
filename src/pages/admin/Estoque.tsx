@@ -115,7 +115,10 @@ export default function Estoque() {
        setQtdEstoqueCompra(String(i.quantidade_atual));
     }
     setPrecoCompra(String(i.preco_embalagem || ''));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => {
+      document.getElementById('form-novo-insumo')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.getElementById('input-nome-insumo')?.focus();
+    }, 150);
   };
 
   const cancelarEdicao = () => {
@@ -182,7 +185,7 @@ export default function Estoque() {
       )}
 
       {/* NOVO INSUMO COM MOTOR DINÂMICO */}
-      <div className={`mb-8 rounded-2xl ${editando ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800'} border p-5 shadow-sm transition-colors`}>
+      <div id="form-novo-insumo" className={`mb-8 rounded-2xl ${editando ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 ring-2 ring-blue-500/20' : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800'} border p-5 shadow-sm transition-all duration-300`}>
         <div className="mb-5 flex items-center justify-between">
            <p className="text-sm font-bold flex items-center gap-2 dark:text-gray-100">
              {editando ? <Pencil size={18} className="text-blue-500" /> : <Calculator size={18} className="text-[var(--cor-primaria)]" />} 
@@ -200,7 +203,7 @@ export default function Estoque() {
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="block">
                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Nome do Insumo / Produto</span>
-                 <input className="mt-1 w-full rounded-xl border border-gray-300 p-3 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100 focus:border-[var(--cor-primaria)] focus:outline-none" placeholder="ex: Queijo Mussarela, Coca-Cola Lata" value={nome} onChange={e => setNome(e.target.value)} />
+                 <input id="input-nome-insumo" className="mt-1 w-full rounded-xl border border-gray-300 p-3 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100 focus:border-[var(--cor-primaria)] focus:outline-none transition-colors" placeholder="ex: Queijo Mussarela, Coca-Cola Lata" value={nome} onChange={e => setNome(e.target.value)} />
               </label>
               <label className="block">
                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Categoria</span>
