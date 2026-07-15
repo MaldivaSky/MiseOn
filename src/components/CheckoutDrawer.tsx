@@ -282,7 +282,7 @@ export default function CheckoutDrawer({
 
     const numeroLimpo = loja.whatsapp.replace(/\D/g, '');
     const numeroDDI = numeroLimpo.startsWith('55') ? numeroLimpo : `55${numeroLimpo}`;
-    window.open(`https://wa.me/${numeroDDI}?text=${encodeURIComponent(msg)}`, '_blank');
+    // window.open(`https://wa.me/${numeroDDI}?text=${encodeURIComponent(msg)}`, '_blank');
 
     setEnviando(false);
     onSucesso(pedido.numero, pedido.id, pixInfo);
