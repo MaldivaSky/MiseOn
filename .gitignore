@@ -28,3 +28,6 @@ scratch/
 capture.js
 *.mp4
 *.mov
+
+#arquivos md
+credenciais_testes.md
