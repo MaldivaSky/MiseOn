@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
 
     const { data: pedido } = await supabase
       .from('pedidos')
-      .select('id, numero, valor_total, identificador_cliente, loja_id, lojas(nome)')
+      .select('id, numero, valor_total, identificador_cliente, loja_id, lojas(nome, efi_payee_code)')
       .eq('id', pedido_id)
       .single();
     if (!pedido) return Response.json({ error: 'pedido não encontrado' }, { status: 404 });
@@ -70,12 +70,27 @@ Deno.serve(async (req) => {
     // txid: 26–35 chars alfanuméricos (regra Efí — mesmo padrão do MySuperStore)
     const txid = (pedido_id as string).replace(/-/g, '') + String(pedido.numero).padStart(3, '0');
 
-    const body = {
+    const payeeCodeLojista = (pedido as any).lojas?.efi_payee_code;
+
+    const body: any = {
       calendario: { expiracao: 3600 },
       valor: { original: Number(pedido.valor_total).toFixed(2) },
       chave: Deno.env.get('EFI_PIX_KEY'),
       solicitacaoPagador: `Pedido #${pedido.numero} — ${(pedido as any).lojas?.nome ?? 'MiseOn'}`.slice(0, 140),
     };
+
+    // Lógica SaaS de Split (Mercado Profissional)
+    // Se a loja cadastrou a própria conta Efí, o dinheiro cai DIRETO para ela
+    if (payeeCodeLojista && payeeCodeLojista.trim().length > 5) {
+      body.split = [
+        {
+          recebedor: { conta: payeeCodeLojista.trim() },
+          valor: { porcentagem: "100.00" }, // O lojista recebe 100% da venda
+          opcaoTarifa: "assumir_tarifa", // O lojista arca com o custo do Pix (geralmente % fixo)
+          lancamentoContaPosCredito: true
+        }
+      ];
+    }
 
     const res = await efiFetch(`/v2/cob/${txid}`, { method: 'PUT', body: JSON.stringify(body) }, token);
     const charge = await res.json();

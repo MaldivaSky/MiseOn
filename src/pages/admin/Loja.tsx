@@ -7,6 +7,7 @@ import ColorSwatchPicker from '../../components/ColorSwatchPicker';
 import FontPicker from '../../components/FontPicker';
 import ImageUpload from '../../components/ImageUpload';
 import type { CtxLoja } from './AdminLayout';
+import { maskCPFouCNPJ, maskTelefone, validarCPFouCNPJ } from '../../lib/mascaras';
 
 /**
  * Minha Loja — identidade white-label editável pelo lojista.
@@ -74,12 +75,37 @@ export default function Loja() {
     })();
   }, [lojaId]);
 
-  const set = (k: keyof FormLoja) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k: keyof FormLoja) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    let val = e.target.value;
+    if (k === 'whatsapp' || k === 'telefone') val = maskTelefone(val);
+    if (k === 'cnpj') val = maskCPFouCNPJ(val);
+    setForm((f) => ({ ...f, [k]: val }));
+  };
   const setValor = (k: keyof FormLoja, valor: string) => setForm((f) => ({ ...f, [k]: valor }));
 
   const salvar = async () => {
     setErro(''); setOk(false); setSalvando(true);
+
+    if (form.cnpj) {
+      if (!validarCPFouCNPJ(form.cnpj)) {
+        setErro('Documento inválido. Digite um CPF ou CNPJ real e ativo.');
+        setSalvando(false);
+        setAba('identidade');
+        return;
+      }
+    }
+
+    if (form.efi_payee_code) {
+      const code = form.efi_payee_code.trim();
+      const isHex = /^[0-9a-fA-F]{32}$/.test(code);
+      if (!isHex) {
+        setErro('Identificador Efí inválido. Ele deve ter exatamente 32 caracteres (letras e números), sem espaços. Verifique no painel do Efí Bank.');
+        setSalvando(false);
+        setAba('pagamentos'); // Força a aba de pagamentos para o lojista ver o erro
+        return;
+      }
+    }
+
     const { error } = await supabase.from('lojas').update({
       nome: form.nome,
       descricao: form.descricao || null,
@@ -118,7 +144,7 @@ export default function Loja() {
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  const Campo = ({ label, k, placeholder, textarea }: { label: string; k: keyof FormLoja; placeholder?: string; textarea?: boolean }) => (
+  const renderCampo = (label: string, k: keyof FormLoja, placeholder?: string, textarea?: boolean) => (
     <label className="block">
       <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{label}</span>
       {textarea ? (
@@ -220,21 +246,19 @@ export default function Loja() {
 
       {aba === 'identidade' && (
         <div className="space-y-3">
-          <Campo label="Nome da loja" k="nome" placeholder='"N" de Natureba' />
-          <Campo label="Descrição" k="descricao" placeholder="Baguetes artesanais, saladas e doces." textarea />
-          <Campo label="WhatsApp (destino dos pedidos)" k="whatsapp" placeholder="5511999999999" />
-          <Campo label="Telefone" k="telefone" placeholder="(11) 3333-3333" />
-          <Campo label="Endereço" k="endereco" placeholder="Av. Sapopemba, 7750 - Box 2" />
+          {renderCampo('Nome da loja', 'nome', '"N" de Natureba')}
+          {renderCampo('Descrição', 'descricao', 'Baguetes artesanais, saladas e doces.', true)}
+          {renderCampo('Celular 1 / WhatsApp Principal', 'whatsapp', '(11) 99999-9999')}
+          {renderCampo('Celular 2 / WhatsApp Secundário (Opcional)', 'telefone', '(11) 99999-9999')}
           <div className="rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 p-3">
             <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">Dados no cupom do cliente (opcional)</p>
             <div className="space-y-3">
-              <Campo label="Razão social" k="razao_social" placeholder="Lanche do Paulista Ltda" />
-              <Campo label="CNPJ" k="cnpj" placeholder="12.345.678/0001-90" />
+              {renderCampo('Razão social / Nome', 'razao_social', 'Lanche do Paulista Ltda')}
+              {renderCampo('CPF / CNPJ', 'cnpj', '000.000.000-00 ou 00.000.000/0001-00')}
             </div>
             <p className="mt-2 text-[11px] text-gray-400">Aparecem no cabeçalho da Nota do Cliente. Deixe em branco se não quiser exibir.</p>
           </div>
-          <Campo label="Pedido mínimo (R$)" k="pedido_minimo" placeholder="15" />
-          <Campo label="Chave Pix (estático)" k="pix_chave" placeholder="chave-pix@email.com" />
+          {renderCampo('Pedido mínimo (R$)', 'pedido_minimo', '15')}
         </div>
       )}
 
@@ -245,7 +269,7 @@ export default function Loja() {
             <p className="mb-4 text-xs text-gray-600 dark:text-gray-300">
               Configure seu "Identificador de Conta" (Payee Code) para receber os pagamentos dos clientes diretamente na sua conta da Efí via Split de Pagamentos. A plataforma não retém os valores.
             </p>
-            <Campo label="Identificador de Conta Efí (Payee Code)" k="efi_payee_code" placeholder="ex: a1b2c3d4e5f6g7h8" />
+            {renderCampo('Identificador de Conta Efí (Payee Code)', 'efi_payee_code', 'ex: a1b2c3d4e5f6g7h8')}
           </div>
         </div>
       )}

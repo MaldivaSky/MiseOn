@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
-import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star, LogIn, LogOut, History, Lock, ShieldCheck, User as UserIcon, Trash2 } from 'lucide-react';
+import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star, LogIn, LogOut, History, Lock, ShieldCheck, User as UserIcon, Trash2, QrCode, Copy, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import ModalAuthCliente from '../components/ModalAuthCliente';
 import ModalMinhaConta from '../components/ModalMinhaConta';
@@ -65,6 +65,25 @@ export default function Cardapio() {
     const { data: sub } = supabase.auth.onAuthStateChange((_ev, session) => setUser(session?.user ?? null));
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Escuta o pagamento Pix em tempo real
+  useEffect(() => {
+    if (!pedidoId || !pix) return;
+    const canal = supabase
+      .channel(`pagamento-${pedidoId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pagamentos', filter: `pedido_id=eq.${pedidoId}` },
+        (payload) => {
+          if (payload.new.status === 'PAGO') {
+             // O banco confirmou! Tira o QR Code da tela e mostra a tela verde de sucesso
+             setPix(null);
+             
+             // Opcional: Tocar um som de 'caixa registradora' ou 'sucesso'
+             try { new Audio('/notificacao.mp3').play(); } catch(e) {}
+          }
+        })
+      .subscribe();
+    return () => { supabase.removeChannel(canal); };
+  }, [pedidoId, pix]);
 
   useEffect(() => {
     if (!slug) return;
@@ -373,33 +392,98 @@ export default function Cardapio() {
       />
 
       {pedidoNumero !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6">
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 dark:border-gray-800 p-6 text-center dark:bg-gray-900">
-            <p className="text-4xl">✅</p>
-            <h3 className="mt-2 text-lg font-bold dark:text-gray-100">Pedido #{pedidoNumero} enviado!</h3>
+        <div className="fade fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 shadow-2xl">
+            
             {pix ? (
-              <div className="mt-3 text-left">
-                <p className="text-center text-sm font-semibold dark:text-gray-200">Pague com Pix para confirmar:</p>
-                {pix.qr_imagem && <img src={pix.qr_imagem} alt="QR Code Pix" className="mx-auto mt-2 h-44 w-44" />}
-                <div className="mt-2 break-all rounded-lg bg-gray-100 p-2 text-[10px] text-gray-600 dark:text-gray-300 dark:bg-gray-800 dark:text-gray-300">{pix.copia_e_cola}</div>
-                <button
-                  onClick={() => navigator.clipboard.writeText(pix.copia_e_cola)}
-                  className="mt-2 w-full rounded-xl border border-[var(--cor-primaria)] py-2 text-sm font-semibold text-[var(--cor-primaria)]"
-                >
-                  Copiar código Pix
-                </button>
-                <p className="mt-2 text-center text-xs text-gray-400">Confirmação automática após o pagamento.</p>
+              <div className="flex flex-col items-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-teal-100 text-teal-600 mb-4 shadow-inner">
+                  <QrCode size={32} />
+                </div>
+                <h3 className="text-xl font-black dark:text-gray-100 text-center">Pedido #{pedidoNumero} Reservado!</h3>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 text-center mt-1">
+                  A cozinha começará o preparo assim que o Pix for confirmado.
+                </p>
+
+                <div className="mt-6 w-full p-5 bg-white dark:bg-gray-950 rounded-2xl border-2 border-teal-500 shadow-xl shadow-teal-500/10 relative overflow-hidden">
+                   <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-teal-400 to-teal-600"></div>
+                   
+                   {pix.qr_imagem ? (
+                     <img src={pix.qr_imagem} alt="QR Code Pix" className="mx-auto h-48 w-48 object-contain" />
+                   ) : (
+                     <div className="h-48 w-48 mx-auto flex items-center justify-center bg-gray-50 dark:bg-gray-900 rounded-xl">
+                       <div className="animate-spin h-8 w-8 border-4 border-gray-200 border-t-teal-500 rounded-full"></div>
+                     </div>
+                   )}
+                   
+                   <div className="mt-5 w-full">
+                      <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Pix Copia e Cola</p>
+                      <div className="flex items-center gap-2">
+                        <input readOnly value={pix.copia_e_cola} 
+                          className="w-full rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-3 text-xs text-gray-600 dark:text-gray-400 font-mono truncate focus:outline-none" />
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(pix.copia_e_cola);
+                            const btn = document.getElementById('btn-copy-pix');
+                            if(btn) {
+                              btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>';
+                              btn.classList.replace('bg-teal-100', 'bg-green-600');
+                              btn.classList.replace('text-teal-700', 'text-white');
+                              setTimeout(() => {
+                                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+                                btn.classList.replace('bg-green-600', 'bg-teal-100');
+                                btn.classList.replace('text-white', 'text-teal-700');
+                              }, 2000);
+                            }
+                          }}
+                          id="btn-copy-pix"
+                          className="shrink-0 flex items-center justify-center p-3 rounded-xl bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 hover:bg-teal-200 transition-colors"
+                        >
+                          <Copy size={18} />
+                        </button>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="mt-5 flex items-center justify-center gap-2 text-xs font-semibold text-teal-600 dark:text-teal-500">
+                   <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></div>
+                   Aguardando confirmação do banco...
+                </div>
+                
+                <div className="mt-4 flex w-full gap-2">
+                  <button onClick={() => { setPedidoNumero(null); setPix(null); setPedidoId(null); }} 
+                    className="flex-1 rounded-xl bg-gray-100 dark:bg-gray-800 py-3.5 text-sm font-semibold text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-200">
+                    Fechar
+                  </button>
+                  <a href={`/pedido/${pedidoId}`}
+                    className="flex-1 text-center rounded-xl bg-[var(--cor-primaria)] py-3.5 text-sm font-semibold text-white transition-opacity hover:opacity-90">
+                    Ver Pedido
+                  </a>
+                </div>
               </div>
             ) : (
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">A loja já recebeu seu pedido.</p>
+              <div className="flex flex-col items-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-600 mb-4 shadow-inner">
+                  <CheckCircle size={32} />
+                </div>
+                <h3 className="text-2xl font-black dark:text-gray-100 text-center">Pedido #{pedidoNumero} Recebido!</h3>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+                  A cozinha já foi notificada e logo iniciará o preparo do seu pedido.
+                </p>
+                <a href={`/pedido/${pedidoId}`}
+                  className="mt-6 flex w-full items-center justify-center rounded-xl bg-[var(--cor-primaria)] py-4 font-semibold text-white shadow-md hover:shadow-lg transition-all">
+                  Acompanhar meu pedido
+                </a>
+                <button onClick={() => { setPedidoNumero(null); setPix(null); setPedidoId(null); }} 
+                  className="mt-3 w-full rounded-xl py-3 text-sm font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                  Voltar ao Cardápio
+                </button>
+              </div>
             )}
-            <a href={`/pedido/${pedidoId}`}
-              className="mt-4 flex w-full items-center justify-center rounded-xl bg-[var(--cor-primaria)] py-3 font-semibold text-white">
-              Acompanhar meu pedido
-            </a>
-            <button onClick={() => { setPedidoNumero(null); setPix(null); setPedidoId(null); }} className="mt-2 w-full rounded-xl border py-3 text-sm font-medium text-gray-500 dark:text-gray-400 dark:border-gray-700 dark:text-gray-400">
-              Fechar
-            </button>
+            
+            <p className="mt-5 text-center text-[10px] font-semibold text-gray-400 flex items-center justify-center gap-1">
+              <ShieldCheck size={12} /> Transação protegida de ponta a ponta.
+            </p>
           </div>
         </div>
       )}
@@ -840,7 +924,10 @@ function Checkout({ loja, aberta, carrinho, taxas, user, setCarrinho, onClose, o
       `👤 ${nome} · ${telefone}\n` +
       `💳 ${metodo}${metodo === 'DINHEIRO' && trocoPara ? ` (troco p/ ${fmt(Number(trocoPara))})` : ''}` +
       (metodo === 'PIX' && loja.pix_chave ? `\n🔑 Pix: ${loja.pix_chave}` : '');
-    window.open(`https://wa.me/${loja.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+    
+    const numeroLimpo = loja.whatsapp.replace(/\D/g, '');
+    const numeroDDI = numeroLimpo.startsWith('55') ? numeroLimpo : `55${numeroLimpo}`;
+    window.open(`https://wa.me/${numeroDDI}?text=${encodeURIComponent(msg)}`, '_blank');
 
     setEnviando(false);
     onSucesso(pedido.numero, pedido.id, pixInfo);

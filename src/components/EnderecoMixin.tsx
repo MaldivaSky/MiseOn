@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MapPin, Search, Loader2 } from 'lucide-react';
 import type { EnderecoCliente } from '../types';
+import { maskCEP } from '../lib/mascaras';
 
 export interface EnderecoFormData {
   cep: string;
@@ -41,10 +42,11 @@ export default function EnderecoMixin({ valorInicial, onMudanca, className = '' 
     onMudanca(novosDados);
   };
 
-  const buscarCep = async (cepBuscado: string) => {
-    const cepLimpo = cepBuscado.replace(/\D/g, '');
-    atualizar('cep', cepLimpo);
+  const buscarCep = async (cepBruto: string) => {
+    const cepFormatado = maskCEP(cepBruto);
+    atualizar('cep', cepFormatado);
     
+    const cepLimpo = cepFormatado.replace(/\D/g, '');
     if (cepLimpo.length !== 8) return;
     
     setBuscando(true);
