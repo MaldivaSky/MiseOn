@@ -371,7 +371,15 @@ export default function Estoque() {
                 <p className="text-sm font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                   {i.nome} 
                   {i.categoria_insumo && (
-                    <span className="bg-orange-100/50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">{i.categoria_insumo}</span>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${
+                      i.categoria_insumo === 'Ingrediente' ? 'bg-orange-100/50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800/50' :
+                      i.categoria_insumo === 'Revenda Direta' ? 'bg-blue-100/50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/50' :
+                      i.categoria_insumo === 'Embalagem' ? 'bg-purple-100/50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800/50' :
+                      i.categoria_insumo === 'Limpeza' ? 'bg-emerald-100/50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50' :
+                      'bg-gray-100/50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700/50'
+                    }`}>
+                      {i.categoria_insumo}
+                    </span>
                   )}
                 </p>
                 <div className="flex gap-4 mt-1">
