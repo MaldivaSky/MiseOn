@@ -46,6 +46,7 @@ export interface Loja {
   efi_payee_code?: string; // habilita cartão de crédito online + split de cartão (Efí)
   efi_titular_documento?: string | null; // CPF/CNPJ do titular da conta Efí (favorecido do split Pix)
   efi_conta?: string | null; // número da conta Efí do lojista (favorecido do split Pix)
+  antecipacao_cartao?: boolean | null; // true = crédito processado na modalidade antecipada (~2 dias úteis, taxa maior)
   status_assinatura?: 'ATIVO' | 'ATRASADO' | 'CANCELADO' | 'TESTE' | 'VITALICIO' | null;
   vencimento_assinatura?: string | null;
   // Entrega / geolocalização
@@ -285,8 +286,37 @@ export interface Insumo {
   categoria_insumo?: string;
   rendimento_porcoes?: number;
   pessoas_servidas?: number;
+  validade_horas?: number | null; // preparos: horas até vencer após produção (null = não controla)
   fichas_preparo?: FichaPreparo[];
   criado_em?: string;
+}
+
+export interface ProducaoPreparo {
+  id: string;
+  loja_id: string;
+  preparo_id: string;
+  lotes: number;
+  quantidade_produzida: number;
+  produzido_em: string;
+  vence_em?: string | null;
+  status: 'ATIVO' | 'DESCARTADO';
+  descartado_em?: string | null;
+  quantidade_descartada?: number | null;
+}
+
+export type TipoContrato = 'CLT' | 'FREELANCE' | 'PJ' | 'TEMPORARIO';
+
+export interface MembroEquipe {
+  user_id: string;
+  papel: string;
+  nome?: string | null;
+  telefone?: string | null;
+  tipo_contrato: TipoContrato;
+  criado_em?: string | null;
+  email: string;
+  ultimo_acesso?: string | null;
+  confirmado?: boolean;
+  sou_eu?: boolean;
 }
 
 export interface FichaPreparo {

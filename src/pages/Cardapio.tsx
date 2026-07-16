@@ -886,8 +886,16 @@ function CartaoModal({ loja, info, onFechar, onAprovado }: {
       }
       const EfiPay = (window as any).EfiPay;
       const brand = await EfiPay.CreditCard.setCardNumber(digitos).verifyCardBrand();
+      // O token do cartão precisa ser gerado para a conta que PROCESSA a cobrança.
+      // No modelo split, quem processa é a plataforma (MiseOn) — o payee_code da loja
+      // é usado só no repasse, dentro da edge function cartao-pagar.
+      // Se a loja optou por antecipação, a cobrança é processada pela conta antecipada
+      // da plataforma (~2 dias úteis) — o token precisa ser gerado para ELA.
+      const payeeAntecipado = (import.meta.env.VITE_MISEON_EFI_PAYEE_CODE_ANTECIPADO as string | undefined)?.trim();
+      const payeePadrao = (import.meta.env.VITE_MISEON_EFI_PAYEE_CODE as string | undefined)?.trim();
+      const contaProcessadora = (loja.antecipacao_cartao && payeeAntecipado ? payeeAntecipado : payeePadrao) || loja.efi_payee_code!;
       const result = await EfiPay.CreditCard
-        .setAccount(loja.efi_payee_code!)
+        .setAccount(contaProcessadora)
         .setEnvironment(efiEnvironment)
         .setCreditCardData({
           brand: brand || bandeira?.id,

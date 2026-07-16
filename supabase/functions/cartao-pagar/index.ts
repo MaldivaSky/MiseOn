@@ -64,32 +64,39 @@ Deno.serve(async (req) => {
 
     const { data: pedido } = await supabase
       .from('pedidos')
-      .select('id, numero, valor_total, loja_id, telefone_contato, cep, logradouro, numero_endereco, complemento, bairro, cidade, uf, lojas(efi_payee_code), itens_pedido(nome_produto, preco_unitario, quantidade)')
+      .select('id, numero, valor_total, loja_id, telefone_contato, cep, logradouro, numero_endereco, complemento, bairro, cidade, uf, lojas(efi_payee_code, antecipacao_cartao), itens_pedido(nome_produto, preco_unitario, quantidade)')
       .eq('id', pedido_id)
       .single();
     if (!pedido) return json({ error: 'pedido não encontrado' }, { status: 404 });
 
-    // Modelo "conta própria por tenant": se a loja tem credenciais Efí de Cobranças
-    // próprias, a cobrança é feita NA conta dela (cai direto, sem split). Senão, usa as
-    // credenciais da plataforma + split via payee_code.
-    const { data: cred } = await supabase
-      .from('loja_efi_credenciais')
-      .select('efi_client_id, efi_client_secret')
-      .eq('loja_id', pedido.loja_id)
-      .maybeSingle();
-    const contaPropria = !!(cred?.efi_client_id && cred?.efi_client_secret);
+    // Modelo split: a cobrança é sempre processada pela conta da plataforma (MiseOn)
+    // e o valor é repassado 100% ao lojista via payee_code. O lojista só precisa do
+    // "Identificador de conta" da Efí — nenhuma credencial de API.
+    //
+    // Prazo de recebimento do CARTÃO (regra Efí): segue a configuração da conta que
+    // processa a cobrança (Configurações de cobranças → Cartão de crédito → 30 dias
+    // ou 2 dias úteis). Para o prazo ser escolhido POR LOJA, a plataforma mantém duas
+    // modalidades: a conta padrão (~30d, taxa menor) e uma conta/config antecipada
+    // (~2 dias úteis, taxa maior). `lojas.antecipacao_cartao` decide qual processa.
+    const querAntecipado = !!(pedido as any).lojas?.antecipacao_cartao;
+    const antecipadoDisponivel = !!(Deno.env.get('EFI_ANTECIPADO_CLIENT_ID') && Deno.env.get('EFI_ANTECIPADO_CLIENT_SECRET'));
+    const usarAntecipado = querAntecipado && antecipadoDisponivel;
 
-    const token = contaPropria
-      ? await getToken(String(cred!.efi_client_id).trim(), String(cred!.efi_client_secret).trim())
-      : await getToken(envFirst('EFI_COBRANCAS_CLIENT_ID', 'EFI_CLIENT_ID'), envFirst('EFI_COBRANCAS_CLIENT_SECRET', 'EFI_CLIENT_SECRET'));
+    const token = usarAntecipado
+      ? await getToken(Deno.env.get('EFI_ANTECIPADO_CLIENT_ID')!.trim(), Deno.env.get('EFI_ANTECIPADO_CLIENT_SECRET')!.trim())
+      : await getToken(
+          envFirst('EFI_COBRANCAS_CLIENT_ID', 'EFI_CLIENT_ID'),
+          envFirst('EFI_COBRANCAS_CLIENT_SECRET', 'EFI_CLIENT_SECRET'),
+        );
 
     // Split de cartão (API Cobranças): repassa 100% para a conta do lojista via payee_code
-    // (percentage 10000 = 100,00%). Só quando NÃO é conta própria (aí a venda já cai direto)
-    // e o payee_code é DIFERENTE do da plataforma — splitar "pra si mesmo" faz a Efí recusar
-    // com 402 antes de ir ao emissor.
+    // (percentage 10000 = 100,00%). Só quando o payee_code é DIFERENTE do da conta que
+    // está processando — splitar "pra si mesmo" faz a Efí recusar com 402 antes do emissor.
     const payeeCode = (pedido as any).lojas?.efi_payee_code?.trim();
-    const payeePlataforma = Deno.env.get('EFI_PLATFORM_PAYEE_CODE')?.trim();
-    const usarSplit = !contaPropria && !!payeeCode && payeeCode.length > 5 && payeeCode !== payeePlataforma;
+    const payeePlataforma = (usarAntecipado
+      ? Deno.env.get('EFI_ANTECIPADO_PAYEE_CODE')
+      : Deno.env.get('EFI_PLATFORM_PAYEE_CODE'))?.trim();
+    const usarSplit = !!payeeCode && payeeCode.length > 5 && payeeCode !== payeePlataforma;
     const marketplace = usarSplit
       ? { marketplace: { repasses: [{ payee_code: payeeCode, percentage: 10000 }] } }
       : {};
@@ -173,6 +180,7 @@ Deno.serve(async (req) => {
       installments: Number(installments),
       total: data.total,
       aprovado,
+      modalidade: usarAntecipado ? 'antecipado' : 'padrao',
     });
   } catch (e) {
     console.error(e);

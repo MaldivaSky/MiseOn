@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History, CreditCard, ShoppingCart, Flame, ChevronLeft, Menu, UserCircle } from 'lucide-react';
+import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History, CreditCard, ShoppingCart, Flame, ChevronLeft, Menu, UserCircle, LifeBuoy, LayoutDashboard } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import ThemeToggle from '../../components/ThemeToggle';
 
@@ -110,6 +110,7 @@ export default function AdminLayout() {
         { to: '/admin/entregas', icon: <Bike size={20} />, label: 'Entregas' },
       ]
     : [
+        { to: '/admin/inicio', icon: <LayoutDashboard size={20} />, label: 'Início' },
         { to: '/admin/pedidos', icon: <ClipboardList size={20} />, label: 'Pedidos' },
         { to: '/admin/cardapio', icon: <UtensilsCrossed size={20} />, label: 'Cardápio' },
         { to: '/admin/estoque', icon: <Boxes size={20} />, label: 'Estoque' },
@@ -125,6 +126,7 @@ export default function AdminLayout() {
     { to: '/admin/equipe', icon: <Users size={20} />, label: 'Equipe e Acessos' },
     { to: '/admin/assinatura', icon: <CreditCard size={20} />, label: 'Assinatura SaaS' },
     { to: '/admin/loja', icon: <Store size={20} />, label: 'Configurações da Loja' },
+    { to: '/admin/ajuda', icon: <LifeBuoy size={20} />, label: 'Central de Ajuda' },
   ];
 
   const isMainRoute = principal.some(p => p.to === loc.pathname) || loc.pathname === '/admin';

@@ -9,6 +9,7 @@ import ImageUpload from '../../components/ImageUpload';
 import type { CtxLoja } from './AdminLayout';
 import type { EntregaModo, FaixaEntrega, HorarioFuncionamento } from '../../types';
 import { maskCPFouCNPJ, maskTelefone, validarCPFouCNPJ } from '../../lib/mascaras';
+import { EFI_TARIFAS, EFI_LINKS } from '../../lib/efiInfo';
 import { geocode } from '../../lib/geo';
 
 /**
@@ -36,6 +37,9 @@ interface FormLoja {
   pedido_minimo: string;
   pix_chave: string;
   efi_payee_code: string;
+  efi_titular_documento: string;
+  efi_conta: string;
+  antecipacao_cartao: boolean;
   aceita_online: boolean;
   aceita_entrega: boolean;
   lat: string;
@@ -63,6 +67,7 @@ const vazio: FormLoja = {
   cor_primaria: PALETA_CORES[5], cor_secundaria: PALETA_CORES[1],
   fonte: 'Inter', cor_texto: PALETA_CORES[13], cor_fundo_claro: PALETA_FUNDO_POR_TEMA.claro[0], cor_fundo_escuro: PALETA_FUNDO_POR_TEMA.escuro[0], tema_cardapio: 'claro',
   whatsapp: '', telefone: '', endereco: '', cnpj: '', razao_social: '', pedido_minimo: '0', pix_chave: '', efi_payee_code: '',
+  efi_titular_documento: '', efi_conta: '', antecipacao_cartao: false,
   aceita_online: true, aceita_entrega: true,
   lat: '', lng: '', entrega_modo: 'HIBRIDO', entrega_raio_km: '8', entrega_taxa_base: '0', entrega_taxa_km: '1.5', entrega_taxa_padrao: '0',
 };
@@ -85,13 +90,6 @@ export default function Loja() {
   const [temaPreview, setTemaPreview] = useState<TemaLoja>('claro');
   const [faixasEntrega, setFaixasEntrega] = useState<FaixaEntregaForm[]>([]);
 
-  // Credenciais Efí da própria loja (tabela separada e protegida por RLS — NÃO fica em `lojas`,
-  // que é pública). client_id/pix_key são carregados; secret/cert ficam em branco por segurança
-  // (só sobrescrevem se o lojista digitar algo novo).
-  const [efiCred, setEfiCred] = useState({ clientId: '', pixKey: '', clientSecret: '', certBase64: '' });
-  const [efiTemSecret, setEfiTemSecret] = useState(false);
-  const [efiTemCert, setEfiTemCert] = useState(false);
-
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from('lojas').select('*').eq('id', lojaId).single();
@@ -111,6 +109,9 @@ export default function Loja() {
           cnpj: data.cnpj ?? '', razao_social: data.razao_social ?? '',
           pedido_minimo: String(data.pedido_minimo ?? 0), pix_chave: data.pix_chave ?? '',
           efi_payee_code: data.efi_payee_code ?? '',
+          efi_titular_documento: data.efi_titular_documento ?? '',
+          efi_conta: data.efi_conta != null ? String(data.efi_conta) : '',
+          antecipacao_cartao: data.antecipacao_cartao ?? false,
           aceita_online: data.aceita_online ?? true,
           aceita_entrega: data.aceita_entrega ?? true,
           lat: data.lat != null ? String(data.lat) : '',
@@ -139,15 +140,6 @@ export default function Loja() {
         })));
       }
 
-      // Credenciais Efí (tabela protegida). Só o client_id e a chave Pix são exibidos;
-      // secret/cert nunca voltam pro navegador — mostramos só se já estão configurados.
-      const { data: cred } = await supabase.from('loja_efi_credenciais')
-        .select('efi_client_id, efi_pix_key, efi_client_secret, efi_cert_base64').eq('loja_id', lojaId).maybeSingle();
-      if (cred) {
-        setEfiCred((c) => ({ ...c, clientId: cred.efi_client_id ?? '', pixKey: cred.efi_pix_key ?? '' }));
-        setEfiTemSecret(!!cred.efi_client_secret);
-        setEfiTemCert(!!cred.efi_cert_base64);
-      }
       setCarregando(false);
     })();
   }, [lojaId]);
@@ -157,6 +149,8 @@ export default function Loja() {
     if (k === 'whatsapp' || k === 'telefone') val = maskTelefone(val);
     if (k === 'cnpj') val = maskCPFouCNPJ(val);
     if (k === 'efi_payee_code') val = val.replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
+    if (k === 'efi_titular_documento') val = maskCPFouCNPJ(val);
+    if (k === 'efi_conta') val = val.replace(/\D/g, '').slice(0, 12);
     setForm((f) => ({ ...f, [k]: val }));
   };
   const setValor = (k: keyof FormLoja, valor: string) => setForm((f) => ({ ...f, [k]: valor }));
@@ -195,10 +189,17 @@ export default function Loja() {
       }
     }
 
-    // Credenciais Efí da loja (conta própria): client_id + chave Pix são obrigatórios juntos
-    // para ativar os recebimentos na conta do próprio lojista.
-    if ((efiCred.clientId.trim() && !efiCred.pixKey.trim()) || (efiCred.pixKey.trim() && !efiCred.clientId.trim())) {
-      setErro('Para receber na sua conta Efí, preencha pelo menos o Client ID e a Chave Pix.');
+    // Repasse Pix: CPF/CNPJ do titular e número da conta Efí andam juntos.
+    const docPix = form.efi_titular_documento.trim();
+    const contaPix = form.efi_conta.trim();
+    if ((docPix && !contaPix) || (contaPix && !docPix)) {
+      setErro('Para receber o Pix na sua conta, preencha o CPF/CNPJ do titular E o número da conta Efí.');
+      setSalvando(false);
+      setAba('pagamentos');
+      return;
+    }
+    if (docPix && !validarCPFouCNPJ(docPix)) {
+      setErro('O CPF/CNPJ do titular da conta Efí é inválido. Confira os números.');
       setSalvando(false);
       setAba('pagamentos');
       return;
@@ -298,6 +299,9 @@ export default function Loja() {
       pedido_minimo: Number(form.pedido_minimo || 0),
       pix_chave: form.pix_chave || null,
       efi_payee_code: form.efi_payee_code || null,
+      efi_titular_documento: form.efi_titular_documento || null,
+      efi_conta: form.efi_conta || null,
+      antecipacao_cartao: form.antecipacao_cartao,
       aceita_online: form.aceita_online,
       aceita_entrega: form.aceita_entrega,
       lat: latFinal,
@@ -362,28 +366,7 @@ export default function Loja() {
       }
     }
 
-    // Credenciais Efí (tabela protegida por RLS). secret/cert só sobrescrevem se digitados.
-    let erroCred: string | null = null;
-    if (efiCred.clientId.trim() || efiCred.pixKey.trim() || efiCred.clientSecret.trim() || efiCred.certBase64.trim()) {
-      const payload: Record<string, string | null> = {
-        loja_id: lojaId,
-        efi_client_id: efiCred.clientId.trim() || null,
-        efi_pix_key: efiCred.pixKey.trim() || null,
-        atualizado_em: new Date().toISOString(),
-      };
-      if (efiCred.clientSecret.trim()) payload.efi_client_secret = efiCred.clientSecret.trim();
-      if (efiCred.certBase64.trim()) payload.efi_cert_base64 = efiCred.certBase64.replace(/\s/g, '');
-      const { error: ec } = await supabase.from('loja_efi_credenciais').upsert(payload, { onConflict: 'loja_id' });
-      if (ec) erroCred = ec.message;
-      else {
-        if (efiCred.clientSecret.trim()) setEfiTemSecret(true);
-        if (efiCred.certBase64.trim()) setEfiTemCert(true);
-        setEfiCred((c) => ({ ...c, clientSecret: '', certBase64: '' })); // não mantém segredo em memória
-      }
-    }
-
     setSalvando(false);
-    if (erroCred) { setErro('Erro ao salvar: ' + erroCred); return; }
     document.documentElement.style.setProperty('--cor-primaria', form.cor_primaria);
     document.documentElement.style.setProperty('--cor-secundaria', form.cor_secundaria);
     setOk(true); setTimeout(() => setOk(false), 2500);
@@ -892,6 +875,13 @@ export default function Loja() {
 
       {aba === 'pagamentos' && (
         <div className="space-y-4">
+          <Link to="/admin/ajuda" className="flex items-center justify-between gap-3 rounded-2xl border border-dashed border-[var(--cor-primaria)]/40 bg-[var(--cor-primaria)]/5 px-4 py-3 transition hover:bg-[var(--cor-primaria)]/10">
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+              🧭 Primeira vez configurando? A <b>Central de Ajuda</b> tem o passo a passo completo — da abertura da conta Efí até o dinheiro na sua mão.
+            </span>
+            <ArrowRight size={16} className="shrink-0 text-[var(--cor-primaria)]" />
+          </Link>
+
           <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-4 space-y-4">
             <h3 className="text-sm font-bold dark:text-gray-100">Formas de pagamento aceitas</h3>
             <div className="flex items-center justify-between gap-3">
@@ -917,9 +907,11 @@ export default function Loja() {
           </div>
 
           <div className="rounded-2xl border border-[var(--cor-primaria)] bg-[var(--cor-primaria)]/5 p-4">
-            <h3 className="mb-1 text-sm font-bold text-[var(--cor-primaria)]">Recebimentos Automáticos (Efí Payee Code)</h3>
+            <h3 className="mb-1 text-sm font-bold text-[var(--cor-primaria)]">Cartão de crédito direto na sua conta (Identificador Efí)</h3>
             <p className="mb-4 text-xs text-gray-600 dark:text-gray-300">
-              O Payee Code <b>NÃO é o número da sua conta corrente nem agência</b>. Ele é um "Token de Segurança" que permite que o MiseOn envie o dinheiro dos pedidos diretamente para sua conta sem intermediários.
+              Com este código, <b>cada venda no cartão é repassada 100% para a sua conta Efí automaticamente</b>.
+              Ele <b>não é o número da conta nem agência</b> — é o "Identificador de conta" da Efí, um código público
+              e seguro que só serve para receber.
             </p>
             {renderCampo('Código Payee Code (32 caracteres)', 'efi_payee_code', 'Ex: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d')}
             
@@ -978,53 +970,89 @@ export default function Loja() {
             </div>
           </div>
 
-          {/* Repasse do Pix — precisa de dado diferente do cartão */}
+          {/* Repasse do Pix — a Efí exige CPF/CNPJ do titular + número da conta (não usa payee_code) */}
           <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/5 p-4">
             <h3 className="mb-1 flex items-center gap-1.5 text-sm font-bold text-emerald-600 dark:text-emerald-400">
-              <Shield size={14} /> Recebimentos na sua própria conta Efí
+              <Shield size={14} /> Pix direto na sua conta Efí
             </h3>
-            <p className="mb-3 text-xs text-gray-600 dark:text-gray-300">
-              Preenchendo as credenciais da API da <b>sua conta Efí</b>, os pagamentos (Pix e cartão) caem
-              <b> direto na sua conta</b> e o cliente vê o <b>nome da sua loja</b> na hora de pagar — a MiseOn não
-              segura nada. Pegue estes dados no painel Efí em <b>API → Minhas Aplicações</b> (crie uma aplicação com os
-              escopos de <b>Pix</b> e <b>Cobranças</b>) e em <b>API → Meus Certificados</b>.
+            <p className="mb-4 text-xs text-gray-600 dark:text-gray-300">
+              Para o dinheiro do <b>Pix</b> cair automaticamente na sua conta, a Efí pede só dois dados do
+              <b> titular da conta</b> — nada técnico. Você encontra o número da sua conta no app da Efí em
+              <b> Perfil → Dados da conta</b>.
             </p>
 
-            <div className="space-y-3">
-              <label className="block">
-                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Client ID</span>
-                <input value={efiCred.clientId} onChange={(e) => setEfiCred((c) => ({ ...c, clientId: e.target.value.trim() }))}
-                  placeholder="Client_Id_..." className="mt-1 w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
-              </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {renderCampo('CPF ou CNPJ do titular da conta', 'efi_titular_documento', 'ex: 12.345.678/0001-90')}
+              {renderCampo('Número da conta Efí (só números)', 'efi_conta', 'ex: 1234567')}
+            </div>
 
-              <label className="block">
-                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                  Client Secret {efiTemSecret && <span className="ml-1 text-emerald-600">• já configurado</span>}
-                </span>
-                <input type="password" value={efiCred.clientSecret} onChange={(e) => setEfiCred((c) => ({ ...c, clientSecret: e.target.value.trim() }))}
-                  placeholder={efiTemSecret ? 'deixe em branco para manter o atual' : 'Client_Secret_...'}
-                  autoComplete="new-password"
-                  className="mt-1 w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
-              </label>
+            <div className="mt-3 flex items-start gap-2 rounded-xl bg-emerald-500/10 p-3">
+              <Check size={14} className="mt-0.5 shrink-0 text-emerald-600" />
+              <p className="text-[11px] text-gray-600 dark:text-gray-300">
+                Preenchendo os dois campos, <b>cada venda no Pix é repassada 100% para a sua conta na hora</b>.
+                Se ficarem em branco, o valor entra na conta da plataforma e o repasse é feito manualmente.
+              </p>
+            </div>
+          </div>
 
-              <label className="block">
-                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Chave Pix da conta (recebedora)</span>
-                <input value={efiCred.pixKey} onChange={(e) => setEfiCred((c) => ({ ...c, pixKey: e.target.value.trim() }))}
-                  placeholder="CNPJ, e-mail, telefone ou chave aleatória"
-                  className="mt-1 w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
-              </label>
+          {/* Quando o dinheiro cai + antecipação do crédito */}
+          <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-700">
+            <h3 className="mb-3 flex items-center gap-1.5 text-sm font-bold dark:text-gray-100">
+              <Clock size={14} className="text-[var(--cor-primaria)]" /> Quando o dinheiro cai na conta?
+            </h3>
+            <div className="space-y-2 text-xs text-gray-600 dark:text-gray-300">
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">PIX</span>
+                <p><b>Na hora.</b> O repasse é imediato assim que o cliente paga. Tarifa Efí: <b>{EFI_TARIFAS.pix}</b> por venda recebida.</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-black text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">CRÉDITO</span>
+                <p>
+                  <b>Depende da modalidade escolhida abaixo.</b> À vista a tarifa Efí é <b>{EFI_TARIFAS.creditoAVista}</b>;
+                  no parcelado, a tarifa e o prazo mudam conforme a opção.
+                </p>
+              </div>
+            </div>
 
-              <label className="block">
-                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                  Certificado (.pem em base64) {efiTemCert && <span className="ml-1 text-emerald-600">• já configurado</span>}
-                </span>
-                <textarea value={efiCred.certBase64} onChange={(e) => setEfiCred((c) => ({ ...c, certBase64: e.target.value }))}
-                  rows={3} placeholder={efiTemCert ? 'deixe em branco para manter o atual' : 'cole aqui o conteúdo do certificado em base64'}
-                  className="mt-1 w-full rounded-xl border p-2.5 font-mono text-[11px] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
-                <span className="mt-1 block text-[10px] text-gray-400">
-                  Converta o <b>.p12</b> baixado da Efí em .pem e depois em base64. O certificado só é usado para o Pix e nunca é exibido de volta.
-                </span>
-              </label>
+            <div className="mt-4">
+              <p className="mb-2 text-xs font-bold text-gray-700 dark:text-gray-200">⚡ Escolha como quer receber o crédito:</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button type="button" onClick={() => setForm((f) => ({ ...f, antecipacao_cartao: false }))}
+                  className={`rounded-xl border-2 p-3.5 text-left transition ${!form.antecipacao_cartao
+                    ? 'border-[var(--cor-primaria)] bg-[var(--cor-primaria)]/5'
+                    : 'border-gray-200 hover:border-gray-300 dark:border-gray-700'}`}>
+                  <p className="flex items-center gap-2 text-sm font-bold dark:text-gray-100">
+                    Prazo padrão
+                    {!form.antecipacao_cartao && <Check size={14} className="text-[var(--cor-primaria)]" />}
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+                    Recebe <b>uma parcela a cada ~31 dias</b>.
+                  </p>
+                  <p className="mt-2 rounded-lg bg-gray-100 px-2 py-1.5 text-[10px] font-semibold leading-relaxed text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                    Tarifa Efí: à vista <b>{EFI_TARIFAS.creditoAVista}</b> · 2–6x <b>{EFI_TARIFAS.creditoParcelado2a6}</b> · 7–12x <b>{EFI_TARIFAS.creditoParcelado7a12}</b>
+                  </p>
+                </button>
+                <button type="button" onClick={() => setForm((f) => ({ ...f, antecipacao_cartao: true }))}
+                  className={`rounded-xl border-2 p-3.5 text-left transition ${form.antecipacao_cartao
+                    ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/10'
+                    : 'border-gray-200 hover:border-gray-300 dark:border-gray-700'}`}>
+                  <p className="flex items-center gap-2 text-sm font-bold dark:text-gray-100">
+                    Antecipado ⚡
+                    {form.antecipacao_cartao && <Check size={14} className="text-amber-500" />}
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+                    Recebe o <b>valor total em ~2 dias úteis</b>, mesmo em vendas parceladas.
+                  </p>
+                  <p className="mt-2 rounded-lg bg-amber-100 px-2 py-1.5 text-[10px] font-semibold leading-relaxed text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                    Tarifa Efí: <b>{EFI_TARIFAS.creditoAVista}</b> + <b>{EFI_TARIFAS.antecipacaoPorParcela} por parcela antecipada</b>
+                  </p>
+                </button>
+              </div>
+              <p className="mt-2 text-[10px] text-gray-400">
+                A escolha vale para as <b>próximas</b> vendas no cartão — o que já foi vendido mantém o prazo original.
+                {' '}Tarifas da tabela pública da Efí ({EFI_TARIFAS.referencia}), negociáveis por volume — confira em{' '}
+                <a href={EFI_LINKS.tarifas} target="_blank" rel="noreferrer" className="font-semibold underline">sejaefi.com.br/tarifas</a>.
+              </p>
             </div>
           </div>
         </div>

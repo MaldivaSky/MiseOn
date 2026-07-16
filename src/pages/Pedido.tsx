@@ -162,29 +162,82 @@ export default function AcompanharPedido() {
     aplicarTema(temaCliente);
   }, [loja, temaCliente]);
 
+  // Notifica quando o status muda (usado tanto pelo realtime quanto pelo polling de segurança)
+  const notificarMudanca = (novo: Pedido) => {
+    const msg = mensagemToast(novo.status, novo.tipo_pedido, !!novo.rota_id);
+    if (statusAnterior.current && statusAnterior.current !== novo.status && msg) {
+      tocarSom();
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(msg, { body: `Pedido #${novo.numero}` });
+      }
+      setAviso(msg);
+      setTimeout(() => setAviso(null), 6000);
+    }
+    statusAnterior.current = novo.status;
+  };
+
   useEffect(() => {
     if (!id) return;
     carregar();
-    const canal = supabase
-      .channel(`pedido-${id}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pedidos', filter: `id=eq.${id}` }, (payload) => {
-        const novo = payload.new as Pedido;
-        const msg = mensagemToast(novo.status, novo.tipo_pedido, !!novo.rota_id);
-        if (statusAnterior.current && statusAnterior.current !== novo.status && msg) {
-          tocarSom();
-          if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification(msg, { body: `Pedido #${novo.numero}` });
+
+    // 1) Realtime com reconexão automática: se o websocket cair (celular bloqueado,
+    // rede instável), o canal é recriado sozinho em alguns segundos.
+    let canal: ReturnType<typeof supabase.channel> | null = null;
+    let tentativaReconexao: ReturnType<typeof setTimeout> | null = null;
+    let ativo = true;
+
+    const assinar = () => {
+      if (!ativo) return;
+      if (canal) supabase.removeChannel(canal);
+      canal = supabase
+        .channel(`pedido-${id}-${Date.now()}`)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pedidos', filter: `id=eq.${id}` }, (payload) => {
+          notificarMudanca(payload.new as Pedido);
+          carregar();
+        })
+        .subscribe((status) => {
+          if (!ativo) return;
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            if (tentativaReconexao) clearTimeout(tentativaReconexao);
+            tentativaReconexao = setTimeout(assinar, 4000);
           }
-          setAviso(msg);
-          setTimeout(() => setAviso(null), 6000);
-        }
-        statusAnterior.current = novo.status;
+        });
+    };
+    assinar();
+
+    // 2) Polling de segurança: mesmo se o realtime falhar por completo,
+    // o pedido é reconsultado a cada 12s enquanto estiver em andamento.
+    const verificarAgora = async () => {
+      const { data } = await supabase.from('pedidos').select('*').eq('id', id).single();
+      if (!data) return;
+      const novo = data as Pedido;
+      if (statusAnterior.current !== novo.status) {
+        notificarMudanca(novo);
         carregar();
-      })
-      .subscribe();
+      }
+    };
+    const poll = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      if (statusAnterior.current && ['FINALIZADO', 'CANCELADO'].includes(statusAnterior.current)) return;
+      verificarAgora();
+    }, 12000);
+
+    // 3) Ao voltar para a aba/app ou recuperar internet, sincroniza na hora.
+    const aoVoltar = () => { if (document.visibilityState === 'visible') { verificarAgora(); assinar(); } };
+    document.addEventListener('visibilitychange', aoVoltar);
+    window.addEventListener('online', aoVoltar);
+    window.addEventListener('focus', aoVoltar);
 
     if ('Notification' in window) Notification.requestPermission?.();
-    return () => { supabase.removeChannel(canal); };
+    return () => {
+      ativo = false;
+      if (tentativaReconexao) clearTimeout(tentativaReconexao);
+      clearInterval(poll);
+      document.removeEventListener('visibilitychange', aoVoltar);
+      window.removeEventListener('online', aoVoltar);
+      window.removeEventListener('focus', aoVoltar);
+      if (canal) supabase.removeChannel(canal);
+    };
   }, [id]);
 
   useEffect(() => {

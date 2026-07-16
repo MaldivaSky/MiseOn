@@ -197,11 +197,23 @@ function CardPedido({
   );
 }
 
+/* ── Filtros rápidos por status ── */
+const FILTROS: { id: string; label: string; status: StatusPedido[] }[] = [
+  { id: 'TODOS',      label: 'Todos',       status: [] },
+  { id: 'ABERTOS',    label: 'Abertos',     status: ['NOVO', 'ACEITO'] },
+  { id: 'PREPARANDO', label: 'Preparando',  status: ['PREPARANDO'] },
+  { id: 'PRONTOS',    label: 'Prontos',     status: ['PRONTO'] },
+  { id: 'EM_ROTA',    label: 'Em rota',     status: ['EM_ROTA'] },
+  { id: 'FINALIZADOS',label: 'Finalizados', status: ['FINALIZADO'] },
+  { id: 'CANCELADOS', label: 'Cancelados',  status: ['CANCELADO'] },
+];
+
 export default function PainelPedidos() {
   const { lojaId } = useOutletContext<CtxLoja>();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [loja, setLoja] = useState<Loja | null>(null);
+  const [filtro, setFiltro] = useState('TODOS');
 
   useEffect(() => {
     supabase.from('lojas').select('*').eq('id', lojaId).single()
@@ -249,6 +261,14 @@ export default function PainelPedidos() {
   const ativos = pedidos.filter((p) => !['FINALIZADO', 'CANCELADO'].includes(p.status));
   const encerrados = pedidos.filter((p) => ['FINALIZADO', 'CANCELADO'].includes(p.status));
 
+  const contagem = (f: (typeof FILTROS)[number]) =>
+    f.status.length === 0 ? pedidos.length : pedidos.filter((p) => f.status.includes(p.status)).length;
+
+  const filtroAtivo = FILTROS.find((f) => f.id === filtro) ?? FILTROS[0];
+  const visiveis = [...ativos, ...encerrados].filter(
+    (p) => filtroAtivo.status.length === 0 || filtroAtivo.status.includes(p.status),
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-5 dark:bg-[#070C18]">
       <div className="print:hidden mb-6">
@@ -260,6 +280,30 @@ export default function PainelPedidos() {
         <p className="mt-1 font-['JetBrains_Mono'] text-xs text-gray-500 dark:text-gray-400">
           {pedidos.length} pedidos hoje · {ativos.length} em andamento
         </p>
+
+        {/* ── Filtro por status ── */}
+        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+          {FILTROS.map((f) => {
+            const qtd = contagem(f);
+            const ativo = filtro === f.id;
+            return (
+              <button
+                key={f.id}
+                onClick={() => setFiltro(f.id)}
+                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 font-['Sora'] text-xs font-bold transition ${
+                  ativo
+                    ? 'border-orange-500 bg-orange-500 text-white shadow-md shadow-orange-500/25'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-orange-300 dark:border-white/10 dark:bg-white/5 dark:text-gray-300'
+                }`}
+              >
+                {f.label}
+                <span className={`rounded-full px-1.5 py-px font-['JetBrains_Mono'] text-[10px] ${ativo ? 'bg-white/25' : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'}`}>
+                  {qtd}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {carregando && (
@@ -270,7 +314,7 @@ export default function PainelPedidos() {
 
       {!carregando && (
         <div className="print:hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {[...ativos, ...encerrados].map((p) => (
+          {visiveis.map((p) => (
             <CardPedido
               key={p.id}
               p={p}
@@ -286,11 +330,11 @@ export default function PainelPedidos() {
               }}
             />
           ))}
-          {pedidos.length === 0 && (
+          {visiveis.length === 0 && (
             <div className="col-span-full pt-16 text-center">
               <img src="/brand/icon.png" alt="" className="mx-auto mb-4 w-14 opacity-30 dark:opacity-20" />
               <p className="font-['JetBrains_Mono'] text-[13px] tracking-wider text-gray-500 dark:text-[#6C7A96]">
-                NENHUM PEDIDO AINDA.
+                {pedidos.length === 0 ? 'NENHUM PEDIDO AINDA.' : `NENHUM PEDIDO EM "${filtroAtivo.label.toUpperCase()}".`}
               </p>
             </div>
           )}

@@ -35,8 +35,8 @@ function envFirst(...names: string[]): string {
   throw new Error(`Secret ausente: informe um destes nomes -> ${names.join(', ')}`);
 }
 
-// Credenciais Efí usadas na cobrança. No modelo "conta própria por tenant", vêm da
-// tabela loja_efi_credenciais; se a loja não tiver, caem para as da plataforma (env).
+// Credenciais Efí da plataforma (env) — modelo split: a cobrança nasce na conta MiseOn
+// e o repasse ao lojista é feito pelo split Pix (favorecido CPF/CNPJ + conta Efí).
 type EfiCreds = { clientId: string; clientSecret: string; certPem: string; pixKey: string };
 
 function credsPlataforma(): EfiCreds {
@@ -98,22 +98,10 @@ Deno.serve(async (req) => {
       .single();
     if (!pedido) return json({ error: 'pedido não encontrado' }, { status: 404 });
 
-    // Modelo "conta própria por tenant": usa as credenciais Efí da própria loja se
-    // estiverem completas; senão, cai para as da plataforma (com split de repasse).
-    const { data: cred } = await supabase
-      .from('loja_efi_credenciais')
-      .select('efi_client_id, efi_client_secret, efi_pix_key, efi_cert_base64')
-      .eq('loja_id', pedido.loja_id)
-      .maybeSingle();
-    const contaPropria = !!(cred?.efi_client_id && cred?.efi_client_secret && cred?.efi_cert_base64 && cred?.efi_pix_key);
-    const creds: EfiCreds = contaPropria
-      ? {
-          clientId: String(cred!.efi_client_id).trim(),
-          clientSecret: String(cred!.efi_client_secret).trim(),
-          certPem: atob(String(cred!.efi_cert_base64).trim()),
-          pixKey: String(cred!.efi_pix_key).trim(),
-        }
-      : credsPlataforma();
+    // Modelo split: a cobrança é sempre criada pela conta da plataforma (MiseOn) e o
+    // valor é repassado 100% ao lojista via split Pix (favorecido = CPF/CNPJ + conta Efí).
+    // O lojista não fornece nenhuma credencial de API.
+    const creds: EfiCreds = credsPlataforma();
 
     const token = await getToken(creds);
 
@@ -147,10 +135,7 @@ Deno.serve(async (req) => {
     // Favorecido identificado por { cpf|cnpj, conta } (conta = número da conta Efí).
     // split_status vai na resposta para diagnóstico (não é dado sensível).
     let splitStatus: string;
-    if (contaPropria) {
-      // Conta própria do tenant: a venda já nasceu e caiu direto na conta dele. Sem split.
-      splitStatus = 'conta_propria';
-    } else if (!docLojista || !contaLojista) {
+    if (!docLojista || !contaLojista) {
       splitStatus = 'sem_dados_repasse'; // loja não configurou CPF/CNPJ + conta Efí
     } else {
       try {

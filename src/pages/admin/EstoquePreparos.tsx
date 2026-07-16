@@ -1,7 +1,29 @@
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, ChefHat, Flame, X, CheckCircle2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, ChefHat, Flame, X, CheckCircle2, Clock, AlertTriangle, Timer } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { Insumo, fmt } from '../../types';
+import { Insumo, ProducaoPreparo, fmt } from '../../types';
+
+/* ── Validade: status de um lote produzido ── */
+function statusValidade(vence_em?: string | null): { label: string; classe: string; vencido: boolean } | null {
+  if (!vence_em) return null;
+  const restanteMs = new Date(vence_em).getTime() - Date.now();
+  if (restanteMs <= 0) {
+    return { label: 'VENCIDO', classe: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400', vencido: true };
+  }
+  const horas = restanteMs / 3600e3;
+  const label = horas < 1
+    ? `vence em ${Math.max(1, Math.round(horas * 60))}min`
+    : horas < 48
+      ? `vence em ${Math.round(horas)}h`
+      : `vence em ${Math.round(horas / 24)} dias`;
+  const classe = horas <= 6
+    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+    : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+  return { label, classe, vencido: false };
+}
+
+const dataHoraBr = (iso: string) =>
+  new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
 export default function EstoquePreparos({ lojaId, insumosTotais, onUpdate }: { lojaId: string; insumosTotais: Insumo[]; onUpdate: () => void }) {
   const [editando, setEditando] = useState<Insumo | 'novo' | null>(null);
@@ -9,6 +31,8 @@ export default function EstoquePreparos({ lojaId, insumosTotais, onUpdate }: { l
   const [unidade, setUnidade] = useState('un');
   const [rendimentoPorcoes, setRendimentoPorcoes] = useState('');
   const [pessoasServidas, setPessoasServidas] = useState('');
+  const [validadeHoras, setValidadeHoras] = useState('');
+  const [producoes, setProducoes] = useState<ProducaoPreparo[]>([]);
   const [ficha, setFicha] = useState<{ insumo_id: string; quantidade: string }[]>([]);
   
   const [salvando, setSalvando] = useState(false);
@@ -21,6 +45,46 @@ export default function EstoquePreparos({ lojaId, insumosTotais, onUpdate }: { l
   const preparos = insumosTotais.filter(i => i.is_preparo && i.ativo);
   const insumosBrutos = insumosTotais.filter(i => !i.is_preparo && i.ativo);
 
+  const carregarProducoes = async () => {
+    const { data } = await supabase
+      .from('producoes_preparo')
+      .select('*')
+      .eq('loja_id', lojaId)
+      .eq('status', 'ATIVO')
+      .order('produzido_em', { ascending: false });
+    setProducoes((data as ProducaoPreparo[]) ?? []);
+  };
+  useEffect(() => { carregarProducoes(); }, [lojaId]);
+
+  const descartarLote = async (lote: ProducaoPreparo) => {
+    const preparo = insumosTotais.find(i => i.id === lote.preparo_id);
+    if (!preparo) return;
+    const qtdDescartar = Math.min(Number(lote.quantidade_produzida), Number(preparo.quantidade_atual));
+    if (!confirm(`Descartar o lote de ${preparo.nome} produzido em ${dataHoraBr(lote.produzido_em)}?\n\nSerão baixados ${qtdDescartar} ${preparo.unidade_medida} do estoque como perda.`)) return;
+    try {
+      if (qtdDescartar > 0) {
+        await supabase.from('movimentacoes_estoque').insert({
+          loja_id: lojaId,
+          insumo_id: lote.preparo_id,
+          tipo: 'PERDA',
+          quantidade: -qtdDescartar,
+          motivo: `Descarte por validade — lote de ${dataHoraBr(lote.produzido_em)}`,
+        });
+        await supabase.from('insumos').update({ quantidade_atual: Number(preparo.quantidade_atual) - qtdDescartar }).eq('id', lote.preparo_id);
+      }
+      await supabase.from('producoes_preparo').update({
+        status: 'DESCARTADO',
+        descartado_em: new Date().toISOString(),
+        quantidade_descartada: qtdDescartar,
+      }).eq('id', lote.id);
+      carregarProducoes();
+      onUpdate();
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao descartar o lote.');
+    }
+  };
+
   const iniciarEdicao = (p?: Insumo) => {
     if (p) {
       setEditando(p);
@@ -28,6 +92,7 @@ export default function EstoquePreparos({ lojaId, insumosTotais, onUpdate }: { l
       setUnidade(p.unidade_medida);
       setRendimentoPorcoes(String(p.rendimento_porcoes || ''));
       setPessoasServidas(String(p.pessoas_servidas || ''));
+      setValidadeHoras(p.validade_horas != null ? String(p.validade_horas) : '');
       setFicha((p as any).fichas_preparos?.map((f: any) => ({
         insumo_id: f.insumo_id,
         quantidade: String(f.quantidade)
@@ -38,6 +103,7 @@ export default function EstoquePreparos({ lojaId, insumosTotais, onUpdate }: { l
       setUnidade('un');
       setRendimentoPorcoes('');
       setPessoasServidas('');
+      setValidadeHoras('');
       setFicha([]);
     }
   };
@@ -55,6 +121,7 @@ export default function EstoquePreparos({ lojaId, insumosTotais, onUpdate }: { l
         unidade_medida: unidade,
         rendimento_porcoes: Number(rendimentoPorcoes || 1),
         pessoas_servidas: Number(pessoasServidas || 1),
+        validade_horas: validadeHoras !== '' && Number(validadeHoras) > 0 ? Number(validadeHoras) : null,
         ativo: true
       };
 
@@ -133,6 +200,17 @@ export default function EstoquePreparos({ lojaId, insumosTotais, onUpdate }: { l
       });
       await supabase.from('insumos').update({ quantidade_atual: Number(produzindo.quantidade_atual) + qtdEntrada }).eq('id', produzindo.id);
 
+      // 3. Registra a ordem de serviço (lote) com vencimento pela validade da receita
+      const validade = Number(produzindo.validade_horas || 0);
+      await supabase.from('producoes_preparo').insert({
+        loja_id: lojaId,
+        preparo_id: produzindo.id,
+        lotes: multProducao,
+        quantidade_produzida: qtdEntrada,
+        vence_em: validade > 0 ? new Date(Date.now() + validade * 3600e3).toISOString() : null,
+      });
+      carregarProducoes();
+
       setProduzindoSucesso(true);
       setTimeout(() => {
         setProduzindoSucesso(false);
@@ -182,6 +260,8 @@ export default function EstoquePreparos({ lojaId, insumosTotais, onUpdate }: { l
                }, 0);
                const rendimento = Number(p.rendimento_porcoes || 1);
                const custoPorcao = custoReceita / rendimento;
+               const lotes = producoes.filter(l => l.preparo_id === p.id);
+               const temVencido = lotes.some(l => statusValidade(l.vence_em)?.vencido);
 
                return (
                  <div key={p.id} className="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
@@ -189,6 +269,16 @@ export default function EstoquePreparos({ lojaId, insumosTotais, onUpdate }: { l
                      <div>
                        <h3 className="text-lg font-black dark:text-gray-100 flex items-center gap-2">
                          {p.nome}
+                         {p.validade_horas != null && Number(p.validade_horas) > 0 && (
+                           <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                             <Timer size={10} /> validade {Number(p.validade_horas) >= 24 ? `${Math.round(Number(p.validade_horas) / 24)}d` : `${Number(p.validade_horas)}h`}
+                           </span>
+                         )}
+                         {temVencido && (
+                           <span className="flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                             <AlertTriangle size={10} /> lote vencido
+                           </span>
+                         )}
                        </h3>
                        <div className="flex gap-4 mt-2">
                          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-1.5 border border-gray-100 dark:border-gray-700">
@@ -211,6 +301,34 @@ export default function EstoquePreparos({ lojaId, insumosTotais, onUpdate }: { l
                        </div>
                      </div>
                    </div>
+
+                   {/* ── Lotes produzidos (ordens de serviço) ── */}
+                   {lotes.length > 0 && (
+                     <div className="mt-4 border-t border-gray-100 pt-3 dark:border-gray-800">
+                       <p className="mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-gray-400"><Clock size={11} /> Lotes em uso</p>
+                       <div className="space-y-1.5">
+                         {lotes.map(l => {
+                           const st = statusValidade(l.vence_em);
+                           return (
+                             <div key={l.id} className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs ${st?.vencido ? 'bg-red-50 dark:bg-red-900/10' : 'bg-gray-50 dark:bg-gray-800/50'}`}>
+                               <div className="min-w-0">
+                                 <span className="font-bold dark:text-gray-200">{Number(l.quantidade_produzida)} {p.unidade_medida}</span>
+                                 <span className="text-gray-400"> · {l.lotes} lote(s) · produzido {dataHoraBr(l.produzido_em)}</span>
+                               </div>
+                               <div className="flex shrink-0 items-center gap-1.5">
+                                 {st
+                                   ? <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${st.classe}`}>{st.label}</span>
+                                   : <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">sem validade</span>}
+                                 <button onClick={() => descartarLote(l)} title="Descartar lote (baixa como perda)" className="rounded-lg p-1 text-gray-400 hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-900/30">
+                                   <Trash2 size={13} />
+                                 </button>
+                               </div>
+                             </div>
+                           );
+                         })}
+                       </div>
+                     </div>
+                   )}
                  </div>
                );
             })}
@@ -250,6 +368,19 @@ export default function EstoquePreparos({ lojaId, insumosTotais, onUpdate }: { l
                 <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400">Pessoas Servidas</label>
                 <input value={pessoasServidas} onChange={e => setPessoasServidas(e.target.value)} type="number" placeholder="ex: 30" className="mt-1 w-full p-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-transparent dark:text-gray-100 outline-none focus:border-orange-500 text-center font-bold text-lg" />
               </div>
+            </div>
+
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/30 dark:bg-amber-900/10">
+              <label className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-amber-700 dark:text-amber-500"><Timer size={13} /> Validade após produção (horas)</label>
+              <div className="mt-2 flex items-center gap-2">
+                <input value={validadeHoras} onChange={e => setValidadeHoras(e.target.value)} type="number" min="0" placeholder="ex: 48" className="w-28 p-2.5 rounded-xl border border-amber-300 dark:border-amber-900/50 bg-white dark:bg-gray-950 dark:text-gray-100 outline-none focus:border-amber-500 text-center font-bold text-lg" />
+                <div className="flex flex-wrap gap-1.5">
+                  {[{ h: 24, l: '24h' }, { h: 48, l: '2 dias' }, { h: 72, l: '3 dias' }, { h: 120, l: '5 dias' }].map(o => (
+                    <button key={o.h} type="button" onClick={() => setValidadeHoras(String(o.h))} className={`rounded-full border px-3 py-1 text-xs font-bold transition ${Number(validadeHoras) === o.h ? 'border-amber-500 bg-amber-500 text-white' : 'border-amber-300 text-amber-700 dark:border-amber-900/50 dark:text-amber-500'}`}>{o.l}</button>
+                  ))}
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] text-amber-700/80 dark:text-amber-500/80">Cada produção vira uma ordem de serviço com data de vencimento. Deixe em branco para não controlar validade.</p>
             </div>
 
             <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800">

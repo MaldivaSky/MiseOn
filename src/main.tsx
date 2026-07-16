@@ -26,6 +26,8 @@ import Equipe from './pages/admin/Equipe';
 import Assinatura from './pages/admin/Assinatura';
 import AdminLayout from './pages/admin/AdminLayout';
 import MinhaConta from './pages/admin/MinhaConta';
+import Ajuda from './pages/admin/Ajuda';
+import Dashboard from './pages/admin/Dashboard';
 
 // Entregador App
 import EntregadorLayout from './pages/entregador/EntregadorLayout';
@@ -52,7 +54,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Routes>
           <Route path="/admin/login" element={<Login />} />
           <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<Navigate to="pedidos" replace />} />
+            <Route index element={<Navigate to="inicio" replace />} />
+            <Route path="inicio" element={<Dashboard />} />
             <Route path="pedidos" element={<PainelPedidos />} />
             <Route path="entregas" element={<Entregas />} />
             <Route path="cardapio" element={<CardapioAdmin />} />
@@ -65,6 +68,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="equipe" element={<Equipe />} />
             <Route path="loja" element={<Loja />} />
             <Route path="assinatura" element={<Assinatura />} />
+            <Route path="ajuda" element={<Ajuda />} />
             <Route path="conta" element={<MinhaConta />} />
           </Route>
           <Route path="/superadmin/login" element={<SuperAdminLogin />} />

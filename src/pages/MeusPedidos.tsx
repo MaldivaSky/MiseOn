@@ -96,8 +96,8 @@ export default function MeusPedidos() {
     if (!slug) return;
     let userId: string | null = null;
 
-    const carregar = async () => {
-      setCarregando(true);
+    const carregar = async (silencioso = false) => {
+      if (!silencioso) setCarregando(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setLogado(false);
@@ -139,16 +139,45 @@ export default function MeusPedidos() {
       if (session?.user?.id !== userId) carregar();
     });
 
-    const canal = supabase
-      .channel(`meus-pedidos-${slug}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => {
-        carregar();
-      })
-      .subscribe();
+    // Realtime com reconexão automática + polling de segurança + sync ao voltar pra aba
+    let canal: ReturnType<typeof supabase.channel> | null = null;
+    let tentativaReconexao: ReturnType<typeof setTimeout> | null = null;
+    let ativo = true;
+
+    const assinar = () => {
+      if (!ativo) return;
+      if (canal) supabase.removeChannel(canal);
+      canal = supabase
+        .channel(`meus-pedidos-${slug}-${Date.now()}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => {
+          carregar(true);
+        })
+        .subscribe((status) => {
+          if (!ativo) return;
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            if (tentativaReconexao) clearTimeout(tentativaReconexao);
+            tentativaReconexao = setTimeout(assinar, 4000);
+          }
+        });
+    };
+    assinar();
+
+    const poll = setInterval(() => {
+      if (document.visibilityState === 'visible') carregar(true);
+    }, 20000);
+
+    const aoVoltar = () => { if (document.visibilityState === 'visible') { carregar(true); assinar(); } };
+    document.addEventListener('visibilitychange', aoVoltar);
+    window.addEventListener('online', aoVoltar);
 
     return () => {
+      ativo = false;
+      if (tentativaReconexao) clearTimeout(tentativaReconexao);
+      clearInterval(poll);
+      document.removeEventListener('visibilitychange', aoVoltar);
+      window.removeEventListener('online', aoVoltar);
       authSub.data.subscription.unsubscribe();
-      supabase.removeChannel(canal);
+      if (canal) supabase.removeChannel(canal);
     };
   }, [slug]);
 
