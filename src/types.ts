@@ -226,6 +226,7 @@ export interface Pedido {
   valor_total: number;
   troco_para?: number;
   observacao?: string;
+  origem?: string; // link | balcao | whatsapp
   criado_em: string;
   cliente_user_id?: string | null;
   entregador_id?: string | null;
@@ -359,6 +360,33 @@ export interface MensagemPedido {
   remetente_tipo: TipoRemetente;
   mensagem: string;
   lida: boolean;
+  criado_em: string;
+}
+
+// ── Frente de Caixa ───────────────────────────────────────────
+
+export interface CaixaTurno {
+  id: string;
+  loja_id: string;
+  aberto_por?: string | null;
+  aberto_por_nome?: string | null;
+  fundo_troco: number;
+  aberto_em: string;
+  fechado_em?: string | null;
+  valor_esperado?: number | null;
+  valor_contado?: number | null;
+  diferenca?: number | null;
+  observacao?: string | null;
+  status: 'ABERTO' | 'FECHADO';
+}
+
+export interface CaixaMovimentacao {
+  id: string;
+  loja_id: string;
+  turno_id: string;
+  tipo: 'SANGRIA' | 'REFORCO';
+  valor: number;
+  motivo?: string | null;
   criado_em: string;
 }
 

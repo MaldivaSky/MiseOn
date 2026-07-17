@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History, CreditCard, ShoppingCart, Flame, ChevronLeft, Menu, UserCircle, LifeBuoy, LayoutDashboard } from 'lucide-react';
+import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History, CreditCard, ShoppingCart, Flame, ChevronLeft, Menu, UserCircle, LifeBuoy, LayoutDashboard, Calculator, ChefHat } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import ThemeToggle from '../../components/ThemeToggle';
 
@@ -105,13 +105,17 @@ export default function AdminLayout() {
     ? [{ to: '/admin/entregas', icon: <Bike size={20} />, label: 'Entregas' }]
     : ctx.papel === 'operador'
     ? [
+        { to: '/admin/pdv', icon: <Calculator size={20} />, label: 'PDV Balcão' },
         { to: '/admin/pedidos', icon: <ClipboardList size={20} />, label: 'Pedidos' },
+        { to: '/admin/kds', icon: <ChefHat size={20} />, label: 'Cozinha (KDS)' },
         { to: '/admin/producao', icon: <Flame size={20} />, label: 'Produção' },
         { to: '/admin/entregas', icon: <Bike size={20} />, label: 'Entregas' },
       ]
     : [
         { to: '/admin/inicio', icon: <LayoutDashboard size={20} />, label: 'Início' },
+        { to: '/admin/pdv', icon: <Calculator size={20} />, label: 'PDV Balcão' },
         { to: '/admin/pedidos', icon: <ClipboardList size={20} />, label: 'Pedidos' },
+        { to: '/admin/kds', icon: <ChefHat size={20} />, label: 'Cozinha (KDS)' },
         { to: '/admin/cardapio', icon: <UtensilsCrossed size={20} />, label: 'Cardápio' },
         { to: '/admin/estoque', icon: <Boxes size={20} />, label: 'Estoque' },
         { to: '/admin/producao', icon: <Flame size={20} />, label: 'Produção' },

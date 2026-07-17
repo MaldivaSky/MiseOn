@@ -28,6 +28,8 @@ import AdminLayout from './pages/admin/AdminLayout';
 import MinhaConta from './pages/admin/MinhaConta';
 import Ajuda from './pages/admin/Ajuda';
 import Dashboard from './pages/admin/Dashboard';
+import PDV from './pages/admin/PDV';
+import KDS from './pages/admin/KDS';
 
 // Entregador App
 import EntregadorLayout from './pages/entregador/EntregadorLayout';
@@ -56,6 +58,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="inicio" replace />} />
             <Route path="inicio" element={<Dashboard />} />
+            <Route path="pdv" element={<PDV />} />
+            <Route path="kds" element={<KDS />} />
             <Route path="pedidos" element={<PainelPedidos />} />
             <Route path="entregas" element={<Entregas />} />
             <Route path="cardapio" element={<CardapioAdmin />} />
