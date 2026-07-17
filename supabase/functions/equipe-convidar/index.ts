@@ -21,7 +21,7 @@ const json = (data: unknown, init: ResponseInit = {}) =>
     headers: { 'Content-Type': 'application/json', ...cors, ...(init.headers ?? {}) },
   });
 
-const PAPEIS = ['admin', 'operador', 'entregador'];
+const PAPEIS = ['admin', 'operador', 'garcom', 'entregador'];
 const CONTRATOS = ['CLT', 'FREELANCE', 'PJ', 'TEMPORARIO'];
 
 function erro(msg: string, status = 400) {

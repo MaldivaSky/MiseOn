@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { ChefHat, Bike, Store, Maximize, Check, Package } from 'lucide-react';
+import { ChefHat, Bike, Store, Maximize, Check, Package, UtensilsCrossed } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { type Pedido, type StatusPedido } from '../../types';
 import { tocarSom } from '../../lib/som';
@@ -14,7 +14,7 @@ import type { CtxLoja } from './AdminLayout';
    Painel de Pedidos, que é a visão da gerência/despacho).
    ───────────────────────────────────────────────────────────── */
 
-const SELECT = 'id, numero, status, tipo_pedido, identificador_cliente, origem, criado_em, itens_pedido(id, nome_produto, quantidade, observacao, itens_pedido_opcoes(nome_opcao))';
+const SELECT = 'id, numero, status, tipo_pedido, identificador_cliente, origem, mesa_numero, criado_em, itens_pedido(id, nome_produto, quantidade, observacao, itens_pedido_opcoes(nome_opcao))';
 
 // minutos até o card mudar de cor (atenção / atraso)
 const LIMITE_ATENCAO_MIN = 10;
@@ -99,8 +99,10 @@ export default function KDS() {
           </span>
         </div>
         <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-[#6C7A96]">
-          {p.origem === 'balcao' ? <Store size={12} /> : p.tipo_pedido === 'DELIVERY' ? <Bike size={12} /> : <Package size={12} />}
-          {p.origem === 'balcao' ? 'BALCÃO' : p.tipo_pedido === 'DELIVERY' ? 'DELIVERY' : 'RETIRADA'} · {p.identificador_cliente}
+          {p.tipo_pedido === 'SALAO'
+            ? <UtensilsCrossed size={12} />
+            : p.origem === 'balcao' ? <Store size={12} /> : p.tipo_pedido === 'DELIVERY' ? <Bike size={12} /> : <Package size={12} />}
+          {p.tipo_pedido === 'SALAO' ? `MESA ${p.mesa_numero ?? '—'}` : p.origem === 'balcao' ? 'BALCÃO' : p.tipo_pedido === 'DELIVERY' ? 'DELIVERY' : 'RETIRADA'} · {p.identificador_cliente}
         </div>
         <div className="mt-3 space-y-2">
           {p.itens_pedido?.map((i) => (

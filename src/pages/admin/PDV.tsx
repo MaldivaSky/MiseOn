@@ -3,14 +3,15 @@ import { useOutletContext } from 'react-router-dom';
 import {
   ShoppingCart, Trash2, Plus, Minus, X, Banknote, QrCode, CreditCard,
   Check, Lock, Unlock, ArrowDownCircle, ArrowUpCircle, Loader2,
-  ChefHat, Receipt, Search, PartyPopper,
+  ChefHat, Receipt, Search, PartyPopper, Store, UtensilsCrossed,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import {
-  fmt, precoItem, type Produto, type Opcao, type ItemCarrinho, type Loja,
+  fmt, precoItem, type Produto, type Opcao, type ItemCarrinho, type Loja, type Mesa,
   type CaixaTurno, type CaixaMovimentacao, type MetodoPgto,
 } from '../../types';
 import { imprimir } from '../../lib/print';
+import { obterOuCriarComandaAberta } from '../../lib/comandas';
 import type { CtxLoja } from './AdminLayout';
 
 /* ─────────────────────────────────────────────────────────────
@@ -18,9 +19,14 @@ import type { CtxLoja } from './AdminLayout';
    Venda em segundos: toca no produto → carrinho → cobrar.
    O pedido nasce origem='balcao', vira ACEITO na hora (baixa
    estoque via trigger) e cai no KDS da cozinha como os demais.
+
+   Também funciona em "modo mesa" (garçom): o pedido vai pra
+   comanda da mesa igual ao cliente que pede pelo QR — sem cobrar
+   na hora, a conta fecha depois no Mapa de Mesas.
    ───────────────────────────────────────────────────────────── */
 
 type EtapaVenda = 'CARRINHO' | 'PAGANDO' | 'PIX_AGUARDANDO' | 'SUCESSO';
+type ModoPDV = 'BALCAO' | 'MESA';
 
 interface VendaConcluida {
   pedidoId: string;
@@ -42,6 +48,13 @@ export default function PDV() {
   const [loja, setLoja] = useState<Loja | null>(null);
   const [catAtiva, setCatAtiva] = useState<string | 'TODAS'>('TODAS');
   const [busca, setBusca] = useState('');
+
+  // modo mesa (garçom lança pedido pra comanda em vez de cobrar na hora)
+  const [modo, setModo] = useState<ModoPDV>('BALCAO');
+  const [mesas, setMesas] = useState<Mesa[]>([]);
+  const [mesaSelecionada, setMesaSelecionada] = useState<Mesa | null>(null);
+  const [enviandoMesa, setEnviandoMesa] = useState(false);
+  const [pedidoMesaOk, setPedidoMesaOk] = useState<{ numero: number; mesaNumero: number } | null>(null);
 
   // caixa
   const [turno, setTurno] = useState<CaixaTurno | null | undefined>(undefined); // undefined = carregando
@@ -66,14 +79,16 @@ export default function PDV() {
 
   /* ── carregamento ── */
   const carregarCatalogo = async () => {
-    const [{ data: prods }, { data: cats }, { data: lj }] = await Promise.all([
+    const [{ data: prods }, { data: cats }, { data: lj }, { data: mesasData }] = await Promise.all([
       supabase.from('produtos').select('*, grupos_opcoes(*, opcoes(*))').eq('loja_id', lojaId).eq('disponivel', true).order('ordem'),
       supabase.from('categorias').select('id, nome').eq('loja_id', lojaId).eq('ativo', true).order('ordem'),
       supabase.from('lojas').select('*').eq('id', lojaId).single(),
+      supabase.from('mesas').select('*').eq('loja_id', lojaId).eq('ativo', true).order('numero'),
     ]);
     setProdutos((prods as Produto[]) ?? []);
     setCategorias(cats ?? []);
     setLoja((lj as Loja) ?? null);
+    setMesas((mesasData as Mesa[]) ?? []);
   };
 
   const carregarCaixa = async () => {
@@ -85,8 +100,10 @@ export default function PDV() {
 
     const [{ data: m }, { data: vendasDinheiro }] = await Promise.all([
       supabase.from('caixa_movimentacoes').select('*').eq('turno_id', turnoAtual.id).order('criado_em'),
+      // Dinheiro que passa por ESTA gaveta: balcão (retirada) e mesas fechadas em dinheiro.
+      // Delivery em dinheiro fica com o entregador, não entra na gaveta do PDV.
       supabase.from('pedidos').select('valor_total, pagamentos(metodo, status)')
-        .eq('loja_id', lojaId).eq('origem', 'balcao').neq('status', 'CANCELADO')
+        .eq('loja_id', lojaId).in('tipo_pedido', ['RETIRADA_BALCAO', 'SALAO']).neq('status', 'CANCELADO')
         .gte('criado_em', turnoAtual.aberto_em),
     ]);
     setMovs((m as CaixaMovimentacao[]) ?? []);
@@ -213,6 +230,56 @@ export default function PDV() {
     setProcessando(false);
   };
 
+  /* ── modo mesa: envia a rodada pra comanda, sem cobrar agora ── */
+  const enviarParaMesa = async () => {
+    if (!mesaSelecionada || carrinho.length === 0) return;
+    setEnviandoMesa(true); setErro('');
+    try {
+      const comandaId = await obterOuCriarComandaAberta(lojaId, mesaSelecionada.id);
+      const { data: ped, error: e1 } = await supabase.from('pedidos').insert({
+        loja_id: lojaId,
+        tipo_pedido: 'SALAO',
+        origem: 'garcom',
+        comanda_id: comandaId,
+        mesa_numero: mesaSelecionada.numero,
+        identificador_cliente: nomeCliente.trim() || `Mesa ${mesaSelecionada.numero}`,
+        subtotal, desconto: descontoNum, valor_total: total,
+      }).select('id, numero').single();
+      if (e1 || !ped) throw e1 ?? new Error('Falha ao enviar o pedido');
+
+      for (const item of carrinho) {
+        const { data: it, error: e2 } = await supabase.from('itens_pedido').insert({
+          pedido_id: ped.id,
+          produto_id: item.produto.id,
+          nome_produto: item.produto.nome,
+          preco_unitario: Number(item.produto.preco) + item.opcoesSelecionadas.reduce((s, o) => s + Number(o.preco_adicional), 0),
+          quantidade: item.quantidade,
+          observacao: item.observacao ?? null,
+        }).select('id').single();
+        if (e2 || !it) throw e2 ?? new Error(`Falha ao registrar ${item.produto.nome}`);
+        if (item.opcoesSelecionadas.length > 0) {
+          const { error: e3 } = await supabase.from('itens_pedido_opcoes').insert(
+            item.opcoesSelecionadas.map((o) => ({ item_id: it.id, opcao_id: o.id, nome_opcao: o.nome, preco_adicional: Number(o.preco_adicional) })),
+          );
+          if (e3) throw e3;
+        }
+      }
+
+      setPedidoMesaOk({ numero: ped.numero, mesaNumero: mesaSelecionada.numero });
+      setCarrinho([]); setNomeCliente(''); setDesconto('');
+    } catch (e) {
+      console.error(e);
+      setErro('Erro ao enviar para a mesa: ' + String((e as Error)?.message ?? e));
+    }
+    setEnviandoMesa(false);
+  };
+
+  useEffect(() => {
+    if (!pedidoMesaOk) return;
+    const t = setTimeout(() => setPedidoMesaOk(null), 5000);
+    return () => clearTimeout(t);
+  }, [pedidoMesaOk]);
+
   const confirmarPixRecebido = async () => {
     if (!pixInfo) return;
     setProcessando(true);
@@ -312,7 +379,15 @@ export default function PDV() {
       {/* ── Barra do caixa ── */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-white px-4 py-2.5 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center gap-3">
-          <h2 className="text-base font-black dark:text-gray-100">PDV · Balcão</h2>
+          <h2 className="text-base font-black dark:text-gray-100">PDV</h2>
+          <div className="flex rounded-xl bg-gray-100 p-0.5 dark:bg-gray-800">
+            <button onClick={() => setModo('BALCAO')} className={`flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-xs font-bold transition ${modo === 'BALCAO' ? 'bg-white text-[var(--cor-primaria)] shadow-sm dark:bg-gray-900' : 'text-gray-500'}`}>
+              <Store size={13} /> Balcão
+            </button>
+            <button onClick={() => setModo('MESA')} className={`flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-xs font-bold transition ${modo === 'MESA' ? 'bg-white text-[var(--cor-primaria)] shadow-sm dark:bg-gray-900' : 'text-gray-500'}`}>
+              <UtensilsCrossed size={13} /> Mesa
+            </button>
+          </div>
           {turno ? (
             <span className="flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
               <Unlock size={11} /> Caixa aberto · gaveta {fmt(dinheiroGaveta)}
@@ -335,6 +410,31 @@ export default function PDV() {
           )}
         </div>
       </div>
+
+      {pedidoMesaOk && (
+        <div className="flex items-center justify-between gap-2 border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/15 dark:text-emerald-400">
+          <span className="flex items-center gap-1.5"><Check size={13} /> Pedido #{pedidoMesaOk.numero} enviado para a Mesa {pedidoMesaOk.mesaNumero}!</span>
+          <button onClick={() => setPedidoMesaOk(null)}><X size={13} /></button>
+        </div>
+      )}
+
+      {modo === 'MESA' && (
+        <div className="border-b border-gray-200 bg-white px-4 py-2.5 dark:border-gray-800 dark:bg-gray-900">
+          {mesas.length === 0 ? (
+            <p className="text-xs text-gray-400">Nenhuma mesa cadastrada ainda — crie mesas no Mapa de Mesas.</p>
+          ) : (
+            <div className="flex items-center gap-2 overflow-x-auto">
+              <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-gray-400">Mesa:</span>
+              {mesas.map((m) => (
+                <button key={m.id} onClick={() => setMesaSelecionada(m)}
+                  className={`shrink-0 rounded-full border-2 px-3.5 py-1.5 text-xs font-black transition ${mesaSelecionada?.id === m.id ? 'border-[var(--cor-primaria)] bg-[var(--cor-primaria)] text-white' : 'border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-300'}`}>
+                  {m.numero}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* ── Catálogo ── */}
@@ -407,10 +507,19 @@ export default function PDV() {
             <div className="mb-1 flex justify-between text-xs text-gray-500"><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
             {descontoNum > 0 && <div className="mb-1 flex justify-between text-xs text-green-600"><span>Desconto</span><span>-{fmt(descontoNum)}</span></div>}
             <div className="mb-3 flex justify-between text-lg font-black dark:text-gray-100"><span>Total</span><span className="text-[var(--cor-primaria)]">{fmt(total)}</span></div>
-            <button disabled={carrinho.length === 0 || !turno} onClick={() => { setEtapa('PAGANDO'); setMetodo(null); setErro(''); }}
-              className="w-full rounded-2xl bg-[var(--cor-primaria)] py-4 text-base font-black text-white shadow-lg transition active:scale-[0.98] disabled:opacity-40">
-              {turno ? `Cobrar ${fmt(total)}` : 'Abra o caixa para vender'}
-            </button>
+            {erro && modo === 'MESA' && <p className="mb-2 text-center text-xs font-semibold text-red-500">{erro}</p>}
+            {modo === 'BALCAO' ? (
+              <button disabled={carrinho.length === 0 || !turno} onClick={() => { setEtapa('PAGANDO'); setMetodo(null); setErro(''); }}
+                className="w-full rounded-2xl bg-[var(--cor-primaria)] py-4 text-base font-black text-white shadow-lg transition active:scale-[0.98] disabled:opacity-40">
+                {turno ? `Cobrar ${fmt(total)}` : 'Abra o caixa para vender'}
+              </button>
+            ) : (
+              <button disabled={carrinho.length === 0 || !mesaSelecionada || enviandoMesa} onClick={enviarParaMesa}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--cor-primaria)] py-4 text-base font-black text-white shadow-lg transition active:scale-[0.98] disabled:opacity-40">
+                {enviandoMesa && <Loader2 size={16} className="animate-spin" />}
+                {!mesaSelecionada ? 'Selecione uma mesa' : enviandoMesa ? 'Enviando…' : `Enviar para a Mesa ${mesaSelecionada.numero}`}
+              </button>
+            )}
           </div>
         </div>
       </div>

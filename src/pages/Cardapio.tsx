@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
-import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star, LogIn, LogOut, History, Lock, ShieldCheck, User as UserIcon, Trash2, QrCode, Copy, CheckCircle, CreditCard, Loader2, ChevronLeft, Check, ArrowRight, Sparkles, Compass } from 'lucide-react';
+import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star, LogIn, LogOut, History, Lock, ShieldCheck, User as UserIcon, Trash2, QrCode, Copy, CheckCircle, CreditCard, Loader2, ChevronLeft, Check, ArrowRight, Sparkles, Compass, UtensilsCrossed, PartyPopper } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { maskCartaoCredito, maskValidadeCartao, maskCPF, validarCPF } from '../lib/mascaras';
 import ModalAuthCliente from '../components/ModalAuthCliente';
 import ModalMinhaConta from '../components/ModalMinhaConta';
 import EnderecoMixin, { EnderecoFormData } from '../components/EnderecoMixin';
+import PedidoMesaDrawer from '../components/PedidoMesaDrawer';
 import {
   Loja, Banner, Categoria, Produto, Cupom, TaxaEntrega, FaixaEntrega, ItemCarrinho, Cliente,
-  HorarioFuncionamento, MetodoPgto, fmt, precoItem,
+  HorarioFuncionamento, MetodoPgto, Mesa, fmt, precoItem,
 } from '../types';
 import { fonteFamilia, isLightColor, obterFundoLojaPorTema, obterTokensLoja } from '../lib/personalizacao';
 import { aplicarTema, obterTemaPreferido, type PreferenciaTema } from '../lib/tema';
@@ -40,6 +41,11 @@ function lojaAberta(loja: Loja | null, horarios: HorarioFuncionamento[]): boolea
 
 export default function Cardapio() {
   const { slug } = useParams();
+  const [searchParams] = useSearchParams();
+  const numeroMesaUrl = searchParams.get('mesa');
+  const [mesaAtual, setMesaAtual] = useState<Mesa | null>(null);
+  const [mesaErro, setMesaErro] = useState(false);
+  const [pedidoMesaSucesso, setPedidoMesaSucesso] = useState<number | null>(null);
   const [loja, setLoja] = useState<Loja | null>(null);
   const [horarios, setHorarios] = useState<HorarioFuncionamento[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -130,6 +136,12 @@ export default function Cardapio() {
       setTaxas(t.data ?? []);
       setFaixasDistancia((f.data as FaixaEntrega[]) ?? []);
       document.title = `${l.nome} — Peça online`;
+
+      if (numeroMesaUrl) {
+        const { data: mesa } = await supabase.from('mesas').select('*')
+          .eq('loja_id', l.id).eq('numero', Number(numeroMesaUrl)).eq('ativo', true).maybeSingle();
+        if (mesa) setMesaAtual(mesa as Mesa); else setMesaErro(true);
+      }
     })();
   }, [slug]);
 
@@ -271,6 +283,32 @@ export default function Cardapio() {
           </div>
         </div>
       </header>
+
+      {mesaAtual && (
+        <div className="mx-auto -mt-px max-w-6xl px-4 pt-3 sm:px-6">
+          <div className="flex items-center gap-2.5 rounded-2xl border px-4 py-3 shadow-sm" style={{ background: 'var(--cor-destaque)', borderColor: 'var(--cor-borda)' }}>
+            <UtensilsCrossed size={18} style={{ color: 'var(--cor-primaria)' }} className="shrink-0" />
+            <p className="text-sm font-semibold" style={{ color: 'var(--cor-texto)' }}>
+              Você está pedindo da <b>Mesa {mesaAtual.numero}</b>{mesaAtual.nome ? ` (${mesaAtual.nome})` : ''} — sem precisar de login. A conta fecha no final com o garçom.
+            </p>
+          </div>
+        </div>
+      )}
+      {mesaErro && (
+        <div className="mx-auto -mt-px max-w-6xl px-4 pt-3 sm:px-6">
+          <div className="flex items-center gap-2.5 rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-400">
+            <X size={18} className="shrink-0" /> Essa mesa não foi encontrada — chame um garçom para te ajudar.
+          </div>
+        </div>
+      )}
+      {pedidoMesaSucesso && (
+        <div className="mx-auto -mt-px max-w-6xl px-4 pt-3 sm:px-6">
+          <div className="flex items-center justify-between gap-2.5 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 shadow-sm dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-400">
+            <span className="flex items-center gap-2.5"><PartyPopper size={18} className="shrink-0" /> Pedido #{pedidoMesaSucesso} enviado! A cozinha já está preparando.</span>
+            <button onClick={() => setPedidoMesaSucesso(null)} className="shrink-0"><X size={16} /></button>
+          </div>
+        </div>
+      )}
 
       {/* Carrossel de banners promocionais */}
       {banners.length > 0 && (
@@ -467,7 +505,13 @@ export default function Cardapio() {
         <ModalProduto produto={produtoAberto} onClose={() => setProdutoAberto(null)} onAdd={addAoCarrinho} />
       )}
       
-      {checkoutAberto && (
+      {checkoutAberto && mesaAtual && (
+        <PedidoMesaDrawer loja={loja} mesa={mesaAtual} carrinho={carrinho} setCarrinho={setCarrinho}
+          onClose={() => setCheckoutAberto(false)}
+          onSucesso={(num) => { setCheckoutAberto(false); setPedidoMesaSucesso(num); }} />
+      )}
+
+      {checkoutAberto && !mesaAtual && (
         <CheckoutDrawer loja={loja} aberta={aberta} carrinho={carrinho} taxas={taxas} faixasDistancia={faixasDistancia} user={user} setCarrinho={setCarrinho}
           onClose={() => setCheckoutAberto(false)} onAbrirAuth={() => setModalAuthAberto(true)}
           onCartao={(info) => { setCheckoutAberto(false); setCartao(info); }}

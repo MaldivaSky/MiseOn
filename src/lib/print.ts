@@ -1,6 +1,6 @@
 import { Pedido, ItemPedido, Insumo, Loja, fmt } from '../types';
 
-type PrintTemplate = 'COMANDA_COZINHA' | 'OS_PRODUCAO' | 'VIA_ENTREGADOR' | 'RECIBO_CLIENTE' | 'ETIQUETA_VALIDADE';
+type PrintTemplate = 'COMANDA_COZINHA' | 'OS_PRODUCAO' | 'VIA_ENTREGADOR' | 'RECIBO_CLIENTE' | 'ETIQUETA_VALIDADE' | 'CONTA_MESA';
 
 interface PrintOptions {
   template: PrintTemplate;
@@ -8,6 +8,17 @@ interface PrintOptions {
   loja?: Loja | null;      // dados de marca + comerciais (logo, CNPJ, razão social, endereço)
   pedido?: Pedido;
   itens?: ItemPedido[];
+  // Específico para a conta consolidada de uma mesa (várias rodadas/pedidos)
+  contaMesa?: {
+    mesaNumero: number;
+    numerosPedidos: number[];
+    itens: { nome_produto: string; quantidade: number; preco_unitario: number; opcoes?: { nome_opcao: string; preco_adicional: number }[] }[];
+    subtotal: number;
+    taxaServicoPct: number;
+    valorServico: number;
+    total: number;
+    metodoPagamento?: string;
+  };
   // Específico para OS de Produção
   osData?: {
     numero: number;
@@ -161,6 +172,7 @@ function gerarHtml(opts: PrintOptions): string {
     case 'ETIQUETA_VALIDADE':return htmlEtiqueta(opts);
     case 'VIA_ENTREGADOR':  return htmlViaEntregador(opts);
     case 'RECIBO_CLIENTE':  return htmlReciboCliente(opts);
+    case 'CONTA_MESA':      return htmlContaMesa(opts);
     default: return '';
   }
 }
@@ -355,6 +367,54 @@ function htmlReciboCliente(o: PrintOptions) {
       <div class="font-bold uppercase text-lg">${esc(metodoPgto(pedido))}</div>
       ${pedido.troco_para ? `<div class="sm uppercase">(Levar troco para ${fmt(Number(pedido.troco_para))})</div>` : ''}
     </div>
+    <div class="divider"></div>
+    <div class="text-center font-bold uppercase">Obrigado pela preferência!</div>
+    ${rodapeMiseOn()}
+  `;
+}
+
+// ------------------------------------------------------------------
+// 5. CONTA DA MESA (Fechamento de comanda — consolida N pedidos)
+// ------------------------------------------------------------------
+function htmlContaMesa(o: PrintOptions) {
+  const { contaMesa } = o;
+  if (!contaMesa) return '';
+  const data = new Date().toLocaleString('pt-BR');
+
+  const itensHtml = contaMesa.itens.map((i) => {
+    const adicionais = (i.opcoes ?? []).reduce((s, op) => s + Number(op.preco_adicional || 0), 0);
+    const totalItem = (Number(i.preco_unitario) + adicionais) * Number(i.quantidade);
+    const ops = (i.opcoes ?? []).map((op) => `<div class="xs uppercase">+ ${esc(op.nome_opcao)}</div>`).join('');
+    return `
+      <tr>
+        <td class="col-qtd font-bold">${Number(i.quantidade)}x</td>
+        <td><div class="font-bold uppercase">${esc(i.nome_produto)}</div>${ops}</td>
+        <td class="col-valor">${fmt(totalItem)}</td>
+      </tr>`;
+  }).join('');
+
+  return `
+    ${cabecalhoLoja(o, 'Conta da Mesa', true)}
+    <div class="text-center xs uppercase mb-1">Documento sem valor fiscal</div>
+    <div class="num-box text-center">
+      <div class="font-bold text-2xl uppercase">MESA ${esc(contaMesa.mesaNumero)}</div>
+      <div class="sm">Pedidos: ${contaMesa.numerosPedidos.map((n) => `#${n}`).join(', ')}</div>
+    </div>
+    <div class="text-center sm mb-1">FECHAMENTO: ${data}</div>
+    <div class="divider"></div>
+    <table>${itensHtml}</table>
+    <div class="divider"></div>
+    <table>
+      <tr><td>Subtotal</td><td class="text-right">${fmt(contaMesa.subtotal)}</td></tr>
+      ${contaMesa.valorServico > 0 ? `<tr><td>Taxa de serviço (${contaMesa.taxaServicoPct}%)</td><td class="text-right">${fmt(contaMesa.valorServico)}</td></tr>` : ''}
+      <tr><td class="text-lg font-bold">TOTAL</td><td class="text-right text-lg font-bold">${fmt(contaMesa.total)}</td></tr>
+    </table>
+    ${contaMesa.metodoPagamento ? `
+    <div class="divider"></div>
+    <div class="text-center">
+      <div class="font-bold uppercase sm">Forma de pagamento</div>
+      <div class="font-bold uppercase text-lg">${esc(contaMesa.metodoPagamento)}</div>
+    </div>` : ''}
     <div class="divider"></div>
     <div class="text-center font-bold uppercase">Obrigado pela preferência!</div>
     ${rodapeMiseOn()}

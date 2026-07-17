@@ -47,6 +47,7 @@ export interface Loja {
   efi_titular_documento?: string | null; // CPF/CNPJ do titular da conta Efí (favorecido do split Pix)
   efi_conta?: string | null; // número da conta Efí do lojista (favorecido do split Pix)
   antecipacao_cartao?: boolean | null; // true = crédito processado na modalidade antecipada (~2 dias úteis, taxa maior)
+  taxa_servico_padrao_pct?: number | null; // % sugerido ao abrir uma comanda de mesa (editável no fechamento)
   status_assinatura?: 'ATIVO' | 'ATRASADO' | 'CANCELADO' | 'TESTE' | 'VITALICIO' | null;
   vencimento_assinatura?: string | null;
   // Entrega / geolocalização
@@ -226,7 +227,9 @@ export interface Pedido {
   valor_total: number;
   troco_para?: number;
   observacao?: string;
-  origem?: string; // link | balcao | whatsapp
+  origem?: string; // link | balcao | mesa | whatsapp
+  comanda_id?: string | null;
+  mesa_numero?: number | null;
   criado_em: string;
   cliente_user_id?: string | null;
   entregador_id?: string | null;
@@ -361,6 +364,31 @@ export interface MensagemPedido {
   mensagem: string;
   lida: boolean;
   criado_em: string;
+}
+
+// ── Mesas & Comandas (salão) ────────────────────────────────────
+
+export interface Mesa {
+  id: string;
+  loja_id: string;
+  numero: number;
+  nome?: string | null;
+  capacidade?: number | null;
+  ativo: boolean;
+  criado_em: string;
+}
+
+export interface Comanda {
+  id: string;
+  loja_id: string;
+  mesa_id: string;
+  status: 'ABERTA' | 'FECHADA';
+  taxa_servico_pct: number;
+  valor_servico: number;
+  metodo_pagamento?: string | null;
+  aberta_em: string;
+  fechada_em?: string | null;
+  fechada_por?: string | null;
 }
 
 // ── Frente de Caixa ───────────────────────────────────────────

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Printer, Bike, Check, X as XIcon, Store, ChefHat, Receipt } from 'lucide-react';
+import { Printer, Bike, Check, X as XIcon, Store, ChefHat, Receipt, UtensilsCrossed } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Loja, Pedido, StatusPedido, fmt } from '../../types';
 import { imprimir } from '../../lib/print';
@@ -38,7 +38,9 @@ function CardPedido({
   onCancelar: () => void;
   onImprimir: (via: Via) => void;
 }) {
-  const fluxo = FLUXO[p.status] ?? FLUXO.CANCELADO;
+  // Mesa pronta fica esperando o garçom fechar a conta (Mapa de Mesas) — não avança sozinha pra EM_ROTA/FINALIZADO.
+  const semAvancoSalao = p.tipo_pedido === 'SALAO' && p.status === 'PRONTO';
+  const fluxo = semAvancoSalao ? { ...FLUXO[p.status], prox: undefined } : (FLUXO[p.status] ?? FLUXO.CANCELADO);
   const hora = new Date(p.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -131,12 +133,16 @@ function CardPedido({
         ))}
       </div>
 
-      {/* ── Entrega/Balcão ── */}
+      {/* ── Entrega/Balcão/Mesa ── */}
       <div className="mx-4 border-t border-gray-100 py-2.5 dark:border-white/5">
         {p.tipo_pedido === 'DELIVERY' ? (
           <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-[#AEB9CE]">
             <Bike size={14} className="mt-0.5 shrink-0 text-blue-500 dark:text-[#6B9EFF]" />
             <span>{p.endereco_entrega}{p.bairro ? ` — ${p.bairro}` : ''}</span>
+          </div>
+        ) : p.tipo_pedido === 'SALAO' ? (
+          <div className="flex items-center gap-1.5 font-semibold text-purple-500">
+            <UtensilsCrossed size={14} /> Mesa {p.mesa_numero ?? '—'}
           </div>
         ) : (
           <div className="flex items-center gap-1.5 text-emerald-500 font-semibold">
@@ -158,6 +164,11 @@ function CardPedido({
           >
             <Check size={16} /> {p.tipo_pedido === 'RETIRADA_BALCAO' && p.status === 'PRONTO' ? 'Finalizar' : fluxo.label}
           </button>
+        )}
+        {semAvancoSalao && (
+          <div className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-purple-200 bg-purple-50 py-2.5 text-xs font-bold uppercase tracking-wide text-purple-600 dark:border-purple-900/40 dark:bg-purple-900/10 dark:text-purple-400">
+            <UtensilsCrossed size={14} /> Aguardando fechar a conta
+          </div>
         )}
         <div className="relative" ref={menuRef}>
           <button

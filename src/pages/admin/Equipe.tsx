@@ -2,16 +2,17 @@ import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   Plus, Trash2, Mail, KeyRound, Pencil, X, Eye, EyeOff, RefreshCw,
-  ShieldCheck, Store, Bike, UserRound, Copy, Check,
+  ShieldCheck, Store, Bike, UserRound, Copy, Check, UtensilsCrossed,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { MembroEquipe, TipoContrato } from '../../types';
 import type { CtxLoja } from './AdminLayout';
 
 const PAPEL_INFO: Record<string, { label: string; icon: typeof ShieldCheck; classe: string }> = {
-  admin:      { label: 'Admin',      icon: ShieldCheck, classe: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
-  operador:   { label: 'Balcão',     icon: Store,       classe: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
-  entregador: { label: 'Entregador', icon: Bike,        classe: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
+  admin:      { label: 'Admin',      icon: ShieldCheck,     classe: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+  operador:   { label: 'Balcão',     icon: Store,           classe: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+  garcom:     { label: 'Garçom',     icon: UtensilsCrossed, classe: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300' },
+  entregador: { label: 'Entregador', icon: Bike,            classe: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
 };
 
 const CONTRATO_LABEL: Record<TipoContrato, string> = {
@@ -253,6 +254,7 @@ export default function Equipe() {
           <select value={convitePapel} onChange={(e) => setConvitePapel(e.target.value)} className="rounded-xl border border-gray-300 p-2.5 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100">
             <option value="admin">Admin</option>
             <option value="operador">Balcão</option>
+            <option value="garcom">Garçom</option>
             <option value="entregador">Entregador</option>
           </select>
           <button onClick={convidar} disabled={enviandoConvite}
@@ -322,6 +324,7 @@ export default function Equipe() {
                     <select value={form.papel} onChange={(e) => setForm({ ...form, papel: e.target.value })} className={inputCls}>
                       <option value="admin">Admin (tudo)</option>
                       <option value="operador">Balcão (pedidos)</option>
+                      <option value="garcom">Garçom (mesas)</option>
                       <option value="entregador">Entregador (app)</option>
                     </select>
                   </label>
@@ -374,6 +377,7 @@ export default function Equipe() {
                   <select value={formEdit.papel} onChange={(e) => setFormEdit({ ...formEdit, papel: e.target.value })} className={inputCls}>
                     <option value="admin">Admin</option>
                     <option value="operador">Balcão</option>
+                    <option value="garcom">Garçom</option>
                     <option value="entregador">Entregador</option>
                   </select>
                 </label>
