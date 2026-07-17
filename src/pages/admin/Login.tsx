@@ -30,7 +30,9 @@ export default function Login() {
       setErro(tratarErro(error));
       return;
     }
-    nav('/admin/pedidos');
+    // /admin decide o destino por papel: admin cai no Dashboard (inicio),
+    // operador/entregador são redirecionados para a operação.
+    nav('/admin');
   };
 
   const enviarMagicLink = async (e: React.FormEvent) => {
