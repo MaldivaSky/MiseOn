@@ -29,7 +29,7 @@ export default function AdminLayout() {
       if (!user) return nav('/admin/login');
       const { data } = await supabase
         .from('usuarios_loja')
-        .select('loja_id, papel, lojas(nome, cor_primaria, cor_secundaria, slug, criado_em)')
+        .select('loja_id, papel, lojas(nome, cor_primaria, cor_secundaria, slug, criado_em, status_assinatura, vencimento_assinatura)')
         .eq('user_id', user.id)
         .limit(1)
         .single();

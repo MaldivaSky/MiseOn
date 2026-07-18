@@ -34,7 +34,7 @@ interface Props {
   user: User | null;
   setCarrinho: (c: ItemCarrinho[]) => void;
   onClose: () => void;
-  onSucesso: (numero: number, pedidoId: string, pix?: { copia_e_cola: string; qr_imagem?: string } | null) => void;
+  onSucesso: (numero: number, pedidoId: string, metodo: MetodoPgto, pix?: { copia_e_cola: string; qr_imagem?: string } | null) => void;
   onCartao?: (info: { pedidoId: string; numero: number; total: number }) => void;
   onAbrirAuth: () => void;
 }
@@ -403,7 +403,7 @@ export default function CheckoutDrawer({
 
     if (quitadoPorCashback) {
       setEnviando(false);
-      onSucesso(pedido.numero, pedido.id, null);
+      onSucesso(pedido.numero, pedido.id, metodo, null);
       return;
     }
 
@@ -428,7 +428,7 @@ export default function CheckoutDrawer({
     }
 
     setEnviando(false);
-    onSucesso(pedido.numero, pedido.id, pixInfo);
+    onSucesso(pedido.numero, pedido.id, metodo, pixInfo);
   };
 
   return (
@@ -844,9 +844,9 @@ export default function CheckoutDrawer({
                       {fmt(total)}
                     </span>
                   </div>
-                  {(loja.cashback_pct ?? 0) > 0 && total > 0 && (
+                  {(loja.cashback_pct ?? 0) > 0 && totalAntesCashback > 0 && (
                     <p className="pt-1 text-[11px] text-gray-400">
-                      Você ganha {fmt(Math.round(total * Number(loja.cashback_pct) / 100 * 100) / 100)} de cashback nesta compra.
+                      Você ganha {fmt(Math.round(totalAntesCashback * Number(loja.cashback_pct) / 100 * 100) / 100)} de cashback nesta compra.
                     </p>
                   )}
                 </div>

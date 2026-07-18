@@ -97,6 +97,7 @@ export default function Cardapio() {
   const [pedidoNumero, setPedidoNumero] = useState<number | null>(null);
   const [pedidoId, setPedidoId] = useState<string | null>(null);
   const [pix, setPix] = useState<{ copia_e_cola: string; qr_imagem?: string } | null>(null);
+  const [metodo, setMetodo] = useState<MetodoPgto>('PIX');
   const [cartao, setCartao] = useState<{ pedidoId: string; numero: number; total: number } | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [temaCliente, setTemaCliente] = useState<PreferenciaTema>(() => obterTemaPreferido());
@@ -545,10 +546,10 @@ export default function Cardapio() {
         <CheckoutDrawer loja={loja} aberta={aberta} carrinho={carrinho} taxas={taxas} faixasDistancia={faixasDistancia} horarios={horarios} user={user} setCarrinho={setCarrinho}
           onClose={() => setCheckoutAberto(false)} onAbrirAuth={() => setModalAuthAberto(true)}
           onCartao={(info) => { setCheckoutAberto(false); setCartao(info); }}
-          onSucesso={(num, id, pixData) => {
+          onSucesso={(num, id, metodo, pixData) => {
             guardarUltimoPedido(slug, id, num);
             if (user) marcarCarrinhoRecuperado(loja.id, user);
-            setCarrinho([]); setCheckoutAberto(false); setPedidoNumero(num); setPedidoId(id); setPix(pixData ?? null);
+            setCarrinho([]); setCheckoutAberto(false); setPedidoNumero(num); setPedidoId(id); setPix(pixData ?? null); setMetodo(metodo);
           }} />
       )}
 
@@ -646,22 +647,42 @@ export default function Cardapio() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-600 mb-4 shadow-inner">
-                  <CheckCircle size={32} />
+              <div className="space-y-6 text-center">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-green-600 mb-4 shadow-inner flex-shrink-0">
+                  <CheckCircle size={36} />
                 </div>
-                <h3 className="text-2xl font-black dark:text-gray-100 text-center">Pedido #{pedidoNumero} Recebido!</h3>
-                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
-                  A cozinha já foi notificada e logo iniciará o preparo do seu pedido.
+
+                {/* Mensagem específica por método de pagamento */}
+                {metodo === 'PIX' ? (
+                  <>
+                    <h3 className="text-2xl font-black dark:text-gray-100">Pix Recebido! ✓</h3>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                      Aguardando confirmação do banco (geralmente em poucos minutos).
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-2xl font-black dark:text-gray-100">Pagamento Confirmado! ✓</h3>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                      O pedido #{pedidoNumero} foi confirmado e a cozinha já foi notificada.
+                    </p>
+                  </>
+                )}
+
+                <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                  Enquanto isso, você pode continuar explorando nosso cardápio ou acompanhar seu pedido.
                 </p>
-                <a href={`/pedido/${pedidoId}`}
-                  className="mt-6 flex w-full items-center justify-center rounded-xl bg-[var(--cor-primaria)] py-4 font-semibold text-white shadow-md hover:shadow-lg transition-all">
-                  Acompanhar meu pedido
-                </a>
-                <button onClick={() => { setPedidoNumero(null); setPix(null); setPedidoId(null); }} 
-                  className="mt-3 w-full rounded-xl py-3 text-sm font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                  Voltar ao Cardápio
-                </button>
+
+                <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                  <a href={`/pedido/${pedidoId}`}
+                    className="flex-1 flex items-center justify-center rounded-xl bg-[var(--cor-primaria)] py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all">
+                    Acompanhar Pedido
+                  </a>
+                  <button onClick={() => { setPedidoNumero(null); setPix(null); setPedidoId(null); setCheckoutAberto(false); }}
+                    className="flex-1 flex items-center justify-center rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    Voltar ao Cardápio
+                  </button>
+                </div>
               </div>
             )}
             

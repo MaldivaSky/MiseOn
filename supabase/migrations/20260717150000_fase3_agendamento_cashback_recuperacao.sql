@@ -41,9 +41,9 @@ create index if not exists idx_cashback_mov_cliente on public.cashback_movimento
 -- Sem cliente_id identificado (ex.: balcão/mesa sem login), não há saldo pra creditar.
 create or replace function fn_creditar_cashback(p_pedido_id uuid) returns void as $$
 declare
-  v_loja uuid; v_cliente uuid; v_valor numeric; v_pct numeric; v_credito numeric;
+  v_loja uuid; v_cliente uuid; v_subtotal numeric; v_taxa numeric; v_desconto numeric; v_valor_total numeric; v_pct numeric; v_credito numeric;
 begin
-  select p.loja_id, p.cliente_id, p.valor_total into v_loja, v_cliente, v_valor
+  select p.loja_id, p.cliente_id, p.subtotal, p.taxa_entrega, p.desconto, p.valor_total into v_loja, v_cliente, v_subtotal, v_taxa, v_desconto, v_valor_total
   from pedidos p where p.id = p_pedido_id;
 
   if v_cliente is null then return; end if;
@@ -51,7 +51,8 @@ begin
   select cashback_pct into v_pct from lojas where id = v_loja;
   if v_pct is null or v_pct <= 0 then return; end if;
 
-  v_credito := round(v_valor * v_pct / 100, 2);
+  -- Calculate cashback based on pre-cashback amount: subtotal + taxa_entrega - desconto
+  v_credito := round((v_subtotal + v_taxa - v_desconto) * v_pct / 100, 2);
   if v_credito <= 0 then return; end if;
 
   insert into cashback_saldos (cliente_id, loja_id, saldo)

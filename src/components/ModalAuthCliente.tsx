@@ -9,8 +9,18 @@ export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean;
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
+  const emailRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
+
+  useEffect(() => {
+    if (isOpen) {
+      // Focus email input when modal opens
+      setTimeout(() => {
+        emailRef.current?.focus();
+      }, 100);
+    }
+  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,8 +52,8 @@ export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean;
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white dark:bg-gray-900 dark:border-gray-800 p-6 shadow-2xl dark:bg-gray-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm">
+      <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 sm:p-8 shadow-2xl">
         <button onClick={onClose} className="absolute right-4 top-4 rounded-full p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
           <X size={20} />
         </button>
@@ -62,6 +72,7 @@ export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean;
           <div className="relative">
             <Mail className="absolute left-3 top-3.5 text-gray-400" size={18} />
             <input
+              ref={emailRef}
               type="email"
               required
               value={email}
