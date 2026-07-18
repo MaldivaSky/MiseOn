@@ -51,8 +51,8 @@ export interface Loja {
   efi_conta?: string | null; // número da conta Efí do lojista (favorecido do split Pix)
   antecipacao_cartao?: boolean | null; // true = crédito processado na modalidade antecipada (~2 dias úteis, taxa maior)
   taxa_servico_padrao_pct?: number | null; // % sugerido ao abrir uma comanda de mesa (editável no fechamento)
-  status_assinatura?: 'ATIVO' | 'ATRASADO' | 'CANCELADO' | 'TESTE' | 'VITALICIO' | null;
-  vencimento_assinatura?: string | null;
+  status_assinatura?: 'trial' | 'ativa' | 'atrasada' | 'cancelada' | 'vitalicio' | null;
+  trial_termina_em?: string | null; // data-limite: fim do trial ou próximo vencimento da assinatura paga
   // Entrega / geolocalização
   lat?: number | null;
   lng?: number | null;

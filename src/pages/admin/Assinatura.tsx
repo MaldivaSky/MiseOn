@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { CreditCard, CheckCircle, AlertCircle, Calendar, Lock, ShieldCheck, QrCode, Copy } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { avaliarAssinatura } from '../../lib/assinatura';
 import type { CtxLoja } from './AdminLayout';
 
 export default function Assinatura() {
   const { lojaId, lojaNome } = useOutletContext<CtxLoja>();
-  const [status, setStatus] = useState<string>('ATIVO');
+  const [status, setStatus] = useState<string>('trial');
+  const [emDia, setEmDia] = useState<boolean>(true);
   const [vencimento, setVencimento] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [metodo, setMetodo] = useState<'cartao' | 'pix'>('cartao');
@@ -33,10 +35,12 @@ export default function Assinatura() {
 
   const carregarDados = async () => {
     setCarregando(true);
-    const { data } = await supabase.from('lojas').select('status_assinatura, vencimento_assinatura').eq('id', lojaId).single();
+    const { data } = await supabase.from('lojas').select('status_assinatura, trial_termina_em, criado_em').eq('id', lojaId).single();
     if (data) {
-      setStatus(data.status_assinatura || 'INATIVO');
-      setVencimento(data.vencimento_assinatura);
+      const info = avaliarAssinatura(data);
+      setStatus(info.status);
+      setEmDia(info.emDia);
+      setVencimento(data.trial_termina_em);
     }
     setCarregando(false);
   };
@@ -161,11 +165,11 @@ export default function Assinatura() {
         
         {/* Lado Esquerdo: Resumo do Plano */}
         <div className="lg:col-span-5 space-y-6">
-          <div className={`rounded-3xl border p-6 shadow-sm transition-colors ${status === 'ATIVO' ? 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/50'}`}>
+          <div className={`rounded-3xl border p-6 shadow-sm transition-colors ${emDia ? 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800' : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/50'}`}>
             <p className="mb-6 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Resumo da Assinatura</p>
             
             <div className="flex items-center gap-4 mb-8">
-              {status === 'ATIVO' ? (
+              {emDia ? (
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-600 shadow-inner">
                   <CheckCircle size={28} />
                 </div>
@@ -175,8 +179,8 @@ export default function Assinatura() {
                 </div>
               )}
               <div>
-                <p className={`text-xl font-black ${status === 'ATIVO' ? 'text-green-600' : 'text-red-600'}`}>
-                  {status === 'ATIVO' ? 'Ativa & Operante' : 'Inadimplente / Bloqueada'}
+                <p className={`text-xl font-black ${emDia ? 'text-green-600' : 'text-red-600'}`}>
+                  {emDia ? 'Ativa & Operante' : 'Inadimplente / Bloqueada'}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mt-0.5">{lojaNome}</p>
               </div>
@@ -192,7 +196,7 @@ export default function Assinatura() {
               
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-500 dark:text-gray-400"><Calendar size={16} /> Próximo Vencimento</span>
-                <span className={`font-bold text-sm px-2.5 py-1 rounded-lg ${status === 'ATIVO' ? 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300' : 'bg-red-100 text-red-700'}`}>
+                <span className={`font-bold text-sm px-2.5 py-1 rounded-lg ${emDia ? 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300' : 'bg-red-100 text-red-700'}`}>
                   {vencimento ? new Date(vencimento).toLocaleDateString('pt-BR') : 'Sem data'}
                 </span>
               </div>

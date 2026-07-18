@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History, CreditCard, ShoppingCart, Flame, ChevronLeft, Menu, UserCircle, LifeBuoy, LayoutDashboard, Calculator, ChefHat, LayoutGrid } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { avaliarAssinatura } from '../../lib/assinatura';
 import ThemeToggle from '../../components/ThemeToggle';
 
 export interface CtxLoja {
@@ -30,7 +31,7 @@ export default function AdminLayout() {
       if (!user) return nav('/admin/login');
       const { data, error } = await supabase
         .from('usuarios_loja')
-        .select('loja_id, papel, lojas(nome, cor_primaria, cor_secundaria, slug, criado_em, status_assinatura, vencimento_assinatura)')
+        .select('loja_id, papel, lojas(nome, cor_primaria, cor_secundaria, slug, criado_em, status_assinatura, trial_termina_em)')
         .eq('user_id', user.id)
         .limit(1)
         .single();
@@ -42,15 +43,8 @@ export default function AdminLayout() {
       const papel = (data as any).papel ?? 'admin';
       const lojaInfo = (data as any).lojas;
 
-      const vencBase = lojaInfo?.vencimento_assinatura || lojaInfo?.criado_em;
-      const vencimento = vencBase ? new Date(vencBase) : new Date();
-      const hoje = new Date();
-      hoje.setHours(0, 0, 0, 0);
-      vencimento.setHours(0, 0, 0, 0);
-      const diffMs = hoje.getTime() - vencimento.getTime();
-      let diasAtraso = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      if (diasAtraso < 0) diasAtraso = 0; // Ainda não venceu
-      if (lojaInfo?.status_assinatura === 'ATIVO' || lojaInfo?.status_assinatura === 'VITALICIO') diasAtraso = 0;
+      // Fonte única: helper canônico (vocabulário minúsculo + trial_termina_em).
+      const { diasAtraso } = avaliarAssinatura(lojaInfo);
 
       setCtx({ 
         lojaId: data.loja_id, 

@@ -131,10 +131,14 @@ Deno.serve(async (req) => {
     const novoVencimento = new Date();
     novoVencimento.setMonth(novoVencimento.getMonth() + 1);
 
-    await supabase.from('lojas').update({
-      status_assinatura: 'ATIVO',
-      vencimento_assinatura: novoVencimento.toISOString(),
+    const { error: updErr } = await supabase.from('lojas').update({
+      status_assinatura: 'ativa',
+      trial_termina_em: novoVencimento.toISOString(), // próximo vencimento da assinatura paga
     }).eq('id', loja_id);
+    if (updErr) {
+      console.error('Falha ao atualizar assinatura da loja', updErr);
+      return json({ error: 'Pagamento aprovado, mas falha ao ativar a loja. Contate o suporte.', detail: updErr }, { status: 500 });
+    }
 
     return json({
       success: true,
