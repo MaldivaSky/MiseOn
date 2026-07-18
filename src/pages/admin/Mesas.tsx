@@ -7,6 +7,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { fmt, type Mesa, type Comanda, type Pedido, type Loja, type MetodoPgto } from '../../types';
 import { gerarQrDataUrl } from '../../lib/qr';
+import { imprimir } from '../../lib/print';
 import type { CtxLoja } from './AdminLayout';
 
 /* ─────────────────────────────────────────────────────────────
@@ -223,8 +224,27 @@ export default function Mesas() {
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from('comandas').update({
         status: 'FECHADA', fechada_em: new Date().toISOString(), fechada_por: user?.id ?? null,
-        metodo_pagamento: metodo, valor_servico: valorServico,
+        metodo_pagamento: metodo, valor_servico: valorServico, taxa_servico_pct: Number(taxaEditavel || 0),
       }).eq('id', comanda.id);
+
+      imprimir({
+        template: 'CONTA_MESA',
+        lojaNome: loja?.nome || 'MiseOn',
+        loja,
+        contaMesa: {
+          mesaNumero: mesaDetalhe.numero,
+          numerosPedidos: pedidosComanda.map((p) => p.numero),
+          itens: pedidosComanda.flatMap((p) => (p.itens_pedido ?? []).map((i) => ({
+            nome_produto: i.nome_produto, quantidade: i.quantidade, preco_unitario: Number(i.preco_unitario),
+            opcoes: i.itens_pedido_opcoes?.map((o) => ({ nome_opcao: o.nome_opcao, preco_adicional: Number(o.preco_adicional) })),
+          }))),
+          subtotal: subtotalComanda,
+          taxaServicoPct: Number(taxaEditavel || 0),
+          valorServico,
+          total: totalComanda,
+          metodoPagamento: METODOS.find((x) => x.m === metodo)?.label.split(' (')[0],
+        },
+      });
 
       setMesaDetalhe(null);
       carregar();
@@ -233,6 +253,27 @@ export default function Mesas() {
       setErroFechamento('Erro ao fechar a conta: ' + String((e as Error)?.message ?? e));
     }
     setProcessandoFechamento(false);
+  };
+
+  const imprimirPreviaConta = () => {
+    if (!mesaDetalhe || pedidosComanda.length === 0) return;
+    imprimir({
+      template: 'CONTA_MESA',
+      lojaNome: loja?.nome || 'MiseOn',
+      loja,
+      contaMesa: {
+        mesaNumero: mesaDetalhe.numero,
+        numerosPedidos: pedidosComanda.map((p) => p.numero),
+        itens: pedidosComanda.flatMap((p) => (p.itens_pedido ?? []).map((i) => ({
+          nome_produto: i.nome_produto, quantidade: i.quantidade, preco_unitario: Number(i.preco_unitario),
+          opcoes: i.itens_pedido_opcoes?.map((o) => ({ nome_opcao: o.nome_opcao, preco_adicional: Number(o.preco_adicional) })),
+        }))),
+        subtotal: subtotalComanda,
+        taxaServicoPct: Number(taxaEditavel || 0),
+        valorServico,
+        total: totalComanda,
+      },
+    });
   };
 
   const inputCls = 'w-full rounded-xl border border-gray-300 p-2.5 text-sm outline-none focus:border-[var(--cor-primaria)] dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100';
@@ -390,6 +431,10 @@ export default function Mesas() {
                     {valorServico > 0 && <div className="flex justify-between"><span>Taxa de serviço</span><span>{fmt(valorServico)}</span></div>}
                     <div className="flex justify-between text-lg font-black dark:text-gray-100"><span>Total</span><span className="text-[var(--cor-primaria)]">{fmt(totalComanda)}</span></div>
                   </div>
+
+                  <button onClick={imprimirPreviaConta} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 py-2 text-xs font-bold text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5">
+                    <Printer size={13} /> Imprimir conta (antes de cobrar)
+                  </button>
 
                   {!fechando ? (
                     <div className="mt-4 grid grid-cols-2 gap-2">
