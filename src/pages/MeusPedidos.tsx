@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Bike, ChevronLeft, Clock3, Compass, LogIn, Package, Sparkles } from 'lucide-react';
+import { Bike, ChevronLeft, Clock3, Compass, LogIn, Package, Sparkles, Wallet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { fmt, type Loja, type Pedido, type StatusPedido } from '../types';
 import { aplicarTema, obterTemaPreferido, type PreferenciaTema } from '../lib/tema';
@@ -57,6 +57,7 @@ export default function MeusPedidos() {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loja, setLoja] = useState<Partial<Loja> | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [saldoCashback, setSaldoCashback] = useState(0);
   const [temaCliente, setTemaCliente] = useState<PreferenciaTema>(() => obterTemaPreferido());
 
   useEffect(() => {
@@ -122,14 +123,17 @@ export default function MeusPedidos() {
 
       setLoja(lojaData);
 
-      const { data } = await supabase
-        .from('pedidos')
-        .select('*, itens_pedido(*)')
-        .eq('loja_id', lojaData.id)
-        .eq('cliente_user_id', user.id)
-        .order('criado_em', { ascending: false });
+      const [{ data }, { data: clienteRow }] = await Promise.all([
+        supabase.from('pedidos').select('*, itens_pedido(*)')
+          .eq('loja_id', lojaData.id).eq('cliente_user_id', user.id).order('criado_em', { ascending: false }),
+        supabase.from('clientes').select('id').eq('loja_id', lojaData.id).eq('user_id', user.id).maybeSingle(),
+      ]);
 
       setPedidos((data as Pedido[]) ?? []);
+      if (clienteRow?.id) {
+        const { data: saldoRow } = await supabase.from('cashback_saldos').select('saldo').eq('cliente_id', clienteRow.id).maybeSingle();
+        setSaldoCashback(Number(saldoRow?.saldo ?? 0));
+      }
       setCarregando(false);
     };
 
@@ -261,6 +265,18 @@ export default function MeusPedidos() {
                 )}
               </div>
             </section>
+
+            {saldoCashback > 0 && (
+              <section className="flex items-center gap-3 rounded-3xl border p-4 shadow-sm" style={{ background: 'var(--cor-surface)', borderColor: 'var(--cor-borda)' }}>
+                <div className="rounded-2xl p-2.5" style={{ background: 'var(--cor-destaque)', color: 'var(--cor-primaria)' }}>
+                  <Wallet size={18} />
+                </div>
+                <div>
+                  <p className="font-semibold" style={{ color: 'var(--cor-texto)' }}>Você tem {fmt(saldoCashback)} de cashback</p>
+                  <p className="text-sm" style={{ color: 'var(--cor-texto-suave)' }}>Use como desconto no seu próximo pedido, direto no checkout.</p>
+                </div>
+              </section>
+            )}
 
             <section>
               <div className="mb-3 flex items-center gap-2">

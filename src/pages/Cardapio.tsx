@@ -26,6 +26,27 @@ const guardarUltimoPedido = (slug: string | undefined, pedidoId: string, numero:
   }));
 };
 
+// Recuperação de vendas: registra "abriu o checkout mas não terminou" — sinal de
+// alta intenção (bem mais confiável que só ter item no carrinho). Vira alvo de
+// mensagem de recuperação no Marketing → Recuperação. Silencioso: falhar aqui
+// nunca deve travar a experiência de compra do cliente.
+const registrarCarrinhoAberto = async (lojaId: string, user: User, carrinho: ItemCarrinho[]) => {
+  try {
+    const resumo = carrinho.map((i) => `${i.quantidade}x ${i.produto.nome}`).join(', ').slice(0, 500);
+    const valorEstimado = carrinho.reduce((s, i) => s + precoItem(i), 0);
+    await supabase.from('carrinhos_abandonados').upsert({
+      loja_id: lojaId, user_id: user.id, itens_resumo: resumo, valor_estimado: valorEstimado,
+      status: 'ABERTO', atualizado_em: new Date().toISOString(),
+    }, { onConflict: 'loja_id,user_id' });
+  } catch { /* recuperação de vendas é bônus — nunca deve atrapalhar o checkout */ }
+};
+
+const marcarCarrinhoRecuperado = async (lojaId: string, user: User) => {
+  try {
+    await supabase.from('carrinhos_abandonados').update({ status: 'RECUPERADO' }).eq('loja_id', lojaId).eq('user_id', user.id);
+  } catch { /* idem */ }
+};
+
 const entrarComGoogle = (voltarPara: string) =>
   supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: voltarPara } });
 
@@ -79,6 +100,15 @@ export default function Cardapio() {
   const [cartao, setCartao] = useState<{ pedidoId: string; numero: number; total: number } | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [temaCliente, setTemaCliente] = useState<PreferenciaTema>(() => obterTemaPreferido());
+
+  // Recuperação de vendas: quando o checkout abre com item no carrinho, registra
+  // o "quase comprei" — se ele fechar sem terminar, o lojista consegue reativar.
+  useEffect(() => {
+    if (checkoutAberto && !mesaAtual && user && loja && carrinho.length > 0) {
+      registrarCarrinhoAberto(loja.id, user, carrinho);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutAberto]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null));
@@ -512,11 +542,12 @@ export default function Cardapio() {
       )}
 
       {checkoutAberto && !mesaAtual && (
-        <CheckoutDrawer loja={loja} aberta={aberta} carrinho={carrinho} taxas={taxas} faixasDistancia={faixasDistancia} user={user} setCarrinho={setCarrinho}
+        <CheckoutDrawer loja={loja} aberta={aberta} carrinho={carrinho} taxas={taxas} faixasDistancia={faixasDistancia} horarios={horarios} user={user} setCarrinho={setCarrinho}
           onClose={() => setCheckoutAberto(false)} onAbrirAuth={() => setModalAuthAberto(true)}
           onCartao={(info) => { setCheckoutAberto(false); setCartao(info); }}
           onSucesso={(num, id, pixData) => {
             guardarUltimoPedido(slug, id, num);
+            if (user) marcarCarrinhoRecuperado(loja.id, user);
             setCarrinho([]); setCheckoutAberto(false); setPedidoNumero(num); setPedidoId(id); setPix(pixData ?? null);
           }} />
       )}
@@ -526,6 +557,7 @@ export default function Cardapio() {
         setCartao(null);
       }} onAprovado={() => {
         guardarUltimoPedido(slug, cartao.pedidoId, cartao.numero);
+        if (user) marcarCarrinhoRecuperado(loja.id, user);
         setCartao(null); setPedidoNumero(cartao.numero); setPedidoId(cartao.pedidoId);
       }} />}
 

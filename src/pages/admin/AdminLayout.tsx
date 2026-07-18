@@ -140,6 +140,22 @@ export default function AdminLayout() {
     { to: '/admin/ajuda', icon: <LifeBuoy size={20} />, label: 'Central de Ajuda' },
   ];
 
+  // Barra inferior do mobile: só os destinos de uso constante durante o turno
+  // (não a lista inteira — isso é o que o menu "Mais" resolve). Derivado de
+  // `principal` por rota, então rótulo/ícone nunca ficam fora de sincronia.
+  const ROTAS_BOTTOM_NAV: Record<string, string[]> = {
+    admin:      ['/admin/inicio', '/admin/pedidos', '/admin/kds', '/admin/pdv'],
+    operador:   ['/admin/pdv', '/admin/pedidos', '/admin/kds', '/admin/entregas'],
+    garcom:     ['/admin/mesas', '/admin/pdv'],
+    entregador: ['/admin/entregas'],
+  };
+  const bottomNav = (ROTAS_BOTTOM_NAV[ctx.papel] ?? [])
+    .map((to) => principal.find((p) => p.to === to))
+    .filter((p): p is (typeof principal)[number] => !!p);
+  // "Mais" acende quando a rota atual é algo que só existe fora da barra curada
+  const emRotaSoDoMenu = !bottomNav.some((p) => p.to === loc.pathname)
+    && (principal.some((p) => p.to === loc.pathname) || mais.some((p) => p.to === loc.pathname));
+
   const isMainRoute = principal.some(p => p.to === loc.pathname) || loc.pathname === '/admin';
   const innerRouteTitle = mais.find(m => m.to === loc.pathname)?.label;
 
@@ -339,7 +355,7 @@ export default function AdminLayout() {
           telas como Compras terão seu próprio z-index e padding-bottom.
       */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-[#111827] border-t border-gray-200 dark:border-gray-800 flex justify-around items-center h-16 pb-safe print:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        {principal.map((i) => (
+        {bottomNav.map((i) => (
           <NavLink key={i.to} to={i.to}
             className={({ isActive }) => `
               flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors
@@ -354,15 +370,13 @@ export default function AdminLayout() {
             )}
           </NavLink>
         ))}
-        {ctx.papel === 'admin' && (
-          <button 
-            onClick={() => setMenuMobileAberto(true)}
-            className="flex flex-col items-center justify-center flex-1 h-full gap-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 transition-colors"
-          >
-            <Menu size={20} />
-            <span className="text-[10px] font-bold tracking-tight">Menu</span>
-          </button>
-        )}
+        <button
+          onClick={() => setMenuMobileAberto(true)}
+          className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${emRotaSoDoMenu ? 'text-[#004198] dark:text-[#6B9EFF]' : 'text-gray-400 hover:text-gray-600 dark:text-gray-500'}`}
+        >
+          <MoreHorizontal size={20} className={emRotaSoDoMenu ? 'scale-110' : 'scale-100'} />
+          <span className="text-[10px] font-bold tracking-tight">Mais</span>
+        </button>
       </nav>
 
     </div>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Printer, Bike, Check, X as XIcon, Store, ChefHat, Receipt, UtensilsCrossed } from 'lucide-react';
+import { Printer, Bike, Check, X as XIcon, Store, ChefHat, Receipt, UtensilsCrossed, CalendarClock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Loja, Pedido, StatusPedido, fmt } from '../../types';
 import { imprimir } from '../../lib/print';
@@ -232,10 +232,13 @@ export default function PainelPedidos() {
   }, [lojaId]);
 
   const carregar = async () => {
+    const cutoff24h = new Date(Date.now() - 24 * 3600e3).toISOString();
     const { data } = await supabase
       .from('pedidos').select(SELECT)
       .eq('loja_id', lojaId)
-      .gte('criado_em', new Date(Date.now() - 24 * 3600e3).toISOString())
+      // recentes OU agendados (não importa há quanto foram marcados — senão um
+      // agendamento pra daqui a 3 dias sumiria do painel antes mesmo de chegar a hora)
+      .or(`criado_em.gte.${cutoff24h},agendado_para.not.is.null`)
       .order('criado_em', { ascending: false });
     setPedidos((data as Pedido[]) ?? []);
     setCarregando(false);
@@ -269,7 +272,16 @@ export default function PainelPedidos() {
     carregar();
   };
 
-  const ativos = pedidos.filter((p) => !['FINALIZADO', 'CANCELADO'].includes(p.status));
+  // Agendado "futuro" = ainda fora da janela de antecedência da loja — fica numa
+  // seção separada pra não misturar com o que está de fato acontecendo agora.
+  const antecedenciaMs = (loja?.agendamento_antecedencia_min ?? 30) * 60000;
+  const cutoffProducao = new Date(Date.now() + antecedenciaMs);
+  const ehAgendadoFuturo = (p: Pedido) => !!p.agendado_para && new Date(p.agendado_para) > cutoffProducao;
+
+  const ativos = pedidos.filter((p) => !['FINALIZADO', 'CANCELADO'].includes(p.status) && !ehAgendadoFuturo(p));
+  const agendadosFuturos = pedidos
+    .filter((p) => !['FINALIZADO', 'CANCELADO'].includes(p.status) && ehAgendadoFuturo(p))
+    .sort((a, b) => (a.agendado_para ?? '').localeCompare(b.agendado_para ?? ''));
   const encerrados = pedidos.filter((p) => ['FINALIZADO', 'CANCELADO'].includes(p.status));
 
   const contagem = (f: (typeof FILTROS)[number]) =>
@@ -320,6 +332,29 @@ export default function PainelPedidos() {
       {carregando && (
         <div className="flex justify-center pt-16">
           <MiseOnLoader status="Sincronizando pedidos" rows={3} />
+        </div>
+      )}
+
+      {!carregando && agendadosFuturos.length > 0 && (
+        <div className="print:hidden mb-6">
+          <div className="mb-2 flex items-center gap-2">
+            <CalendarClock size={16} className="text-purple-500" />
+            <h3 className="font-['Sora'] text-sm font-bold text-gray-700 dark:text-gray-200">Agendados ({agendadosFuturos.length})</h3>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {agendadosFuturos.map((p) => (
+              <div key={p.id} className="w-64 shrink-0 rounded-2xl border border-purple-200 bg-purple-50 p-3 dark:border-purple-900/40 dark:bg-purple-900/10">
+                <div className="flex items-center justify-between">
+                  <span className="font-['Sora'] text-sm font-black text-purple-700 dark:text-purple-400">#{p.numero}</span>
+                  <span className="rounded-full bg-purple-600 px-2 py-0.5 text-[10px] font-black text-white">
+                    {new Date(p.agendado_para!).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} · {new Date(p.agendado_para!).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                <p className="mt-1 truncate text-xs font-semibold text-gray-700 dark:text-gray-300">{p.identificador_cliente}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{fmt(Number(p.valor_total))} · {p.tipo_pedido === 'DELIVERY' ? 'Entrega' : p.tipo_pedido === 'SALAO' ? `Mesa ${p.mesa_numero ?? '—'}` : 'Retirada'}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

@@ -14,7 +14,7 @@ import type { CtxLoja } from './AdminLayout';
    Painel de Pedidos, que é a visão da gerência/despacho).
    ───────────────────────────────────────────────────────────── */
 
-const SELECT = 'id, numero, status, tipo_pedido, identificador_cliente, origem, mesa_numero, criado_em, itens_pedido(id, nome_produto, quantidade, observacao, itens_pedido_opcoes(nome_opcao))';
+const SELECT = 'id, numero, status, tipo_pedido, identificador_cliente, origem, mesa_numero, agendado_para, criado_em, itens_pedido(id, nome_produto, quantidade, observacao, itens_pedido_opcoes(nome_opcao))';
 
 // minutos até o card mudar de cor (atenção / atraso)
 const LIMITE_ATENCAO_MIN = 10;
@@ -33,19 +33,36 @@ function corDoTempo(min: number) {
 export default function KDS() {
   const { lojaId } = useOutletContext<CtxLoja>();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [antecedenciaMin, setAntecedenciaMin] = useState<number | null>(null); // null = ainda não carregou a config da loja
   const [, setTick] = useState(0); // re-render por minuto para os cronômetros
 
+  useEffect(() => {
+    supabase.from('lojas').select('agendamento_antecedencia_min').eq('id', lojaId).single()
+      .then(({ data }) => setAntecedenciaMin(data?.agendamento_antecedencia_min ?? 30));
+  }, [lojaId]);
+
+  // Pedidos agendados só entram na fila da cozinha perto da hora (antecedência da
+  // loja) — senão um agendamento pra amanhã apareceria hoje como se estivesse atrasado.
   const carregar = async () => {
+    if (antecedenciaMin === null) return;
+    const cutoffProducao = new Date(Date.now() + antecedenciaMin * 60000).toISOString();
+    const cutoff24h = new Date(Date.now() - 24 * 3600e3).toISOString();
     const { data } = await supabase
       .from('pedidos').select(SELECT)
       .eq('loja_id', lojaId)
       .in('status', ['NOVO', 'ACEITO', 'PREPARANDO', 'PRONTO'])
-      .gte('criado_em', new Date(Date.now() - 24 * 3600e3).toISOString())
+      // relevante hoje: criado recentemente OU tem agendamento (não importa há quanto
+      // tempo foi marcado — sem isso, um pedido agendado com +24h de antecedência
+      // sumiria da fila bem na hora de entrar em produção)
+      .or(`criado_em.gte.${cutoff24h},agendado_para.not.is.null`)
+      // só entra na fila quando está perto da hora de começar a preparar
+      .or(`agendado_para.is.null,agendado_para.lte.${cutoffProducao}`)
       .order('criado_em', { ascending: true });
     setPedidos((data as unknown as Pedido[]) ?? []);
   };
 
   useEffect(() => {
+    if (antecedenciaMin === null) return;
     carregar();
     const canal = supabase
       .channel(`kds-${lojaId}`)
@@ -54,9 +71,10 @@ export default function KDS() {
         carregar();
       })
       .subscribe();
-    const timer = setInterval(() => setTick((t) => t + 1), 30_000);
+    const timer = setInterval(() => { setTick((t) => t + 1); carregar(); }, 30_000);
     return () => { supabase.removeChannel(canal); clearInterval(timer); };
-  }, [lojaId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lojaId, antecedenciaMin]);
 
   const avancar = async (p: Pedido) => {
     const prox: StatusPedido = p.status === 'NOVO' ? 'ACEITO' : p.status === 'ACEITO' ? 'PREPARANDO' : 'PRONTO';
@@ -85,7 +103,10 @@ export default function KDS() {
   };
 
   const Card = ({ p, acao }: { p: Pedido; acao: string }) => {
-    const min = minutosDesde(p.criado_em);
+    // Pedido agendado: o cronômetro conta a partir da hora marcada, não da criação
+    // (senão um agendamento de ontem apareceria como "1440min atrasado").
+    const referencia = p.agendado_para && new Date(p.agendado_para) > new Date(p.criado_em) ? p.agendado_para : p.criado_em;
+    const min = minutosDesde(referencia);
     const cor = corDoTempo(min);
     const finalizadoCozinha = p.status === 'PRONTO'; // despacho/entrega é papel do Painel de Pedidos
     return (
@@ -95,7 +116,7 @@ export default function KDS() {
         <div className="flex items-center justify-between">
           <span className="font-['Sora'] text-2xl font-black text-white">#{p.numero}</span>
           <span className="font-['JetBrains_Mono'] text-lg font-bold" style={{ color: cor.texto }}>
-            {Math.floor(min)}min
+            {min >= 0 ? `${Math.floor(min)}min` : `em ${Math.ceil(-min)}min`}
           </span>
         </div>
         <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-[#6C7A96]">
@@ -103,6 +124,11 @@ export default function KDS() {
             ? <UtensilsCrossed size={12} />
             : p.origem === 'balcao' ? <Store size={12} /> : p.tipo_pedido === 'DELIVERY' ? <Bike size={12} /> : <Package size={12} />}
           {p.tipo_pedido === 'SALAO' ? `MESA ${p.mesa_numero ?? '—'}` : p.origem === 'balcao' ? 'BALCÃO' : p.tipo_pedido === 'DELIVERY' ? 'DELIVERY' : 'RETIRADA'} · {p.identificador_cliente}
+          {p.agendado_para && (
+            <span className="ml-auto shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-400">
+              Agendado {new Date(p.agendado_para).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
         </div>
         <div className="mt-3 space-y-2">
           {p.itens_pedido?.map((i) => (

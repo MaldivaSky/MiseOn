@@ -1,25 +1,25 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Plus, Trash2, X, Save, ChevronUp, ChevronDown, MessageCircle, Search } from 'lucide-react';
+import { Plus, Trash2, X, Save, ChevronUp, ChevronDown, MessageCircle, Search, Wallet, QrCode, ShoppingCart, Gift } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { Cupom, Banner, TaxaEntrega, HorarioFuncionamento, MetodoPgto, Cliente, fmt } from '../../types';
+import { Cupom, Banner, TaxaEntrega, HorarioFuncionamento, MetodoPgto, Cliente, CarrinhoAbandonado, fmt } from '../../types';
 import ImageUpload from '../../components/ImageUpload';
 import type { CtxLoja } from './AdminLayout';
 
-type Tab = 'cupons' | 'banners' | 'taxas' | 'horarios' | 'clientes';
+type Tab = 'cupons' | 'banners' | 'taxas' | 'horarios' | 'clientes' | 'cashback' | 'recuperacao';
 const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
 export default function Marketing() {
-  const { lojaId } = useOutletContext<CtxLoja>();
+  const { lojaId, lojaSlug } = useOutletContext<CtxLoja>();
   const [tab, setTab] = useState<Tab>('cupons');
 
   return (
     <div className="p-4">
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-        {(['cupons', 'banners', 'taxas', 'horarios', 'clientes'] as Tab[]).map((t) => (
+        {(['cupons', 'banners', 'taxas', 'horarios', 'clientes', 'cashback', 'recuperacao'] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${tab === t ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-600 dark:text-gray-300 shadow-sm'}`}>
-            {{ cupons: 'Cupons', banners: 'Banners', taxas: 'Taxas de entrega', horarios: 'Horários', clientes: 'Clientes' }[t]}
+            {{ cupons: 'Cupons', banners: 'Banners', taxas: 'Taxas de entrega', horarios: 'Horários', clientes: 'Clientes', cashback: 'Cashback', recuperacao: 'Recuperação de vendas' }[t]}
           </button>
         ))}
       </div>
@@ -29,6 +29,8 @@ export default function Marketing() {
       {tab === 'taxas' && <TaxasTab lojaId={lojaId} />}
       {tab === 'horarios' && <HorariosTab lojaId={lojaId} />}
       {tab === 'clientes' && <ClientesTab lojaId={lojaId} />}
+      {tab === 'cashback' && <CashbackTab lojaId={lojaId} />}
+      {tab === 'recuperacao' && <RecuperacaoTab lojaId={lojaId} lojaSlug={lojaSlug} />}
     </div>
   );
 }
@@ -394,6 +396,234 @@ function ClientesTab({ lojaId }: { lojaId: string }) {
         ))}
         {visiveis.length === 0 && <p className="py-10 text-center text-sm text-gray-400">Nenhum cliente ainda.</p>}
       </div>
+    </div>
+  );
+}
+
+// ── Cashback ──────────────────────────────────────────────────
+function CashbackTab({ lojaId }: { lojaId: string }) {
+  const [pct, setPct] = useState('0');
+  const [pctOriginal, setPctOriginal] = useState('0');
+  const [stats, setStats] = useState({ clientesComSaldo: 0, passivoTotal: 0 });
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const carregar = async () => {
+    const [{ data: loja }, { data: saldos }] = await Promise.all([
+      supabase.from('lojas').select('cashback_pct').eq('id', lojaId).single(),
+      supabase.from('cashback_saldos').select('saldo').eq('loja_id', lojaId).gt('saldo', 0),
+    ]);
+    const p = String(loja?.cashback_pct ?? 0);
+    setPct(p); setPctOriginal(p);
+    setStats({
+      clientesComSaldo: saldos?.length ?? 0,
+      passivoTotal: (saldos ?? []).reduce((s, x) => s + Number(x.saldo), 0),
+    });
+    setCarregando(false);
+  };
+  useEffect(() => { carregar(); }, [lojaId]);
+
+  const salvar = async () => {
+    setSalvando(true); setMsg('');
+    const { error } = await supabase.from('lojas').update({ cashback_pct: Number(pct || 0) }).eq('id', lojaId);
+    setSalvando(false);
+    if (error) return setMsg('Erro ao salvar: ' + error.message);
+    setPctOriginal(pct);
+    setMsg('Salvo!');
+    setTimeout(() => setMsg(''), 2500);
+  };
+
+  if (carregando) return <p className="py-10 text-center text-sm text-gray-400">Carregando…</p>;
+
+  return (
+    <div className="mx-auto max-w-lg">
+      <div className="mb-4 rounded-2xl border border-[var(--cor-primaria)]/30 bg-[var(--cor-primaria)]/5 p-4">
+        <p className="mb-1 flex items-center gap-1.5 text-sm font-bold text-[var(--cor-primaria)]"><Wallet size={15} /> Como funciona</p>
+        <p className="text-xs text-gray-600 dark:text-gray-300">
+          A cada pedido <b>finalizado</b> feito pelo cardápio online, o cliente ganha de volta um % em saldo — que
+          ele pode usar como desconto na próxima compra, direto no checkout. É um dos motivos mais fortes pra ele
+          voltar a comprar com você em vez de procurar outro lugar.
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <label className="block">
+          <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Cashback por pedido</span>
+          <div className="mt-2 flex items-center gap-2">
+            <input type="number" min="0" max="100" step="0.5" value={pct} onChange={(e) => setPct(e.target.value)}
+              className="w-28 rounded-xl border-2 border-[var(--cor-primaria)] bg-green-50 p-3 text-center text-2xl font-black text-[var(--cor-primaria)] outline-none dark:bg-green-900/10" />
+            <span className="text-xl font-bold text-gray-400">%</span>
+          </div>
+          <p className="mt-2 text-[11px] text-gray-400">0% desliga o cashback (o saldo que os clientes já têm continua valendo).</p>
+        </label>
+
+        {msg && <p className={`mt-3 text-sm font-semibold ${msg.startsWith('Erro') ? 'text-red-500' : 'text-green-600'}`}>{msg}</p>}
+        <button onClick={salvar} disabled={salvando || pct === pctOriginal}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--cor-primaria)] py-3 text-sm font-bold text-white disabled:opacity-40">
+          <Save size={15} /> {salvando ? 'Salvando…' : 'Salvar'}
+        </button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <p className="text-[11px] font-semibold text-gray-400">Clientes com saldo</p>
+          <p className="mt-1 text-xl font-black dark:text-gray-100">{stats.clientesComSaldo}</p>
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <p className="text-[11px] font-semibold text-gray-400">Passivo em aberto</p>
+          <p className="mt-1 text-xl font-black dark:text-gray-100">{fmt(stats.passivoTotal)}</p>
+        </div>
+      </div>
+      <p className="mt-2 text-[11px] text-gray-400">
+        "Passivo em aberto" é quanto você já prometeu de volta aos seus clientes — é dinheiro que vai sair como
+        desconto quando eles voltarem a comprar. Não é uma cobrança, é só pra você acompanhar o tamanho do compromisso.
+      </p>
+    </div>
+  );
+}
+
+// ── Recuperação de vendas ────────────────────────────────────
+interface PixPendente {
+  id: string; numero: number; identificador_cliente: string; telefone_contato?: string;
+  valor_total: number; criado_em: string;
+}
+
+function RecuperacaoTab({ lojaId, lojaSlug }: { lojaId: string; lojaSlug: string }) {
+  const [subtab, setSubtab] = useState<'pix' | 'carrinhos'>('pix');
+  const [pixPendentes, setPixPendentes] = useState<PixPendente[]>([]);
+  const [carrinhos, setCarrinhos] = useState<(CarrinhoAbandonado & { nome?: string | null; telefone?: string })[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [gerandoCupom, setGerandoCupom] = useState<string | null>(null);
+
+  const carregar = async () => {
+    setCarregando(true);
+    const corteMinimo = new Date(Date.now() - 15 * 60000).toISOString(); // pelo menos 15min parado, não incomoda quem tá no meio do pagamento
+    const janela3d = new Date(Date.now() - 3 * 86400000).toISOString();
+    const janela7d = new Date(Date.now() - 7 * 86400000).toISOString();
+
+    const [{ data: pix }, { data: abandonados }] = await Promise.all([
+      supabase.from('pedidos')
+        .select('id, numero, identificador_cliente, telefone_contato, valor_total, criado_em, pagamentos!inner(metodo, status)')
+        .eq('loja_id', lojaId).eq('pagamentos.metodo', 'PIX').eq('pagamentos.status', 'PENDENTE')
+        .lte('criado_em', corteMinimo).gte('criado_em', janela3d)
+        .order('criado_em', { ascending: false }),
+      supabase.from('carrinhos_abandonados').select('*')
+        .eq('loja_id', lojaId).eq('status', 'ABERTO').gte('atualizado_em', janela7d)
+        .order('atualizado_em', { ascending: false }),
+    ]);
+    setPixPendentes((pix as unknown as PixPendente[]) ?? []);
+
+    const userIds = [...new Set((abandonados ?? []).map((c) => c.user_id))];
+    let mapa = new Map<string, { nome?: string | null; telefone: string }>();
+    if (userIds.length > 0) {
+      const { data: clientesData } = await supabase.from('clientes').select('user_id, nome, telefone').eq('loja_id', lojaId).in('user_id', userIds);
+      mapa = new Map((clientesData ?? []).map((c) => [c.user_id, c]));
+    }
+    setCarrinhos((abandonados as CarrinhoAbandonado[] ?? []).map((c) => ({ ...c, ...mapa.get(c.user_id) })));
+    setCarregando(false);
+  };
+  useEffect(() => { carregar(); }, [lojaId]);
+
+  const linkCardapio = `${window.location.origin}/${lojaSlug}`;
+  const tempoDecorrido = (iso: string) => {
+    const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+    if (min < 60) return `${min}min atrás`;
+    if (min < 1440) return `${Math.floor(min / 60)}h atrás`;
+    return `${Math.floor(min / 1440)}d atrás`;
+  };
+
+  const enviarPix = (p: PixPendente) => {
+    if (!p.telefone_contato) return;
+    const texto = `Oi ${p.identificador_cliente}! Vi que seu Pix do pedido #${p.numero} (${fmt(Number(p.valor_total))}) não caiu — o código expira rapidinho. Bora tentar de novo? ${linkCardapio}`;
+    window.open(`https://wa.me/${p.telefone_contato.replace(/\D/g, '')}?text=${encodeURIComponent(texto)}`, '_blank');
+  };
+
+  const enviarCarrinho = (c: CarrinhoAbandonado & { nome?: string | null; telefone?: string }, comCupom?: string) => {
+    if (!c.telefone) return;
+    const saudacao = c.nome ? `Oi ${c.nome}!` : 'Oi!';
+    const textoBase = `${saudacao} Vi que você tava montando um pedido aqui (${c.itens_resumo}) e não finalizou. Ainda dá tempo! 😉`;
+    const textoCupom = comCupom ? `\n\nUsa o cupom *${comCupom}* e ganha 10% de desconto nessa compra 🎁` : '';
+    window.open(`https://wa.me/${c.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(textoBase + textoCupom + `\n${linkCardapio}`)}`, '_blank');
+  };
+
+  const gerarCupomEEnviar = async (c: CarrinhoAbandonado & { nome?: string | null; telefone?: string }) => {
+    setGerandoCupom(c.id);
+    const codigo = `VOLTA${Math.floor(1000 + Math.random() * 9000)}`;
+    const { error } = await supabase.from('cupons').insert({
+      loja_id: lojaId, codigo, descricao: 'Recuperação de venda — cupom automático',
+      tipo: 'PERCENTUAL', valor: 10, limite_usos: 1,
+      validade: new Date(Date.now() + 48 * 3600e3).toISOString().slice(0, 10),
+    });
+    setGerandoCupom(null);
+    if (error) return alert('Erro ao gerar cupom: ' + error.message);
+    enviarCarrinho(c, codigo);
+  };
+
+  if (carregando) return <p className="py-10 text-center text-sm text-gray-400">Carregando…</p>;
+
+  return (
+    <div>
+      <div className="mb-4 flex gap-2">
+        <button onClick={() => setSubtab('pix')}
+          className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold ${subtab === 'pix' ? 'bg-[var(--cor-primaria)] text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}>
+          <QrCode size={13} /> Pix não pago ({pixPendentes.length})
+        </button>
+        <button onClick={() => setSubtab('carrinhos')}
+          className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold ${subtab === 'carrinhos' ? 'bg-[var(--cor-primaria)] text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}>
+          <ShoppingCart size={13} /> Carrinhos abandonados ({carrinhos.length})
+        </button>
+      </div>
+
+      {subtab === 'pix' && (
+        <div className="space-y-2">
+          <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+            Pedidos onde o cliente gerou o Pix mas não pagou — o QR já expirou, mas ele ainda pode voltar e tentar de novo.
+          </p>
+          {pixPendentes.map((p) => (
+            <div key={p.id} className="flex items-center justify-between rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 shadow-sm">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold dark:text-gray-100">#{p.numero} · {p.identificador_cliente}</p>
+                <p className="text-xs text-gray-400">{fmt(Number(p.valor_total))} · {tempoDecorrido(p.criado_em)}</p>
+              </div>
+              <button onClick={() => enviarPix(p)} disabled={!p.telefone_contato} className="shrink-0 rounded-lg border p-2 text-green-600 disabled:opacity-30">
+                <MessageCircle size={16} />
+              </button>
+            </div>
+          ))}
+          {pixPendentes.length === 0 && <p className="py-10 text-center text-sm text-gray-400">Nenhum Pix parado nos últimos dias — ótimo sinal! 🎉</p>}
+        </div>
+      )}
+
+      {subtab === 'carrinhos' && (
+        <div className="space-y-2">
+          <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+            Clientes que abriram o checkout, montaram o pedido, mas não finalizaram. Chame de volta — com ou sem cupom.
+          </p>
+          {carrinhos.map((c) => (
+            <div key={c.id} className="rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 shadow-sm">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold dark:text-gray-100">{c.nome || 'Cliente'} {c.telefone ? `· ${c.telefone}` : ''}</p>
+                  <p className="truncate text-xs text-gray-400">{c.itens_resumo}</p>
+                  <p className="text-xs text-gray-400">{fmt(Number(c.valor_estimado))} · {tempoDecorrido(c.atualizado_em)}</p>
+                </div>
+              </div>
+              <div className="mt-2 flex gap-2">
+                <button onClick={() => enviarCarrinho(c)} disabled={!c.telefone}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-bold text-green-600 disabled:opacity-30">
+                  <MessageCircle size={13} /> Mensagem simples
+                </button>
+                <button onClick={() => gerarCupomEEnviar(c)} disabled={!c.telefone || gerandoCupom === c.id}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--cor-primaria)]/10 py-2 text-xs font-bold text-[var(--cor-primaria)] disabled:opacity-30">
+                  <Gift size={13} /> {gerandoCupom === c.id ? 'Gerando…' : 'Enviar com cupom 10%'}
+                </button>
+              </div>
+            </div>
+          ))}
+          {carrinhos.length === 0 && <p className="py-10 text-center text-sm text-gray-400">Nenhum carrinho abandonado recente.</p>}
+        </div>
+      )}
     </div>
   );
 }

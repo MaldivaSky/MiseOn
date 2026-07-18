@@ -42,6 +42,8 @@ interface FormLoja {
   antecipacao_cartao: boolean;
   aceita_online: boolean;
   aceita_entrega: boolean;
+  aceita_agendamento: boolean;
+  agendamento_antecedencia_min: string;
   lat: string;
   lng: string;
   entrega_modo: EntregaModo;
@@ -69,6 +71,7 @@ const vazio: FormLoja = {
   whatsapp: '', telefone: '', endereco: '', cnpj: '', razao_social: '', pedido_minimo: '0', pix_chave: '', efi_payee_code: '',
   efi_titular_documento: '', efi_conta: '', antecipacao_cartao: false,
   aceita_online: true, aceita_entrega: true,
+  aceita_agendamento: false, agendamento_antecedencia_min: '30',
   lat: '', lng: '', entrega_modo: 'HIBRIDO', entrega_raio_km: '8', entrega_taxa_base: '0', entrega_taxa_km: '1.5', entrega_taxa_padrao: '0',
 };
 
@@ -114,6 +117,8 @@ export default function Loja() {
           antecipacao_cartao: data.antecipacao_cartao ?? false,
           aceita_online: data.aceita_online ?? true,
           aceita_entrega: data.aceita_entrega ?? true,
+          aceita_agendamento: data.aceita_agendamento ?? false,
+          agendamento_antecedencia_min: String(data.agendamento_antecedencia_min ?? 30),
           lat: data.lat != null ? String(data.lat) : '',
           lng: data.lng != null ? String(data.lng) : '',
           entrega_modo: (data.entrega_modo ?? 'HIBRIDO') as EntregaModo,
@@ -304,6 +309,8 @@ export default function Loja() {
       antecipacao_cartao: form.antecipacao_cartao,
       aceita_online: form.aceita_online,
       aceita_entrega: form.aceita_entrega,
+      aceita_agendamento: form.aceita_agendamento,
+      agendamento_antecedencia_min: Number(form.agendamento_antecedencia_min || 30),
       lat: latFinal,
       lng: lngFinal,
       entrega_modo: form.entrega_modo,
@@ -904,6 +911,25 @@ export default function Loja() {
                 <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${form.aceita_entrega ? 'left-[22px]' : 'left-0.5'}`} />
               </button>
             </div>
+            <div className="flex items-center justify-between gap-3 border-t border-gray-100 dark:border-gray-800 pt-4">
+              <div>
+                <p className="text-sm font-semibold dark:text-gray-200">Agendamento de pedidos</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Cliente escolhe um horário futuro pra receber, dentro dos seus horários de funcionamento.</p>
+              </div>
+              <button type="button" onClick={() => setForm((f) => ({ ...f, aceita_agendamento: !f.aceita_agendamento }))}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${form.aceita_agendamento ? 'bg-[var(--cor-primaria)]' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${form.aceita_agendamento ? 'left-[22px]' : 'left-0.5'}`} />
+              </button>
+            </div>
+            {form.aceita_agendamento && (
+              <label className="block border-t border-gray-100 dark:border-gray-800 pt-4">
+                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Antecedência mínima (minutos)</span>
+                <input type="number" min="0" value={form.agendamento_antecedencia_min}
+                  onChange={(e) => setForm((f) => ({ ...f, agendamento_antecedencia_min: e.target.value }))}
+                  className="mt-1 w-32 rounded-xl border border-gray-300 p-2.5 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100" />
+                <span className="mt-1 block text-[10px] text-gray-400">Quanto tempo você precisa entre "agora" e o horário agendado mais próximo, pra dar tempo de preparar.</span>
+              </label>
+            )}
           </div>
 
           <div className="rounded-2xl border border-[var(--cor-primaria)] bg-[var(--cor-primaria)]/5 p-4">

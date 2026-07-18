@@ -42,6 +42,9 @@ export interface Loja {
   razao_social?: string;
   pedido_minimo: number;
   aberto_manual?: boolean | null;
+  aceita_agendamento?: boolean | null;
+  agendamento_antecedencia_min?: number | null; // antecedência mínima p/ agendar, em minutos
+  cashback_pct?: number | null; // % do pedido creditado como saldo pro cliente (0 = desligado)
   pix_chave?: string;
   efi_payee_code?: string; // habilita cartão de crédito online + split de cartão (Efí)
   efi_titular_documento?: string | null; // CPF/CNPJ do titular da conta Efí (favorecido do split Pix)
@@ -230,7 +233,10 @@ export interface Pedido {
   origem?: string; // link | balcao | mesa | whatsapp
   comanda_id?: string | null;
   mesa_numero?: number | null;
+  agendado_para?: string | null; // null = pedido imediato
+  cashback_usado?: number;
   criado_em: string;
+  cliente_id?: string | null;
   cliente_user_id?: string | null;
   entregador_id?: string | null;
   rota_id?: string | null;
@@ -253,6 +259,40 @@ export interface Cliente {
   criado_em: string;
   enderecos?: EnderecoCliente[];
   favoritos?: FavoritoCliente[];
+}
+
+// ── Cashback ─────────────────────────────────────────────────
+
+export interface CashbackSaldo {
+  cliente_id: string;
+  loja_id: string;
+  saldo: number;
+  atualizado_em: string;
+}
+
+export interface CashbackMovimento {
+  id: string;
+  loja_id: string;
+  cliente_id: string;
+  pedido_id?: string | null;
+  tipo: 'CREDITO' | 'USO';
+  valor: number;
+  criado_em: string;
+}
+
+// ── Recuperação de vendas ────────────────────────────────────
+
+export interface CarrinhoAbandonado {
+  id: string;
+  loja_id: string;
+  user_id: string;
+  cliente_id?: string | null;
+  itens_resumo: string;
+  valor_estimado: number;
+  status: 'ABERTO' | 'RECUPERADO';
+  criado_em: string;
+  atualizado_em: string;
+  cliente?: { nome?: string | null; telefone: string } | null;
 }
 
 export interface EnderecoCliente {

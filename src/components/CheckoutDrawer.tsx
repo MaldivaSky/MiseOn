@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import {
   ShoppingBag, Plus, Minus, X, MapPin, LogIn, Lock,
-  Trash2, ChevronRight, Loader2,
+  Trash2, ChevronRight, Loader2, CalendarClock, Wallet,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import EnderecoMixin, { EnderecoFormData } from './EnderecoMixin';
 import {
-  Loja, Cupom, TaxaEntrega, ItemCarrinho, Cliente, FaixaEntrega,
+  Loja, Cupom, TaxaEntrega, ItemCarrinho, Cliente, FaixaEntrega, HorarioFuncionamento,
   MetodoPgto, fmt, precoItem,
 } from '../types';
 import { maskTelefone } from '../lib/mascaras';
@@ -30,6 +30,7 @@ interface Props {
   carrinho: ItemCarrinho[];
   taxas: TaxaEntrega[];
   faixasDistancia: FaixaEntrega[];
+  horarios: HorarioFuncionamento[];
   user: User | null;
   setCarrinho: (c: ItemCarrinho[]) => void;
   onClose: () => void;
@@ -39,7 +40,7 @@ interface Props {
 }
 
 export default function CheckoutDrawer({
-  loja, aberta, carrinho, taxas, faixasDistancia, user,
+  loja, aberta, carrinho, taxas, faixasDistancia, horarios, user,
   setCarrinho, onClose, onSucesso, onCartao, onAbrirAuth,
 }: Props) {
   const [tipo, setTipo] = useState<'DELIVERY' | 'RETIRADA_BALCAO'>('DELIVERY');
@@ -57,6 +58,16 @@ export default function CheckoutDrawer({
   const [entrega, setEntrega] = useState<ResultadoEntrega | null>(null);
   const [calcTaxa, setCalcTaxa] = useState(false);
   const nomeRef = useRef<HTMLInputElement>(null);
+
+  // Agendamento (só aparece se a loja aceitar)
+  const [quando, setQuando] = useState<'AGORA' | 'AGENDADO'>('AGORA');
+  const [diaAgendado, setDiaAgendado] = useState('');
+  const [horaAgendada, setHoraAgendada] = useState('');
+
+  // Cashback (saldo do cliente logado nesta loja)
+  const [clienteId, setClienteId] = useState<string | null>(null);
+  const [saldoCashback, setSaldoCashback] = useState(0);
+  const [usarCashback, setUsarCashback] = useState(false);
 
   // Foco automatico no campo nome quando o perfil carrega
   useEffect(() => {
@@ -76,6 +87,9 @@ export default function CheckoutDrawer({
       if (c) {
         setNome(c.nome ?? '');
         setTelefone(c.telefone ?? '');
+        setClienteId(c.id);
+        supabase.from('cashback_saldos').select('saldo').eq('cliente_id', c.id).maybeSingle()
+          .then(({ data: sc }) => setSaldoCashback(Number(sc?.saldo ?? 0)));
         supabase.from('enderecos_cliente').select('*')
           .eq('cliente_id', c.id).eq('padrao', true).maybeSingle()
           .then(({ data: end }) => {
@@ -149,7 +163,54 @@ export default function CheckoutDrawer({
       ? Number(cupom.valor)
       : (subtotal * Number(cupom.valor)) / 100
     : 0;
-  const total = Math.max(0, subtotal + taxa - desconto);
+  const totalAntesCashback = Math.max(0, subtotal + taxa - desconto);
+  const cashbackAplicavel = Math.min(saldoCashback, totalAntesCashback);
+  const cashbackAplicado = usarCashback ? cashbackAplicavel : 0;
+  const total = Math.max(0, totalAntesCashback - cashbackAplicado);
+
+  // --- Agendamento: dias e horários derivados do funcionamento da loja ---
+  const antecedenciaMin = loja.agendamento_antecedencia_min ?? 30;
+  const diasDisponiveis = (() => {
+    if (!loja.aceita_agendamento || horarios.length === 0) return [] as { data: string; label: string; diaSemana: number }[];
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const dias: { data: string; label: string; diaSemana: number }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(hoje.getTime() + i * 86400000);
+      const diaSemana = d.getDay();
+      if (horarios.some((h) => h.dia_semana === diaSemana)) {
+        dias.push({
+          data: d.toISOString().slice(0, 10),
+          label: i === 0 ? 'Hoje' : i === 1 ? 'Amanhã' : d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }),
+          diaSemana,
+        });
+      }
+    }
+    return dias;
+  })();
+  const slotsDoDia = (() => {
+    const diaInfo = diasDisponiveis.find((d) => d.data === diaAgendado);
+    if (!diaInfo) return [] as string[];
+    const agora = new Date();
+    const ehHoje = diaInfo.data === agora.toISOString().slice(0, 10);
+    const minimoHoje = new Date(agora.getTime() + antecedenciaMin * 60000);
+    const slots: string[] = [];
+    for (const h of horarios.filter((x) => x.dia_semana === diaInfo.diaSemana)) {
+      const [abreH, abreM] = h.abre.slice(0, 5).split(':').map(Number);
+      const [fechaH, fechaM] = h.fecha.slice(0, 5).split(':').map(Number);
+      let cursor = new Date(`${diaInfo.data}T00:00:00`); cursor.setHours(abreH, abreM, 0, 0);
+      const fim = new Date(`${diaInfo.data}T00:00:00`); fim.setHours(fechaH, fechaM, 0, 0);
+      while (cursor <= fim) {
+        if (!ehHoje || cursor >= minimoHoje) slots.push(`${String(cursor.getHours()).padStart(2, '0')}:${String(cursor.getMinutes()).padStart(2, '0')}`);
+        cursor = new Date(cursor.getTime() + 30 * 60000);
+      }
+    }
+    return slots;
+  })();
+  useEffect(() => {
+    if (quando === 'AGENDADO' && !diaAgendado && diasDisponiveis.length > 0) setDiaAgendado(diasDisponiveis[0].data);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quando]);
+  useEffect(() => { setHoraAgendada(''); }, [diaAgendado]);
 
   // Formas de pagamento conforme as flags da loja
   const aceitaOnline = loja.aceita_online !== false;
@@ -192,7 +253,8 @@ export default function CheckoutDrawer({
   const enviar = async () => {
     setErro('');
     if (!user) { onAbrirAuth(); return setErro('Faca login para finalizar.'); }
-    if (!aberta) return setErro('A loja esta fechada no momento.');
+    if (!aberta && quando === 'AGORA') return setErro('A loja esta fechada no momento — agende um horário ou volte quando abrir.');
+    if (quando === 'AGENDADO' && (!diaAgendado || !horaAgendada)) return setErro('Escolha o dia e o horário do agendamento.');
     if (!nome.trim() || !telefone.trim()) return setErro('Preencha nome e telefone.');
     if (tipo === 'DELIVERY' && (!enderecoObj?.logradouro || !enderecoObj?.numero))
       return setErro('Preencha o endereco completo com numero.');
@@ -250,6 +312,10 @@ export default function CheckoutDrawer({
       }
     }
 
+    const agendadoParaISO = quando === 'AGENDADO' && diaAgendado && horaAgendada
+      ? new Date(`${diaAgendado}T${horaAgendada}:00`).toISOString()
+      : null;
+
     // Criar pedido (colunas REAIS da tabela pedidos)
     const { data: pedido, error: erroPedido } = await supabase.from('pedidos').insert({
       loja_id: loja.id,
@@ -272,11 +338,25 @@ export default function CheckoutDrawer({
       subtotal, taxa_entrega: taxa, desconto, valor_total: total,
       cupom_id: cupom?.id ?? null,
       troco_para: metodo === 'DINHEIRO' && trocoPara ? Number(trocoPara) : null,
+      agendado_para: agendadoParaISO,
+      cashback_usado: cashbackAplicado,
     }).select('id, numero').single();
 
     if (erroPedido || !pedido) {
       setEnviando(false);
       return setErro(mensagemErroSupabase('Erro ao criar pedido.', erroPedido));
+    }
+
+    // Debita o cashback usado — RPC atômica (evita gastar o mesmo saldo 2x em abas simultâneas)
+    if (cashbackAplicado > 0 && clienteRow?.id) {
+      const { data: ok, error: erroCashback } = await supabase.rpc('fn_usar_cashback', {
+        p_cliente_id: clienteRow.id, p_loja_id: loja.id, p_pedido_id: pedido.id, p_valor: cashbackAplicado,
+      });
+      if (erroCashback || !ok) {
+        await descartarPedidoIncompleto(pedido.id);
+        setEnviando(false);
+        return setErro('Seu saldo de cashback mudou nesse instante — atualize a página e tente novamente.');
+      }
     }
 
     // Itens do pedido + opcoes (tabelas itens_pedido / itens_pedido_opcoes)
@@ -308,12 +388,23 @@ export default function CheckoutDrawer({
       }
     }
 
-    // Pagamento
-    const { error: erroPagamento } = await supabase.from('pagamentos').insert({ pedido_id: pedido.id, metodo, valor_pago: total });
+    // Pagamento — se o cashback cobriu o pedido inteiro, não há o que cobrar:
+    // grava direto como PAGO e pula qualquer gateway (Pix/cartão online).
+    const quitadoPorCashback = total <= 0 && cashbackAplicado > 0;
+    const { error: erroPagamento } = await supabase.from('pagamentos').insert({
+      pedido_id: pedido.id, metodo, valor_pago: total,
+      ...(quitadoPorCashback ? { status: 'PAGO', data_pagamento: new Date().toISOString() } : {}),
+    });
     if (erroPagamento) {
       await descartarPedidoIncompleto(pedido.id);
       setEnviando(false);
       return setErro(mensagemErroSupabase('Erro ao registrar pagamento do pedido.', erroPagamento));
+    }
+
+    if (quitadoPorCashback) {
+      setEnviando(false);
+      onSucesso(pedido.numero, pedido.id, null);
+      return;
     }
 
     // Cartao de credito online (Efi — tokenizacao no proximo modal)
@@ -462,6 +553,58 @@ export default function CheckoutDrawer({
                   </div>
                 </div>
 
+                {/* Agendamento (só se a loja aceitar) */}
+                {loja.aceita_agendamento && (
+                  <div>
+                    <p className="mb-2 flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-gray-400">
+                      <CalendarClock size={12} /> Quando você quer receber?
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => setQuando('AGORA')}
+                        className={`rounded-xl border-2 py-3 text-sm font-bold transition-all ${quando === 'AGORA' ? 'border-[var(--cor-primaria)] bg-[var(--cor-primaria)]/5 text-[var(--cor-primaria)]' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                        Agora
+                      </button>
+                      <button onClick={() => setQuando('AGENDADO')}
+                        className={`rounded-xl border-2 py-3 text-sm font-bold transition-all ${quando === 'AGENDADO' ? 'border-[var(--cor-primaria)] bg-[var(--cor-primaria)]/5 text-[var(--cor-primaria)]' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                        Agendar
+                      </button>
+                    </div>
+
+                    {quando === 'AGENDADO' && (
+                      <div className="mt-2 space-y-2">
+                        {diasDisponiveis.length === 0 ? (
+                          <p className="text-xs text-gray-400">Nenhum horário de funcionamento cadastrado para agendamento.</p>
+                        ) : (
+                          <>
+                            <div className="flex gap-1.5 overflow-x-auto pb-1">
+                              {diasDisponiveis.map((d) => (
+                                <button key={d.data} onClick={() => setDiaAgendado(d.data)}
+                                  className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-bold capitalize transition-all ${diaAgendado === d.data ? 'border-[var(--cor-primaria)] bg-[var(--cor-primaria)] text-white' : 'border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-300'}`}>
+                                  {d.label}
+                                </button>
+                              ))}
+                            </div>
+                            {diaAgendado && (
+                              slotsDoDia.length === 0 ? (
+                                <p className="text-xs text-gray-400">Sem horários disponíveis nesse dia — escolha outro.</p>
+                              ) : (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {slotsDoDia.map((h) => (
+                                    <button key={h} onClick={() => setHoraAgendada(h)}
+                                      className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-all ${horaAgendada === h ? 'border-[var(--cor-primaria)] bg-[var(--cor-primaria)] text-white' : 'border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-300'}`}>
+                                      {h}
+                                    </button>
+                                  ))}
+                                </div>
+                              )
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Dados pessoais */}
                 <div>
                   <p className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-400">
@@ -589,6 +732,27 @@ export default function CheckoutDrawer({
                   )}
                 </div>
 
+                {/* Cashback disponível */}
+                {saldoCashback > 0 && (
+                  <button
+                    onClick={() => setUsarCashback((v) => !v)}
+                    className={`flex w-full items-center justify-between rounded-2xl border-2 p-4 text-left transition-all ${
+                      usarCashback ? 'border-[var(--cor-primaria)] bg-[var(--cor-primaria)]/5' : 'border-gray-200 dark:border-gray-700'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Wallet size={16} style={{ color: 'var(--cor-primaria)' }} />
+                      <span>
+                        <span className="block text-sm font-bold dark:text-gray-100">Usar meu cashback</span>
+                        <span className="block text-[11px] text-gray-400">Você tem {fmt(saldoCashback)} de saldo nesta loja</span>
+                      </span>
+                    </span>
+                    <span className={`flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors ${usarCashback ? 'bg-[var(--cor-primaria)]' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                      <span className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${usarCashback ? 'translate-x-5' : ''}`} />
+                    </span>
+                  </button>
+                )}
+
                 {/* Metodo de pagamento (agrupado por antecipado x na entrega) */}
                 <div>
                   <p className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-400">
@@ -668,12 +832,23 @@ export default function CheckoutDrawer({
                       <span>-{fmt(desconto)}</span>
                     </div>
                   )}
+                  {cashbackAplicado > 0 && (
+                    <div className="flex justify-between text-sm font-semibold" style={{ color: 'var(--cor-primaria)' }}>
+                      <span className="flex items-center gap-1"><Wallet size={12} /> Cashback usado</span>
+                      <span>-{fmt(cashbackAplicado)}</span>
+                    </div>
+                  )}
                   <div className="border-t border-gray-200 dark:border-gray-700 pt-2 flex justify-between">
                     <span className="text-base font-black dark:text-white">Total</span>
                     <span className="text-base font-black" style={{ color: 'var(--cor-primaria)' }}>
                       {fmt(total)}
                     </span>
                   </div>
+                  {(loja.cashback_pct ?? 0) > 0 && total > 0 && (
+                    <p className="pt-1 text-[11px] text-gray-400">
+                      Você ganha {fmt(Math.round(total * Number(loja.cashback_pct) / 100 * 100) / 100)} de cashback nesta compra.
+                    </p>
+                  )}
                 </div>
 
                 {/* Erro */}
@@ -698,6 +873,8 @@ export default function CheckoutDrawer({
                     ? 'Processando...'
                     : foraDeArea
                     ? 'Bairro nao atendido'
+                    : quando === 'AGENDADO' && diaAgendado && horaAgendada
+                    ? `Agendar para ${diasDisponiveis.find((d) => d.data === diaAgendado)?.label} ${horaAgendada} - ${fmt(total)}`
                     : `Finalizar Pedido - ${fmt(total)}`}
                 </button>
                 <p className="pb-4 text-center text-[10px] text-gray-400">
