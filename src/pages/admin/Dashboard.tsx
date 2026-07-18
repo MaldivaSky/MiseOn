@@ -11,7 +11,6 @@ import type { CtxLoja } from './AdminLayout';
 
 interface DadosDia {
   pedidosHoje: Pedido[];
-  itensMaisPedidos: Array<{ nome: string; quantidade: number }>;
   insumosBaixos: { id: string; nome: string; quantidade_atual: number; estoque_minimo: number; unidade_medida: string }[];
   lotesVencendo: (ProducaoPreparo & { nomePreparo: string })[];
 }
@@ -52,66 +51,38 @@ export default function Dashboard() {
 
     const [
       { data: pedidosHoje },
-      { data: itensMaisPedidos },
       { data: insumosBaixos },
       { data: lotes },
       { data: loja },
       { count: qtdProdutos },
       { count: qtdHorarios },
       { count: qtdPedidosTotal },
-      { data: preparosComNomes },
+      { data: preparosNomes },
     ] = await Promise.all([
       supabase.from('pedidos').select('id, numero, status, valor_total, criado_em, tipo_pedido, identificador_cliente')
         .eq('loja_id', lojaId).gte('criado_em', inicioHoje.toISOString()).order('criado_em', { ascending: false }),
-      // Get most popular items today (try RPC first, fallback to client-side)
-      (async () => {
-        try {
-          const { data } = await supabase.rpc('get_itens_mais_pedidos_hoje', { p_loja_id: lojaId });
-          return data;
-        } catch (e) {
-          // Fallback: calculate client-side
-          const itensMap = new Map<string, number>();
-          (pedidosHoje as Pedido[]).forEach(pedido => {
-            (pedido.itens_pedido || []).forEach(item => {
-              const current = itensMap.get(item.nome_produto) || 0;
-              itensMap.set(item.nome_produto, current + item.quantidade);
-            });
-          });
-          return Array.from(itensMap.entries())
-            .map(([nome, quantidade]) => ({ nome, quantidade }))
-            .sort((a, b) => b.quantidade - a.quantidade)
-            .slice(0, 10);
-        }
-      })(),
       // comparação coluna x coluna não existe no PostgREST — traz os com mínimo
       // definido e filtra `quantidade_atual <= estoque_minimo` aqui no cliente
       supabase.from('insumos').select('id, nome, quantidade_atual, estoque_minimo, unidade_medida')
         .eq('loja_id', lojaId).eq('ativo', true).gt('estoque_minimo', 0)
         .order('quantidade_atual'),
-      supabase.from('producoes_preparo').select('*, produto:preparo_id!inner(id, nome)')
+      supabase.from('producoes_preparo').select('*')
         .eq('loja_id', lojaId).eq('status', 'ATIVO').not('vence_em', 'is', null)
         .lte('vence_em', limiteVencimento).order('vence_em'),
       supabase.from('lojas').select('logo_url, efi_payee_code, efi_titular_documento, efi_conta, pix_chave, aceita_online').eq('id', lojaId).single(),
       supabase.from('produtos').select('id', { count: 'exact', head: true }).eq('loja_id', lojaId),
       supabase.from('horarios_funcionamento').select('id', { count: 'exact', head: true }).eq('loja_id', lojaId),
       supabase.from('pedidos').select('id', { count: 'exact', head: true }).eq('loja_id', lojaId),
-      supabase.from('produtos').select('id, nome').eq('loja_id', lojaId).eq('ativo', true),
+      supabase.from('insumos').select('id, nome').eq('loja_id', lojaId).eq('is_preparo', true),
     ]);
 
-    const produtoNomes = new Map((preparosComNomes ?? []).map((p) => [
-      p.produto?.id ?? '',
-      p.produto?.nome ?? 'Produto desconocido'
-    ]));
+    const nomes = new Map((preparosNomes ?? []).map((p) => [p.id, p.nome]));
     setDados({
       pedidosHoje: (pedidosHoje as Pedido[]) ?? [],
-      itensMaisPedidos: (itensMaisPedidos as { nome: string; quantidade: number }[]) ?? [],
       insumosBaixos: ((insumosBaixos as DadosDia['insumosBaixos']) ?? [])
         .filter((i) => Number(i.quantidade_atual) <= Number(i.estoque_minimo))
         .slice(0, 50),
-      lotesVencendo: ((lotes as ProducaoPreparo[]) ?? []).map((l) => ({
-        ...l,
-        nomePreparo: produtoNomes.get(l.preparo_id) ?? 'Produto desconocido'
-      })),
+      lotesVencendo: ((lotes as ProducaoPreparo[]) ?? []).map((l) => ({ ...l, nomePreparo: nomes.get(l.preparo_id) ?? 'Preparo' })),
     });
 
     const pagamentosOk = !(loja?.aceita_online ?? true)
@@ -150,206 +121,6 @@ export default function Dashboard() {
     };
   }, [dados]);
 
-
-  const getHorarioPico = (pedidos: Pedido[]): string => {
-    if (pedidos.length === 0) return "00:00";
-
-    // Conta pedidos por hora (excluindo cancelados)
-    const contagemPorHora: Record<number, number> = {};
-
-    pedidos.forEach(pedido => {
-      if (pedido.status === 'CANCELADO') return;
-      const hora = new Date(pedido.criado_em).getHours();
-      contagemPorHora[hora] = (contagemPorHora[hora] || 0) + 1;
-    });
-
-    // Encontra a hora com mais pedidos
-    let maxHora = 0;
-    let maxContagem = 0;
-
-    Object.keys(contagemPorHora).forEach(h => {
-      const horaNum = parseInt(h);
-      if (contagemPorHora[horaNum] > maxContagem) {
-        maxContagem = contagemPorHora[horaNum];
-        maxHora = horaNum;
-      }
-    });
-
-    return `${maxHora.toString().padStart(2, '0')}:00`;
-  };
-
-  const getPercentualHorarioPico = (pedidos: Pedido[]): number => {
-    if (pedidos.length === 0) return 0;
-
-    // Conta pedidos por hora (excluindo cancelados)
-    const contagemPorHora: Record<number, number> = {};
-
-    pedidos.forEach(pedido => {
-      if (pedido.status === 'CANCELADO') return;
-      const hora = new Date(pedido.criado_em).getHours();
-      contagemPorHora[hora] = (contagemPorHora[hora] || 0) + 1;
-    });
-
-    // Encontra a hora com mais pedidos
-    let maxContagem = 0;
-    Object.keys(contagemPorHora).forEach(h => {
-      const horaNum = parseInt(h);
-      if (contagemPorHora[horaNum] > maxContagem) {
-        maxContagem = contagemPorHora[horaNum];
-      }
-    });
-
-    return Math.round((maxContagem / pedidos.filter(p => p.status !== 'CANCELADO').length) * 100);
-  };
-
-  const getContagemHorarioPico = (pedidos: Pedido[]): number => {
-    if (pedidos.length === 0) return 0;
-
-    // Conta pedidos por hora (excluindo cancelados)
-    const contagemPorHora: Record<number, number> = {};
-
-    pedidos.forEach(pedido => {
-      if (pedido.status === 'CANCELADO') return;
-      const hora = new Date(pedido.criado_em).getHours();
-      contagemPorHora[hora] = (contagemPorHora[hora] || 0) + 1;
-    });
-
-    // Encontra a hora com mais pedidos
-    let maxContagem = 0;
-    Object.keys(contagemPorHora).forEach(h => {
-      const horaNum = parseInt(h);
-      if (contagemPorHora[horaNum] > maxContagem) {
-        maxContagem = contagemPorHora[horaNum];
-      }
-    });
-
-    return maxContagem;
-  };
-
-  const calcularTicketMedioPorHora = (pedidos: Pedido[]): number => {
-    if (pedidos.length === 0) return 0;
-
-    // Agrupa pedidos por hora do dia
-    const horas: Record<number, { total: number; count: number }> = {};
-
-    pedidos.forEach(pedido => {
-      if (pedido.status === 'CANCELADO') return;
-
-      const hora = new Date(pedido.criado_em).getHours();
-      if (!horas[hora]) {
-        horas[hora] = { total: 0, count: 0 };
-      }
-      horas[hora].total += Number(pedido.valor_total);
-      horas[hora].count += 1;
-    });
-
-    // Calcula a média de ticket por hora e retorna a maior média
-    let maxMediaPorHora = 0;
-
-    Object.keys(horas).forEach(h => {
-      const horaNum = parseInt(h);
-      if (horas[horaNum].count > 0) {
-        const media = horas[horaNum].total / horas[horaNum].count;
-        if (media > maxMediaPorHora) {
-          maxMediaPorHora = media;
-        }
-      }
-    });
-
-    return maxMediaPorHora;
-  };
-
-  const getTicketMedioPorHora = (pedidos: Pedido[]): number => {
-    return calcularTicketMedioPorHora(pedidos);
-  };
-
-  const formatCurrency = (value: number): string => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-
-  const calcularHorariosDePico = (pedidos: Pedido[]): string[] => {
-    if (pedidos.length === 0) return [];
-
-    // Conta pedidos por hora (excluindo cancelados)
-    const contagemPorHora: Record<number, number> = {};
-
-    pedidos.forEach(pedido => {
-      if (pedido.status === 'CANCELADO') return;
-      const hora = new Date(pedido.criado_em).getHours();
-      contagemPorHora[hora] = (contagemPorHora[hora] || 0) + 1;
-    });
-
-    // Encontra as 3 horas com mais pedidos
-    return Object.entries(contagemPorHora)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 3)
-      .map(([hora]) => {
-        const horaNum = parseInt(hora);
-        return `${horaNum.toString().padStart(2, '0')}:00-${((horaNum + 1) % 24).toString().padStart(2, '0')}:00`;
-      });
-  };
-
-  // Funções para cálculo de tempo de preparo (métricas da cozinha)
-  const calcularTempoPreparoMedio = (pedidos: Pedido[]): number => {
-    const pedidosComTempo = pedidos
-      .filter(p => p.status === 'PRONTO' || p.status === 'FINALIZADO' || p.status === 'EM_ROTA' || p.status === 'RETIRADA_BALCAO')
-      .map(p => {
-        const criadoEm = new Date(p.criado_em).getTime();
-        // Consideramos o tempo até ficar PRONTO como tempo de preparo (aproximação)
-        // Em um sistema ideal, teríamos timestamps específicos para início/fim de preparo
-        const prontoEm = new Date().getTime(); // Aproximação - em um sistema real, teríamos um timestamp específico
-        // Para melhor aproximação, usamos o tempo até o status atual se for recente
-        // Esta é uma simplificação - em produção, seria melhor ter timestamps explícitos
-        return prontoEm - criadoEm;
-      });
-
-    if (pedidosComTempo.length === 0) return 0;
-    const soma = pedidosComTempo.reduce((acc, tempo) => acc + tempo, 0);
-    return Math.round(soma / pedidosComTempo.length / 1000 / 60); // Converte para minutos
-  };
-
-  const calcularTempoPreparoPorProduto = (pedidos: Pedido[]): Array<{ nome: string; tempoMedio: number; quantidade: number }> => {
-    const produtoStats = new Map<string, { totalTempo: number; count: number }>();
-
-    pedidos.forEach(pedido => {
-      if (pedido.status !== 'PRONTO' && pedido.status !== 'FINALIZADO' &&
-          pedido.status !== 'EM_ROTA' && pedido.status !== 'RETIRADA_BALCAO') {
-        return;
-      }
-
-      const criadoEm = new Date(p.criado_em).getTime();
-      const tempoPedido = Date.now() - criadoEm; // Aproximação
-
-      (pedido.itens_pedido || []).forEach(item => {
-        const stats = produtoStats.get(item.nome_produto) || { totalTempo: 0, count: 0 };
-        stats.totalTempo += tempoPedido;
-        stats.count += 1;
-        produtoStats.set(item.nome_produto, stats);
-      });
-    });
-
-    return Array.from(produtoStats.entries())
-      .map(([nome, stats]) => ({
-        nome,
-        tempoMedio: Math.round(stats.totalTempo / stats.count / 1000 / 60), // minutos
-        quantidade: stats.count
-      }))
-      .sort((a, b) => b.tempoMedio - a.tempoMedio); // Ordena por tempo decrescente
-  };
-
-  const formatarTempo = (minutos: number): string => {
-    if (isNaN(minutos) || minutos < 0) return '0 min';
-    const horas = Math.floor(minutos / 60);
-    const mins = Math.round(minutos % 60);
-    if (horas > 0) {
-      return `${horas}h ${mins}min`;
-    }
-    return `${mins} min`;
-  };
-
   const passosFeitos = onboarding ? PASSOS_ONBOARDING.filter((p) => onboarding[p.chave]).length : 0;
   const onboardingCompleto = passosFeitos === PASSOS_ONBOARDING.length;
   const mostrarOnboarding = onboarding && !onboardingCompleto && !onboardingOculto;
@@ -359,16 +130,15 @@ export default function Dashboard() {
     setOnboardingOculto(true);
   };
 
-  if (!dados) return <div className="p-8 text-center text-gray-400">Preparando o seu dia…</div>;
-
   const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
-
-  // Processar lotes vencendo para a seção de alertas
-  const lotesVencidos = dados?.lotesVencendo?.filter(l => new Date(l.vence_em!) < new Date()) || [];
-  const lotesQuaseVencendo = dados?.lotesVencendo?.filter(l => new Date(l.vence_em!) >= new Date()) || [];
 
   // Operador e entregador não veem números do negócio — vão direto para a operação.
   if (papel !== 'admin') return <Navigate to="/admin/pedidos" replace />;
+
+  if (!dados) return <div className="p-8 text-center text-gray-400">Preparando o seu dia…</div>;
+
+  const lotesVencidos = dados.lotesVencendo.filter((l) => new Date(l.vence_em!) <= new Date());
+  const lotesQuaseVencendo = dados.lotesVencendo.filter((l) => new Date(l.vence_em!) > new Date());
 
   return (
     <div className="mx-auto max-w-5xl p-4 pb-12">
@@ -461,59 +231,6 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* ── Métricas da Cozinha ── */}
-      <div className="mb-5 grid gap-4 lg:grid-cols-3">
-        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <h3 className="mb-3 font-semibold text-gray-900 dark:text-white">Itens Mais Populares</h3>
-          {dados.itensMaisPedidos.length === 0 ? (
-            <p className="text-center text-sm text-gray-500">Nenhum dado disponível</p>
-          ) : (
-            <div className="space-y-2">
-              {dados.itensMaisPedidos.slice(0, 5).map((item, index) => (
-                <div key={index} className="flex justify-between items-center px-3 py-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                  <span className="font-medium">{item.nome}</span>
-                  <span className="font-bold text-[var(--cor-primaria)]">+{item.quantidade}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <h3 className="mb-3 font-semibold text-gray-900 dark:text-white">Distribuição de Horários</h3>
-          <div className="space-y-3">
-            {/* Hora de pico simples baseado nos pedidos de hoje */}
-            {dados.pedidosHoje.length > 0 ? (
-              <>
-                <div className="flex justify-between text-sm">
-                  <span>Pedidos por hora (hoje):</span>
-                  <span className="font-medium">{getHorarioPico(dados.pedidosHoje)}</span>
-                </div>
-                <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                  <div className="h-full bg-[var(--cor-primaria)]"
-                       style={{ width: `${getPercentualHorarioPico(dados.pedidosHoje)}%` }}></div>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {getContagemHorarioPico(dados.pedidosHoje)} pedidos na hora de pico
-                </p>
-              </>
-            ) : (
-              <p className="text-center text-sm text-gray-500">Aguardando dados...</p>
-            )}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <h3 className="mb-3 font-semibold text-gray-900 dark:text-white">Ticket Médio por Hora</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {formatCurrency(getTicketMedioPorHora(dados.pedidosHoje))}
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Valor médio por pedido em horários de maior movimento
-          </p>
-        </div>
-      </div>
-
       {/* ── Alertas de operação ── */}
       {(dados.insumosBaixos.length > 0 || dados.lotesVencendo.length > 0) && (
         <div className="mb-5 grid gap-3 lg:grid-cols-2">
@@ -533,35 +250,23 @@ export default function Dashboard() {
             </Link>
           )}
           {dados.lotesVencendo.length > 0 && (
-            <>
-              {/* Calcular lotes vencidos e prestes a vencer */}
-              {(() => {
-                const agora = new Date();
-                const lotesVencidos = dados.lotesVencendo.filter(l => new Date(l.vence_em!) < agora);
-                const lotesQuaseVencendo = dados.lotesVencendo.filter(l => new Date(l.vence_em!) >= agora);
-                return null;
-              })()}
-              <Link to="/admin/estoque" className="rounded-2xl border border-red-300 bg-red-50 p-4 shadow-sm transition hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/15 dark:hover:bg-red-900/25">
-                <p className="flex items-center gap-2 text-sm font-black text-red-600 dark:text-red-400">
-                  <Timer size={15} /> Validade de preparos
-                </p>
-                <div className="mt-2 space-y-1">
-                  {lotesVencidos.slice(0, 2).map((l) => (
-                    <p key={l.id} className="text-xs font-semibold text-red-600 dark:text-red-400">
-                      <AlertTriangle size={11} className="mr-1 inline" />{l.nomePreparo}: lote VENCIDO — descarte no Estoque
-                    </p>
-                  ))}
-                  {lotesVencidos.length > 2 && <p key="vencidos-mais" className="text-xs text-red-600 dark:text-red-400 text-center">+ {lotesVencidos.length - 2} outros vencidos</p>}
-
-                  {lotesQuaseVencendo.slice(0, 2).map((l) => (
-                    <p key={l.id} className="text-xs text-red-700/80 dark:text-red-300/80">
-                      • {l.nomePreparo}: vence {new Date(l.vence_em!).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  ))}
-                  {lotesQuaseVencendo.length > 2 && <p key="quase-vencendo-mais" className="text-xs text-red-700/80 dark:text-red-300/80 text-center">+ {lotesQuaseVencendo.length - 2} outros por vencer</p>}
-                </div>
-              </Link>
-            </>
+            <Link to="/admin/estoque" className="rounded-2xl border border-red-300 bg-red-50 p-4 shadow-sm transition hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/15 dark:hover:bg-red-900/25">
+              <p className="flex items-center gap-2 text-sm font-black text-red-600 dark:text-red-400">
+                <Timer size={15} /> Validade de preparos
+              </p>
+              <div className="mt-2 space-y-1">
+                {lotesVencidos.slice(0, 2).map((l) => (
+                  <p key={l.id} className="text-xs font-semibold text-red-600 dark:text-red-400">
+                    <AlertTriangle size={11} className="mr-1 inline" />{l.nomePreparo}: lote VENCIDO — descarte no Estoque
+                  </p>
+                ))}
+                {lotesQuaseVencendo.slice(0, 2).map((l) => (
+                  <p key={l.id} className="text-xs text-red-700/80 dark:text-red-300/80">
+                    • {l.nomePreparo}: vence {new Date(l.vence_em!).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                ))}
+              </div>
+            </Link>
           )}
         </div>
       )}

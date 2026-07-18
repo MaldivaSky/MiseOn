@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { X, User, MapPin, Phone, History, LogOut, Loader2, Save, Heart, Plus, Trash2, CheckCircle2 } from 'lucide-react';
 import type { Cliente, EnderecoCliente, Pedido, Produto, FavoritoCliente } from '../types';
@@ -25,7 +25,6 @@ export default function ModalMinhaConta({
 }) {
   const [abaAtiva, setAbaAtiva] = useState<Aba>('DADOS');
   const [clienteId, setClienteId] = useState<string | null>(null);
-  const nomeRef = useRef<HTMLInputElement>(null);
   
   // Aba: Meus Dados
   const [nome, setNome] = useState('');
@@ -113,13 +112,7 @@ export default function ModalMinhaConta({
   };
 
   useEffect(() => {
-    if (isOpen) {
-      carregarDados();
-      // Focus first input when modal opens
-      setTimeout(() => {
-        nomeRef.current?.focus();
-      }, 100);
-    }
+    if (isOpen) carregarDados();
   }, [isOpen, lojaId, userId]);
 
   if (!isOpen) return null;
@@ -228,8 +221,8 @@ export default function ModalMinhaConta({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm">
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 sm:p-8 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/60 backdrop-blur-sm">
+      <div className="flex h-full w-full max-w-lg flex-col bg-white dark:bg-gray-900 shadow-2xl transition-transform sm:w-[480px]">
         {/* Cabeçalho */}
         <div className="flex items-center justify-between border-b px-6 py-4 dark:border-gray-800">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Minha Conta</h2>
@@ -284,7 +277,6 @@ export default function ModalMinhaConta({
                     <div className="relative">
                       <User className="absolute left-3 top-3.5 text-gray-400" size={16} />
                       <input
-                        ref={nomeRef}
                         type="text"
                         value={nome}
                         onChange={(e) => setNome(e.target.value)}

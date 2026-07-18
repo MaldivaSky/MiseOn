@@ -39,12 +39,8 @@ function CardPedido({
   onImprimir: (via: Via) => void;
 }) {
   // Mesa pronta fica esperando o garçom fechar a conta (Mapa de Mesas) — não avança sozinha pra EM_ROTA/FINALIZADO.
-  // Bacolone (balcão) não deve avançar status que são exclusivos da cozinha: NOVO->ACEITO, ACEITO->PREPARANDO, PREPARANDO->PRONTO
-  const isCozinhaExclusive = p.status === 'NOVO' || p.status === 'ACEITO' || p.status === 'PREPARANDO';
   const semAvancoSalao = p.tipo_pedido === 'SALAO' && p.status === 'PRONTO';
-  const fluxo = isCozinhaExclusive || semAvancoSalao
-    ? { ...FLUXO[p.status], prox: undefined }
-    : (FLUXO[p.status] ?? FLUXO.CANCELADO);
+  const fluxo = semAvancoSalao ? { ...FLUXO[p.status], prox: undefined } : (FLUXO[p.status] ?? FLUXO.CANCELADO);
   const hora = new Date(p.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -369,21 +365,9 @@ export default function PainelPedidos() {
               key={p.id}
               p={p}
               onAvancar={() => {
-                // Same logic as used to determine fluxo.prox for button visibility
-                const isCozinhaExclusive = p.status === 'NOVO' || p.status === 'ACEITO' || p.status === 'PREPARANDO';
-                const semAvancoSalao = p.tipo_pedido === 'SALAO' && p.status === 'PRONTO';
-
-                let proxStatus: StatusPedido | undefined;
-                if (!isCozinhaExclusive && !semAvancoSalao) {
-                  proxStatus = FLUXO[p.status]?.prox;
-                  if (p.tipo_pedido === 'RETIRADA_BALCAO' && p.status === 'PRONTO') {
-                    proxStatus = 'FINALIZADO';
-                  }
-                }
-
-                if (proxStatus) {
-                  mudarStatus(p, proxStatus);
-                }
+                let proxStatus = FLUXO[p.status]?.prox!;
+                if (p.tipo_pedido === 'RETIRADA_BALCAO' && p.status === 'PRONTO') proxStatus = 'FINALIZADO';
+                mudarStatus(p, proxStatus);
               }}
               onCancelar={() => { if (confirm('Cancelar pedido?')) mudarStatus(p, 'CANCELADO'); }}
               onImprimir={(v) => {
