@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { X, LogIn, Mail, Lock } from 'lucide-react';
 
@@ -11,8 +11,6 @@ export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean;
   const [sucesso, setSucesso] = useState('');
   const emailRef = useRef<HTMLInputElement>(null);
 
-  if (!isOpen) return null;
-
   useEffect(() => {
     if (isOpen) {
       // Focus email input when modal opens
@@ -21,6 +19,8 @@ export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean;
       }, 100);
     }
   }, [isOpen]);
+
+  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -18,6 +18,7 @@ export default function AdminLayout() {
   const loc = useLocation();
   const [ctx, setCtx] = useState<CtxLoja | null>(null);
   const [semLoja, setSemLoja] = useState(false);
+  const [erroConexao, setErroConexao] = useState(false);
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   
   // Controle de menu interno no mobile
@@ -27,12 +28,16 @@ export default function AdminLayout() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return nav('/admin/login');
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('usuarios_loja')
         .select('loja_id, papel, lojas(nome, cor_primaria, cor_secundaria, slug, criado_em, status_assinatura, vencimento_assinatura)')
         .eq('user_id', user.id)
         .limit(1)
         .single();
+      // Fail-open: erro de leitura (rede, schema, RLS) NÃO é "conta sem loja"
+      // e NUNCA deve derrubar a operação — mostra tela de erro com retry.
+      // Só é "sem loja" quando a query funcionou e não achou vínculo (PGRST116).
+      if (error && error.code !== 'PGRST116') { setErroConexao(true); return; }
       if (!data) { setSemLoja(true); return; }
       const papel = (data as any).papel ?? 'admin';
       const lojaInfo = (data as any).lojas;
@@ -69,6 +74,17 @@ export default function AdminLayout() {
   }, [nav, loc.pathname]);
 
   const sair = async () => { await supabase.auth.signOut(); nav('/admin/login'); };
+
+  if (erroConexao) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-3 p-8 text-center bg-gray-50 dark:bg-[#0B1120] text-gray-900 dark:text-gray-100">
+        <p className="font-semibold text-lg">Não foi possível carregar os dados da loja.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">Falha de comunicação com o servidor. Sua operação não foi bloqueada — verifique sua internet e tente novamente.</p>
+        <button onClick={() => window.location.reload()} className="mt-4 rounded-xl bg-[#004198] hover:bg-[#00337A] px-8 py-3 text-sm font-bold text-white shadow-lg transition-all active:scale-95">Tentar Novamente</button>
+        <button onClick={sair} className="text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-red-500">Sair do Sistema</button>
+      </div>
+    );
+  }
 
   if (semLoja) {
     return (
