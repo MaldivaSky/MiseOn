@@ -98,6 +98,14 @@ Deno.serve(async (req) => {
       .single();
     if (!pedido) return json({ error: 'pedido não encontrado' }, { status: 404 });
 
+    // SEGURANÇA: o total é recalculado no servidor a partir dos preços reais
+    // (produtos/opções/cupom) — o valor que o browser gravou NÃO é confiável.
+    // fn_recalcular_pedido também corrige os totais gravados no pedido.
+    const { data: totalReal, error: erroRecalc } = await supabase.rpc('fn_recalcular_pedido', { p_pedido_id: pedido_id });
+    if (erroRecalc) return json({ error: 'Falha ao validar o valor do pedido', detail: erroRecalc }, { status: 500 });
+    const valorCobranca = Number(totalReal);
+    if (!(valorCobranca > 0)) return json({ error: 'Valor do pedido inválido para cobrança Pix.' }, { status: 400 });
+
     // Modelo split: a cobrança é sempre criada pela conta da plataforma (MiseOn) e o
     // valor é repassado 100% ao lojista via split Pix (favorecido = CPF/CNPJ + conta Efí).
     // O lojista não fornece nenhuma credencial de API.
@@ -120,7 +128,7 @@ Deno.serve(async (req) => {
     // O split é um fluxo separado: cria-se uma configuração e vincula-se à cobrança (abaixo).
     const body: any = {
       calendario: { expiracao: 3600 },
-      valor: { original: Number(pedido.valor_total).toFixed(2) },
+      valor: { original: valorCobranca.toFixed(2) },
       chave: creds.pixKey,
       solicitacaoPagador: `Pedido #${pedido.numero} — ${(pedido as any).lojas?.nome ?? 'MiseOn'}`.slice(0, 140),
     };

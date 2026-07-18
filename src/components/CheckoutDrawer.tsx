@@ -388,12 +388,11 @@ export default function CheckoutDrawer({
       }
     }
 
-    // Pagamento — se o cashback cobriu o pedido inteiro, não há o que cobrar:
-    // grava direto como PAGO e pula qualquer gateway (Pix/cartão online).
+    // Pagamento sempre nasce PENDENTE (a RLS bloqueia o cliente de gravar PAGO —
+    // isso é feito só server-side: gateway/webhook ou fn_quitar_pedido_cashback).
     const quitadoPorCashback = total <= 0 && cashbackAplicado > 0;
     const { error: erroPagamento } = await supabase.from('pagamentos').insert({
       pedido_id: pedido.id, metodo, valor_pago: total,
-      ...(quitadoPorCashback ? { status: 'PAGO', data_pagamento: new Date().toISOString() } : {}),
     });
     if (erroPagamento) {
       await descartarPedidoIncompleto(pedido.id);
@@ -401,7 +400,14 @@ export default function CheckoutDrawer({
       return setErro(mensagemErroSupabase('Erro ao registrar pagamento do pedido.', erroPagamento));
     }
 
+    // Cashback cobriu o pedido inteiro: quita e aceita via RPC (valida o dono).
     if (quitadoPorCashback) {
+      const { error: erroQuita } = await supabase.rpc('fn_quitar_pedido_cashback', { p_pedido_id: pedido.id });
+      if (erroQuita) {
+        await cancelarPedidoPendente(pedido.id);
+        setEnviando(false);
+        return setErro(mensagemErroSupabase('Erro ao confirmar o pagamento por cashback.', erroQuita));
+      }
       setEnviando(false);
       onSucesso(pedido.numero, pedido.id, metodo, null);
       return;

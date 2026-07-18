@@ -69,6 +69,13 @@ Deno.serve(async (req) => {
       .single();
     if (!pedido) return json({ error: 'pedido não encontrado' }, { status: 404 });
 
+    // SEGURANÇA: valor cobrado é recalculado no servidor (preços reais + taxa +
+    // desconto − cashback). Não confia no valor_total/preco_unitario do browser.
+    const { data: totalReal, error: erroRecalc } = await supabase.rpc('fn_recalcular_pedido', { p_pedido_id: pedido_id });
+    if (erroRecalc) return json({ error: 'Falha ao validar o valor do pedido', detail: erroRecalc }, { status: 500 });
+    const valorCobrancaCentavos = Math.round(Number(totalReal) * 100);
+    if (!(valorCobrancaCentavos > 0)) return json({ error: 'Valor do pedido inválido para cobrança.' }, { status: 400 });
+
     // Modelo split: a cobrança é sempre processada pela conta da plataforma (MiseOn)
     // e o valor é repassado 100% ao lojista via payee_code. O lojista só precisa do
     // "Identificador de conta" da Efí — nenhuma credencial de API.
@@ -115,13 +122,16 @@ Deno.serve(async (req) => {
     };
 
     // one-step: cria e paga a cobrança numa chamada só (padrão MySuperStore)
+    // Uma linha única com o total recalculado no servidor (inclui taxa/desconto/
+    // cashback). Evita cobrar a soma crua dos itens (que o browser controla e que
+    // ignorava taxa/desconto). O split de repasse acompanha o item.
     const body = {
-      items: (pedido.itens_pedido ?? []).map((i: any) => ({
-        name: String(i.nome_produto).slice(0, 255),
-        value: Math.round(Number(i.preco_unitario) * 100), // centavos
-        amount: i.quantidade,
+      items: [{
+        name: `Pedido #${pedido.numero}`.slice(0, 255),
+        value: valorCobrancaCentavos,
+        amount: 1,
         ...marketplace,
-      })),
+      }],
       payment: {
         credit_card: {
           payment_token,

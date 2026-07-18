@@ -109,11 +109,9 @@ export default function AcompanharPedido() {
   };
 
   const carregar = async () => {
-    const { data } = await supabase
-      .from('pedidos')
-      .select('*, itens_pedido(*, itens_pedido_opcoes(*)), pagamentos(metodo, status, valor_pago)')
-      .eq('id', id)
-      .single();
+    // Leitura por link (uuid = token) via RPC: a tabela pedidos não é mais
+    // legível em massa (RLS). fn_acompanhar_pedido devolve só este pedido.
+    const { data } = await supabase.rpc('fn_acompanhar_pedido', { p_id: id });
 
     const atual = (data as Pedido) ?? null;
     setPedido(atual);
@@ -208,7 +206,7 @@ export default function AcompanharPedido() {
     // 2) Polling de segurança: mesmo se o realtime falhar por completo,
     // o pedido é reconsultado a cada 12s enquanto estiver em andamento.
     const verificarAgora = async () => {
-      const { data } = await supabase.from('pedidos').select('*').eq('id', id).single();
+      const { data } = await supabase.rpc('fn_acompanhar_pedido', { p_id: id });
       if (!data) return;
       const novo = data as Pedido;
       if (statusAnterior.current !== novo.status) {
