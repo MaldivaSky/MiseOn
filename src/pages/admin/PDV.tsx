@@ -178,6 +178,7 @@ export default function PDV() {
         desconto: descontoNum,
         valor_total: total,
         troco_para: met === 'DINHEIRO' && recebidoNum > total ? recebidoNum : null,
+        requer_cozinha: false, // trigger promove p/ true se algum item for COZINHA
       }).select('id, numero').single();
       if (e1 || !ped) throw e1 ?? new Error('Falha ao criar o pedido');
 
@@ -217,7 +218,8 @@ export default function PDV() {
         setVenda({ pedidoId: ped.id, numero: ped.numero, total, metodo: met, troco: 0, itens: carrinho });
         setEtapa('PIX_AGUARDANDO');
       } else {
-        // ACEITO dispara a baixa de estoque e manda para a cozinha
+        // ACEITO dispara a baixa de estoque (fluxo passa-bastão: só vai pra
+        // cozinha quando o balcão enviar explicitamente, se requer_cozinha)
         await supabase.from('pedidos').update({ status: 'ACEITO' }).eq('id', ped.id);
         setVenda({ pedidoId: ped.id, numero: ped.numero, total, metodo: met, troco, itens: carrinho });
         setEtapa('SUCESSO');
@@ -244,6 +246,7 @@ export default function PDV() {
         mesa_numero: mesaSelecionada.numero,
         identificador_cliente: nomeCliente.trim() || `Mesa ${mesaSelecionada.numero}`,
         subtotal, desconto: descontoNum, valor_total: total,
+        requer_cozinha: false, // trigger promove p/ true se algum item for COZINHA
       }).select('id, numero').single();
       if (e1 || !ped) throw e1 ?? new Error('Falha ao enviar o pedido');
 

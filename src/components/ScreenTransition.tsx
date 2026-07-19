@@ -1,5 +1,4 @@
 import { useLocation } from 'react-router-dom';
-import '../brand.css';
 
 export function ScreenTransition({
   children,

@@ -7,6 +7,10 @@ export type TipoRemetente = 'CLIENTE' | 'LOJA' | 'ENTREGADOR';
 export type TipoRemuneracao = 'FIXO' | 'POR_ENTREGA' | 'DESLIGADO';
 export type StatusRota = 'PENDENTE' | 'EM_ANDAMENTO' | 'FINALIZADA';
 export type EntregaModo = 'BAIRRO' | 'DISTANCIA' | 'HIBRIDO';
+// Fluxo passa-bastão (docs/PLANO-FLUXO-PEDIDOS.md): estação de preparo do
+// produto e o bastão atual do pedido entre balcão e cozinha.
+export type EstacaoPreparo = 'COZINHA' | 'DIRETO';
+export type EstacaoAtual = 'BALCAO' | 'COZINHA';
 
 export interface LeadCadastro {
   id: string;
@@ -45,6 +49,7 @@ export interface Loja {
   aceita_agendamento?: boolean | null;
   agendamento_antecedencia_min?: number | null; // antecedência mínima p/ agendar, em minutos
   cashback_pct?: number | null; // % do pedido creditado como saldo pro cliente (0 = desligado)
+  meta_preparo_min?: number; // meta de tempo de preparo da cozinha (min), default 20
   pix_chave?: string;
   efi_payee_code?: string; // habilita cartão de crédito online + split de cartão (Efí)
   efi_titular_documento?: string | null; // CPF/CNPJ do titular da conta Efí (favorecido do split Pix)
@@ -152,6 +157,7 @@ export interface Produto {
   grupos_opcoes?: GrupoOpcoes[];
   fichas_tecnicas?: FichaTecnica[];
   tem_estoque?: boolean; // calculado no client via fn_produtos_com_estoque — não existe como coluna
+  estacao_preparo?: EstacaoPreparo; // COZINHA (default) = entra no KDS. DIRETO = revenda, balcão entrega sem passar pela cozinha.
 }
 
 export interface Cupom {
@@ -235,6 +241,11 @@ export interface Pedido {
   mesa_numero?: number | null;
   agendado_para?: string | null; // null = pedido imediato
   cashback_usado?: number;
+  estacao_atual?: EstacaoAtual; // bastão do fluxo: quem pode avançar o pedido agora
+  requer_cozinha?: boolean; // true se algum item é estacao_preparo=COZINHA (calculado por trigger)
+  enviado_cozinha_em?: string | null;
+  devolvido_balcao_em?: string | null;
+  conferido_em?: string | null;
   criado_em: string;
   cliente_id?: string | null;
   cliente_user_id?: string | null;

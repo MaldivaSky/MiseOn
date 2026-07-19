@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { ChefHat, Bike, Store, Maximize, Check, Package, UtensilsCrossed } from 'lucide-react';
+import { ChefHat, Bike, Store, Maximize, Check, Package, UtensilsCrossed, Trophy, Flame } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { type Pedido, type StatusPedido } from '../../types';
 import { tocarSom } from '../../lib/som';
@@ -10,11 +10,15 @@ import type { CtxLoja } from './AdminLayout';
    KDS — tela da COZINHA, e só da cozinha.
    Fullscreen dark, letras grandes, zero burocracia:
    Fila → Preparando → Pronto, um toque avança.
-   Sem preços, sem impressão, sem cancelamento (isso é do
-   Painel de Pedidos, que é a visão da gerência/despacho).
+   Fluxo passa-bastão (docs/PLANO-FLUXO-PEDIDOS.md): só entram aqui
+   pedidos com requer_cozinha=true que o BALCÃO já enviou (bastão em
+   COZINHA). "Aceitar" (NOVO→ACEITO) é ato do balcão, não da cozinha.
+   Itens de revenda direta do mesmo pedido aparecem apagados (contexto,
+   sem ação) — quem entrega são eles, não a cozinha.
    ───────────────────────────────────────────────────────────── */
 
-const SELECT = 'id, numero, status, tipo_pedido, identificador_cliente, origem, mesa_numero, agendado_para, criado_em, itens_pedido(id, nome_produto, quantidade, observacao, itens_pedido_opcoes(nome_opcao))';
+const SELECT = 'id, numero, status, tipo_pedido, identificador_cliente, origem, mesa_numero, agendado_para, criado_em, estacao_atual, requer_cozinha, ' +
+  'itens_pedido(id, nome_produto, quantidade, observacao, itens_pedido_opcoes(nome_opcao), produtos(estacao_preparo))';
 
 // minutos até o card mudar de cor (atenção / atraso)
 const LIMITE_ATENCAO_MIN = 10;
@@ -30,16 +34,47 @@ function corDoTempo(min: number) {
   return { borda: 'rgba(255,255,255,0.12)', texto: '#6C7A96', pulso: false };
 }
 
+interface Operador { user_id: string; nome: string | null }
+interface Metricas {
+  meta_min: number;
+  por_dia: { dia: string; pedidos: number; media_total_min: number; pct_dentro_meta: number }[];
+  ranking_operadores: { operador_user_id: string | null; operador_nome: string; pedidos: number; media_min: number }[];
+  media_hoje_min: number | null;
+  pedidos_hoje: number | null;
+}
+
 export default function KDS() {
   const { lojaId } = useOutletContext<CtxLoja>();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [antecedenciaMin, setAntecedenciaMin] = useState<number | null>(null); // null = ainda não carregou a config da loja
   const [, setTick] = useState(0); // re-render por minuto para os cronômetros
+  const [operadores, setOperadores] = useState<Operador[]>([]);
+  const [operadorAtivo, setOperadorAtivo] = useState<string | null>(() => localStorage.getItem(`miseon_kds_operador_${lojaId}`));
+  const [metricas, setMetricas] = useState<Metricas | null>(null);
+  const [celebrar, setCelebrar] = useState(false);
 
   useEffect(() => {
     supabase.from('lojas').select('agendamento_antecedencia_min').eq('id', lojaId).single()
       .then(({ data }) => setAntecedenciaMin(data?.agendamento_antecedencia_min ?? 30));
+    supabase.from('usuarios_loja').select('user_id, nome').eq('loja_id', lojaId).in('papel', ['admin', 'operador'])
+      .then(({ data }) => setOperadores((data as Operador[]) ?? []));
   }, [lojaId]);
+
+  const carregarMetricas = async () => {
+    const { data, error } = await supabase.rpc('fn_metricas_cozinha', { p_loja_id: lojaId });
+    if (error || !data) return;
+    const m = data as Metricas;
+    setMetricas((anterior) => {
+      // Celebra quando o dia vira "dentro da meta" pela primeira vez nesta sessão
+      // (não precisa de histórico de recorde — já é uma vitória real e não-bloqueante).
+      if (anterior && m.pedidos_hoje && m.media_hoje_min != null
+        && m.media_hoje_min <= m.meta_min && !(anterior.media_hoje_min != null && anterior.media_hoje_min <= anterior.meta_min)) {
+        setCelebrar(true);
+        setTimeout(() => setCelebrar(false), 4000);
+      }
+      return m;
+    });
+  };
 
   // Pedidos agendados só entram na fila da cozinha perto da hora (antecedência da
   // loja) — senão um agendamento pra amanhã apareceria hoje como se estivesse atrasado.
@@ -50,10 +85,12 @@ export default function KDS() {
     const { data } = await supabase
       .from('pedidos').select(SELECT)
       .eq('loja_id', lojaId)
-      .in('status', ['NOVO', 'ACEITO', 'PREPARANDO', 'PRONTO'])
-      // relevante hoje: criado recentemente OU tem agendamento (não importa há quanto
-      // tempo foi marcado — sem isso, um pedido agendado com +24h de antecedência
-      // sumiria da fila bem na hora de entrar em produção)
+      .eq('requer_cozinha', true)
+      .in('status', ['ACEITO', 'PREPARANDO', 'PRONTO'])
+      // só aparece quando o balcão já passou o bastão (ou, na coluna Pronto,
+      // como confirmação de quem acabou de sair da cozinha)
+      .or('estacao_atual.eq.COZINHA,status.eq.PRONTO')
+      // relevante hoje: criado recentemente OU tem agendamento
       .or(`criado_em.gte.${cutoff24h},agendado_para.not.is.null`)
       // só entra na fila quando está perto da hora de começar a preparar
       .or(`agendado_para.is.null,agendado_para.lte.${cutoffProducao}`)
@@ -64,6 +101,7 @@ export default function KDS() {
   useEffect(() => {
     if (antecedenciaMin === null) return;
     carregar();
+    carregarMetricas();
     const canal = supabase
       .channel(`kds-${lojaId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: `loja_id=eq.${lojaId}` }, (payload) => {
@@ -71,26 +109,38 @@ export default function KDS() {
         carregar();
       })
       .subscribe();
-    const timer = setInterval(() => { setTick((t) => t + 1); carregar(); }, 30_000);
+    const timer = setInterval(() => { setTick((t) => t + 1); carregar(); carregarMetricas(); }, 60_000);
     return () => { supabase.removeChannel(canal); clearInterval(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lojaId, antecedenciaMin]);
 
-  const avancar = async (p: Pedido) => {
-    const prox: StatusPedido = p.status === 'NOVO' ? 'ACEITO' : p.status === 'ACEITO' ? 'PREPARANDO' : 'PRONTO';
-    await supabase.from('pedidos').update({ status: prox }).eq('id', p.id);
-    carregar();
+  const escolherOperador = (userId: string) => {
+    const novo = operadorAtivo === userId ? null : userId;
+    setOperadorAtivo(novo);
+    if (novo) localStorage.setItem(`miseon_kds_operador_${lojaId}`, novo);
+    else localStorage.removeItem(`miseon_kds_operador_${lojaId}`);
   };
 
-  const fila = pedidos.filter((p) => ['NOVO', 'ACEITO'].includes(p.status));
+  const avancar = async (p: Pedido) => {
+    const prox: StatusPedido = p.status === 'ACEITO' ? 'PREPARANDO' : 'PRONTO';
+    await supabase.rpc('fn_avancar_status_pedido', {
+      p_pedido_id: p.id, p_novo_status: prox, p_operador_user_id: operadorAtivo,
+    });
+    carregar();
+    carregarMetricas();
+  };
+
+  const fila = pedidos.filter((p) => p.status === 'ACEITO');
   const preparando = pedidos.filter((p) => p.status === 'PREPARANDO');
   const prontos = pedidos.filter((p) => p.status === 'PRONTO');
 
-  // "O que a cozinha precisa produzir agora" — itens agregados da fila + preparo
+  // "O que a cozinha precisa produzir agora" — itens agregados da fila + preparo,
+  // só os de preparo (revenda direta não entra na conta da cozinha).
   const agregado = useMemo(() => {
     const mapa = new Map<string, number>();
     for (const p of [...fila, ...preparando]) {
       for (const i of p.itens_pedido ?? []) {
+        if ((i as any).produtos?.estacao_preparo === 'DIRETO') continue;
         mapa.set(i.nome_produto, (mapa.get(i.nome_produto) ?? 0) + i.quantidade);
       }
     }
@@ -131,21 +181,31 @@ export default function KDS() {
           )}
         </div>
         <div className="mt-3 space-y-2">
-          {p.itens_pedido?.map((i) => (
-            <div key={i.id}>
-              <p className="text-[15px] font-bold leading-tight text-[#EAF1FB]">
-                <span className="text-orange-400">{i.quantidade}×</span> {i.nome_produto}
-              </p>
-              {i.itens_pedido_opcoes?.map((o, x) => (
-                <p key={x} className="pl-5 text-[12px] text-[#8FA0BC]">+ {o.nome_opcao}</p>
-              ))}
-              {i.observacao && <p className="pl-5 text-[12px] font-bold text-red-400">⚠ {i.observacao.toUpperCase()}</p>}
-            </div>
-          ))}
+          {p.itens_pedido?.map((i) => {
+            const revenda = (i as any).produtos?.estacao_preparo === 'DIRETO';
+            if (revenda) {
+              return (
+                <p key={i.id} className="text-[12px] italic text-[#4B5872]">
+                  <Store size={10} className="mr-1 inline" /> no balcão: {i.quantidade}× {i.nome_produto}
+                </p>
+              );
+            }
+            return (
+              <div key={i.id}>
+                <p className="text-[15px] font-bold leading-tight text-[#EAF1FB]">
+                  <span className="text-orange-400">{i.quantidade}×</span> {i.nome_produto}
+                </p>
+                {i.itens_pedido_opcoes?.map((o, x) => (
+                  <p key={x} className="pl-5 text-[12px] text-[#8FA0BC]">+ {o.nome_opcao}</p>
+                ))}
+                {i.observacao && <p className="pl-5 text-[12px] font-bold text-red-400">⚠ {i.observacao.toUpperCase()}</p>}
+              </div>
+            );
+          })}
         </div>
         {finalizadoCozinha ? (
           <div className="mt-3 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500/10 py-2 text-center text-[12px] font-black uppercase tracking-wider text-emerald-400">
-            <Check size={13} /> Aguardando retirada/despacho
+            <Check size={13} /> Devolvido ao balcão
           </div>
         ) : (
           <div className="mt-3 rounded-xl bg-white/5 py-2 text-center text-[12px] font-black uppercase tracking-wider text-white/70">
@@ -171,19 +231,47 @@ export default function KDS() {
     </div>
   );
 
+  const dentroDaMeta = metricas?.media_hoje_min != null && metricas.media_hoje_min <= metricas.meta_min;
+  const corMeta = metricas?.media_hoje_min == null ? '#6C7A96' : dentroDaMeta ? '#34D399' : '#F87171';
+
   return (
     <div className="flex h-[calc(100vh-64px)] flex-col bg-[#070C18] px-4 pt-3 lg:h-screen">
       {/* ── Cabeçalho ── */}
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <ChefHat size={22} className="text-orange-500" />
           <h2 className="font-['Sora'] text-xl font-black text-white">Cozinha</h2>
           <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_8px_#22c55e]" />
         </div>
-        <button onClick={fullscreen} className="flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-1.5 text-xs font-bold text-white/60 transition hover:text-white">
-          <Maximize size={13} /> Tela cheia
-        </button>
+        <div className="flex items-center gap-2">
+          {metricas && (
+            <div className="flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-1.5 text-xs font-bold" style={{ color: corMeta }}>
+              <Flame size={13} />
+              {metricas.media_hoje_min != null ? `${metricas.media_hoje_min}min hoje` : 'sem dados hoje'} · meta {metricas.meta_min}min
+            </div>
+          )}
+          <button onClick={fullscreen} className="flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-1.5 text-xs font-bold text-white/60 transition hover:text-white">
+            <Maximize size={13} /> Tela cheia
+          </button>
+        </div>
       </div>
+
+      {/* ── Seletor de operador (quem está na cozinha agora) ── */}
+      {operadores.length > 0 && (
+        <div className="mb-3 flex items-center gap-2 overflow-x-auto pb-1">
+          <span className="shrink-0 font-['JetBrains_Mono'] text-[10px] font-bold uppercase tracking-[0.2em] text-[#6C7A96]">Na cozinha:</span>
+          {operadores.map((op) => (
+            <button key={op.user_id} onClick={() => escolherOperador(op.user_id)}
+              className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold transition ${
+                operadorAtivo === op.user_id
+                  ? 'border-orange-500 bg-orange-500 text-white'
+                  : 'border-white/10 bg-white/5 text-white/60 hover:text-white'
+              }`}>
+              {op.nome || 'Sem nome'}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── Para produzir agora (agregado) ── */}
       {agregado.length > 0 && (
@@ -199,10 +287,17 @@ export default function KDS() {
 
       {/* ── Colunas ── */}
       <div className="flex flex-1 gap-4 overflow-hidden">
-        <Coluna titulo="Fila" cor="#FC5B24" lista={fila} acao={fila.some((p) => p.status === 'NOVO') ? 'aceitar / iniciar' : 'iniciar preparo'} vazio="Fila limpa 🎉" />
+        <Coluna titulo="Fila" cor="#FC5B24" lista={fila} acao="iniciar preparo" vazio="Fila limpa 🎉" />
         <Coluna titulo="Preparando" cor="#0A5CC4" lista={preparando} acao="marcar pronto" vazio="Nada no fogo" />
         <Coluna titulo="Pronto" cor="#10B981" lista={prontos} acao="—" vazio="Nada aguardando" />
       </div>
+
+      {/* ── Celebração não-bloqueante ao entrar na meta ── */}
+      {celebrar && (
+        <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-2xl border border-emerald-400/40 bg-emerald-500/15 px-4 py-3 text-emerald-300 shadow-2xl backdrop-blur-sm" style={{ animation: 'mo-screen-in .3s ease-out' }}>
+          <Trophy size={20} /> <span className="font-['Sora'] text-sm font-black">Dentro da meta hoje! 🔥</span>
+        </div>
+      )}
     </div>
   );
 }

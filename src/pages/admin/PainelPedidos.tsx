@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Printer, Bike, Check, X as XIcon, Store, ChefHat, Receipt, UtensilsCrossed, CalendarClock } from 'lucide-react';
+import { Printer, Bike, Check, X as XIcon, Store, ChefHat, Receipt, UtensilsCrossed, CalendarClock, Flame, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Loja, Pedido, StatusPedido, fmt } from '../../types';
 import { imprimir } from '../../lib/print';
@@ -9,13 +9,12 @@ type Via = 'cozinha' | 'romaneio' | 'nota';
 import { tocarSom } from '../../lib/som';
 import type { CtxLoja } from './AdminLayout';
 import { MiseOnLoader } from '../../components/MiseOnLoader';
-import MiseOnLogo from '../../components/MiseOnLogo';
 
 /* ── Mapa de status → label + cor brand ── */
 const FLUXO: Record<string, { prox?: StatusPedido; label?: string; bg: string; color: string }> = {
   NOVO:       { prox: 'ACEITO',     label: 'Aceitar pedido',   bg: 'rgba(252,91,36,.18)',  color: '#FC5B24' },
-  ACEITO:     { prox: 'PREPARANDO', label: 'Preparando',       bg: 'rgba(10,92,196,.18)',  color: '#6B9EFF' },
-  PREPARANDO: { prox: 'PRONTO',     label: 'Marcar pronto',    bg: 'rgba(10,92,196,.18)',  color: '#6B9EFF' },
+  ACEITO:     { bg: 'rgba(10,92,196,.18)',  color: '#6B9EFF' },
+  PREPARANDO: { bg: 'rgba(10,92,196,.18)',  color: '#6B9EFF' },
   PRONTO:     { prox: 'EM_ROTA',    label: 'Saiu p/ entrega',  bg: 'rgba(124,58,237,.18)', color: '#A78BFA' },
   EM_ROTA:    { prox: 'FINALIZADO', label: 'Finalizar',        bg: 'rgba(16,185,129,.18)', color: '#34D399' },
   FINALIZADO: { bg: 'rgba(16,185,129,.14)', color: '#34D399' },
@@ -31,20 +30,27 @@ const SELECT = '*, itens_pedido(*, itens_pedido_opcoes(*)), pagamentos(metodo, s
 
 /* ── Card de pedido com visual oficial MiseOn ── */
 function CardPedido({
-  p, onAvancar, onCancelar, onImprimir,
+  p, papel, onEnviarCozinha, onAvancar, onCancelar, onImprimir, onErro,
 }: {
   p: Pedido;
-  onAvancar: () => void;
+  papel: string;
+  onEnviarCozinha: () => Promise<void>;
+  onAvancar: (status: StatusPedido) => Promise<void>;
   onCancelar: () => void;
   onImprimir: (via: Via) => void;
+  onErro: (msg: string) => void;
 }) {
   // Mesa pronta fica esperando o garçom fechar a conta (Mapa de Mesas) — não avança sozinha pra EM_ROTA/FINALIZADO.
   const semAvancoSalao = p.tipo_pedido === 'SALAO' && p.status === 'PRONTO';
+  const naCozinha = p.estacao_atual === 'COZINHA';
+  const precisaConferir = p.status === 'PRONTO' && p.estacao_atual === 'BALCAO' && !semAvancoSalao;
   const fluxo = semAvancoSalao ? { ...FLUXO[p.status], prox: undefined } : (FLUXO[p.status] ?? FLUXO.CANCELADO);
   const hora = new Date(p.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const isDelivery = p.tipo_pedido === 'DELIVERY';
+  const [conferidos, setConferidos] = useState<Set<string>>(new Set());
+  const [processando, setProcessando] = useState(false);
 
   useEffect(() => {
     if (!menu) return;
@@ -54,6 +60,27 @@ function CardPedido({
   }, [menu]);
 
   const escolher = (via: Via) => { setMenu(false); onImprimir(via); };
+
+  const itens = p.itens_pedido ?? [];
+  const todosConferidos = precisaConferir && itens.length > 0 && itens.every((i) => conferidos.has(i.id));
+  const toggleConferido = (id: string) => setConferidos((s) => {
+    const novo = new Set(s);
+    novo.has(id) ? novo.delete(id) : novo.add(id);
+    return novo;
+  });
+
+  const destinoLabel = p.tipo_pedido === 'DELIVERY' ? 'Saiu p/ entrega' : 'Entregar ao cliente';
+  const destinoStatus: StatusPedido = p.tipo_pedido === 'DELIVERY' ? 'EM_ROTA' : 'FINALIZADO';
+
+  const executar = async (fn: () => Promise<void>) => {
+    setProcessando(true);
+    try {
+      await fn();
+    } catch (e: any) {
+      onErro(e?.message ?? 'Não foi possível completar a ação.');
+    }
+    setProcessando(false);
+  };
 
   return (
     <div
@@ -103,28 +130,48 @@ function CardPedido({
         </div>
       </div>
 
-      {/* ── Status em destaque (se preparando/novo) ── */}
-      {['NOVO','ACEITO','PREPARANDO'].includes(p.status) && (
+      {/* ── Status em destaque ── */}
+      {p.status === 'NOVO' && (
         <div style={{ margin: '12px 16px 0', background: 'rgba(252,91,36,.1)', border: '1px solid rgba(252,91,36,.35)', borderRadius: 12, padding: '10px 14px' }}>
-          <div style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: 14, color: '#FE7A47' }}>
-            {p.status === 'NOVO' ? 'Aguardando aceite' : p.status === 'ACEITO' ? 'Aceito — preparando na cozinha' : 'Preparando na cozinha'}
+          <div style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: 14, color: '#FE7A47' }}>Aguardando aceite</div>
+        </div>
+      )}
+      {naCozinha && (
+        <div className="mx-4 mt-3 flex items-center gap-2 rounded-xl border border-orange-300/40 bg-orange-500/10 px-3.5 py-2.5" style={{ animation: 'pulse 1.8s infinite' }}>
+          <Flame size={16} className="shrink-0 text-orange-500" />
+          <div>
+            <p className="font-['Sora'] text-sm font-bold text-orange-500">Na cozinha</p>
+            <p className="text-[11px] text-gray-400 dark:text-[#AEB9CE]">Só a cozinha avança este pedido agora.</p>
           </div>
+        </div>
+      )}
+      {p.status === 'ACEITO' && !naCozinha && p.requer_cozinha && (
+        <div style={{ margin: '12px 16px 0', background: 'rgba(252,91,36,.1)', border: '1px solid rgba(252,91,36,.35)', borderRadius: 12, padding: '10px 14px' }}>
+          <div style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: 14, color: '#FE7A47' }}>Aceito — pronto para ir à cozinha</div>
           <div style={{ fontSize: 12, color: '#AEB9CE', marginTop: 4 }}>Estoque baixado por ficha técnica ✓</div>
         </div>
       )}
 
-      {/* ── Itens ── */}
+      {/* ── Itens (com checklist de conferência quando aplicável) ── */}
       <div className="flex flex-1 flex-col gap-2 px-4 py-3">
-        {p.itens_pedido?.map((i) => (
-          <div key={i.id} className="flex justify-between text-[13px]">
-            <span className="text-gray-700 dark:text-[#AEB9CE]">
-              {i.quantidade}× {i.nome_produto}
-              {i.itens_pedido_opcoes?.map((o, x) => (
-                <span key={x} className="mt-0.5 block text-[11px] text-gray-500 dark:text-[#6C7A96]">+ {o.nome_opcao}</span>
-              ))}
-              {i.observacao && (
-                <span className="mt-0.5 block text-[11px] font-semibold text-red-500 dark:text-red-400">⚠ {i.observacao}</span>
+        {itens.map((i) => (
+          <div key={i.id} className={`flex justify-between text-[13px] ${precisaConferir ? 'cursor-pointer select-none' : ''}`}
+            onClick={() => precisaConferir && toggleConferido(i.id)}>
+            <span className="flex items-start gap-2 text-gray-700 dark:text-[#AEB9CE]">
+              {precisaConferir && (
+                <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${conferidos.has(i.id) ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300 dark:border-gray-600'}`}>
+                  {conferidos.has(i.id) && <Check size={11} className="text-white" />}
+                </span>
               )}
+              <span>
+                {i.quantidade}× {i.nome_produto}
+                {i.itens_pedido_opcoes?.map((o, x) => (
+                  <span key={x} className="mt-0.5 block text-[11px] text-gray-500 dark:text-[#6C7A96]">+ {o.nome_opcao}</span>
+                ))}
+                {i.observacao && (
+                  <span className="mt-0.5 block text-[11px] font-semibold text-red-500 dark:text-red-400">⚠ {i.observacao}</span>
+                )}
+              </span>
             </span>
             <span className="ml-2 whitespace-nowrap font-['Sora'] font-semibold text-gray-900 dark:text-[#EAF1FB]">
               {fmt(Number(i.preco_unitario) * i.quantidade)}
@@ -132,6 +179,15 @@ function CardPedido({
           </div>
         ))}
       </div>
+
+      {precisaConferir && itens.length > 0 && (
+        <div className="mx-4 mb-1 flex items-center gap-2">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
+            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${(conferidos.size / itens.length) * 100}%` }} />
+          </div>
+          <span className="shrink-0 text-[10px] font-bold text-gray-400">{conferidos.size}/{itens.length}</span>
+        </div>
+      )}
 
       {/* ── Entrega/Balcão/Mesa ── */}
       <div className="mx-4 border-t border-gray-100 py-2.5 dark:border-white/5">
@@ -157,19 +213,58 @@ function CardPedido({
       </div>
 
       <div className="p-4 flex gap-2 border-t border-gray-100 dark:border-white/5">
-        {fluxo.prox && (
-          <button
-            onClick={onAvancar}
-            className="flex-1 flex items-center justify-center gap-2 bg-orange-500 text-white rounded-xl py-2.5 font-['Sora'] font-bold text-sm shadow-lg shadow-orange-500/20 hover:brightness-110 transition"
-          >
-            <Check size={16} /> {p.tipo_pedido === 'RETIRADA_BALCAO' && p.status === 'PRONTO' ? 'Finalizar' : fluxo.label}
+        {/* NOVO → ACEITO */}
+        {p.status === 'NOVO' && (
+          <button disabled={processando} onClick={() => executar(() => onAvancar('ACEITO'))}
+            className="flex-1 flex items-center justify-center gap-2 bg-orange-500 text-white rounded-xl py-2.5 font-['Sora'] font-bold text-sm shadow-lg shadow-orange-500/20 hover:brightness-110 transition disabled:opacity-50">
+            <Check size={16} /> Aceitar pedido
           </button>
         )}
+
+        {/* ACEITO com bastão no balcão: enviar pra cozinha OU atalho de revenda */}
+        {p.status === 'ACEITO' && !naCozinha && (
+          p.requer_cozinha ? (
+            <button disabled={processando} onClick={() => executar(onEnviarCozinha)}
+              className="flex-1 flex items-center justify-center gap-2 bg-orange-500 text-white rounded-xl py-2.5 font-['Sora'] font-bold text-sm shadow-lg shadow-orange-500/20 hover:brightness-110 transition disabled:opacity-50">
+              <Flame size={16} /> Enviar para a cozinha
+            </button>
+          ) : (
+            <button disabled={processando} onClick={() => executar(() => onAvancar('PRONTO'))}
+              className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 text-white rounded-xl py-2.5 font-['Sora'] font-bold text-sm shadow-lg shadow-emerald-500/20 hover:brightness-110 transition disabled:opacity-50">
+              <Store size={16} /> Separar e entregar
+            </button>
+          )
+        )}
+
+        {/* Bastão com a cozinha: sem ação no balcão */}
+        {naCozinha && (
+          <div className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50 py-2.5 text-xs font-bold uppercase tracking-wide text-orange-600 dark:border-orange-900/40 dark:bg-orange-900/10 dark:text-orange-400">
+            <ChefHat size={14} /> Aguardando a cozinha
+          </div>
+        )}
+
+        {/* PRONTO com bastão no balcão: conferência antes do destino */}
+        {precisaConferir && (
+          <button disabled={processando || !todosConferidos} onClick={() => executar(() => onAvancar(destinoStatus))}
+            className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 text-white rounded-xl py-2.5 font-['Sora'] font-bold text-sm shadow-lg shadow-emerald-500/20 hover:brightness-110 transition disabled:cursor-not-allowed disabled:opacity-40">
+            <Check size={16} /> {destinoLabel}
+          </button>
+        )}
+
+        {/* EM_ROTA → FINALIZADO (segue igual) */}
+        {p.status === 'EM_ROTA' && fluxo.prox && (
+          <button disabled={processando} onClick={() => executar(() => onAvancar(fluxo.prox!))}
+            className="flex-1 flex items-center justify-center gap-2 bg-orange-500 text-white rounded-xl py-2.5 font-['Sora'] font-bold text-sm shadow-lg shadow-orange-500/20 hover:brightness-110 transition disabled:opacity-50">
+            <Check size={16} /> {fluxo.label}
+          </button>
+        )}
+
         {semAvancoSalao && (
           <div className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-purple-200 bg-purple-50 py-2.5 text-xs font-bold uppercase tracking-wide text-purple-600 dark:border-purple-900/40 dark:bg-purple-900/10 dark:text-purple-400">
             <UtensilsCrossed size={14} /> Aguardando fechar a conta
           </div>
         )}
+
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setMenu((m) => !m)}
@@ -195,12 +290,14 @@ function CardPedido({
             </div>
           )}
         </div>
-        {['NOVO','ACEITO'].includes(p.status) && (
+
+        {['NOVO','ACEITO','PREPARANDO'].includes(p.status) && (naCozinha || p.status === 'PREPARANDO' ? papel === 'admin' : true) && (
           <button
             onClick={onCancelar}
+            title={naCozinha || p.status === 'PREPARANDO' ? 'A cozinha já começou — só admin cancela' : 'Cancelar pedido'}
             className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 transition"
           >
-            <XIcon size={18} />
+            {(naCozinha || p.status === 'PREPARANDO') ? <Lock size={15} /> : <XIcon size={18} />}
           </button>
         )}
       </div>
@@ -208,28 +305,35 @@ function CardPedido({
   );
 }
 
-/* ── Filtros rápidos por status ── */
-const FILTROS: { id: string; label: string; status: StatusPedido[] }[] = [
-  { id: 'TODOS',      label: 'Todos',       status: [] },
-  { id: 'ABERTOS',    label: 'Abertos',     status: ['NOVO', 'ACEITO'] },
-  { id: 'PREPARANDO', label: 'Preparando',  status: ['PREPARANDO'] },
-  { id: 'PRONTOS',    label: 'Prontos',     status: ['PRONTO'] },
-  { id: 'EM_ROTA',    label: 'Em rota',     status: ['EM_ROTA'] },
-  { id: 'FINALIZADOS',label: 'Finalizados', status: ['FINALIZADO'] },
-  { id: 'CANCELADOS', label: 'Cancelados',  status: ['CANCELADO'] },
+/* ── Filtros rápidos por status/bastão ── */
+const FILTROS: { id: string; label: string; pred: (p: Pedido) => boolean }[] = [
+  { id: 'TODOS',      label: 'Todos',       pred: () => true },
+  { id: 'ABERTOS',    label: 'Abertos',     pred: (p) => ['NOVO', 'ACEITO'].includes(p.status) && p.estacao_atual !== 'COZINHA' },
+  { id: 'NA_COZINHA', label: 'Na cozinha',  pred: (p) => p.estacao_atual === 'COZINHA' },
+  { id: 'CONFERIR',   label: 'Conferir',    pred: (p) => p.status === 'PRONTO' && p.estacao_atual === 'BALCAO' && p.tipo_pedido !== 'SALAO' },
+  { id: 'EM_ROTA',    label: 'Em rota',     pred: (p) => p.status === 'EM_ROTA' },
+  { id: 'FINALIZADOS',label: 'Finalizados', pred: (p) => p.status === 'FINALIZADO' },
+  { id: 'CANCELADOS', label: 'Cancelados',  pred: (p) => p.status === 'CANCELADO' },
 ];
 
 export default function PainelPedidos() {
-  const { lojaId } = useOutletContext<CtxLoja>();
+  const { lojaId, papel } = useOutletContext<CtxLoja>();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [loja, setLoja] = useState<Loja | null>(null);
   const [filtro, setFiltro] = useState('TODOS');
+  const [erroAcao, setErroAcao] = useState('');
 
   useEffect(() => {
     supabase.from('lojas').select('*').eq('id', lojaId).single()
       .then(({ data }) => setLoja((data as Loja) ?? null));
   }, [lojaId]);
+
+  useEffect(() => {
+    if (!erroAcao) return;
+    const t = setTimeout(() => setErroAcao(''), 6000);
+    return () => clearTimeout(t);
+  }, [erroAcao]);
 
   const carregar = async () => {
     const cutoff24h = new Date(Date.now() - 24 * 3600e3).toISOString();
@@ -267,9 +371,27 @@ export default function PainelPedidos() {
     return () => { supabase.removeChannel(canal); };
   }, [lojaId]);
 
-  const mudarStatus = async (p: Pedido, status: StatusPedido) => {
-    await supabase.from('pedidos').update({ status }).eq('id', p.id);
+  // Toda mudança de status passa pela RPC fn_avancar_status_pedido — o banco
+  // valida a transição (trigger) e devolve o erro em PT, que mostramos aqui.
+  const avancarStatus = async (p: Pedido, status: StatusPedido) => {
+    const { error } = await supabase.rpc('fn_avancar_status_pedido', { p_pedido_id: p.id, p_novo_status: status });
+    if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''));
     carregar();
+  };
+
+  const enviarParaCozinha = async (p: Pedido) => {
+    const { error } = await supabase.rpc('fn_enviar_pedido_cozinha', { p_pedido_id: p.id });
+    if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''));
+    carregar();
+  };
+
+  const cancelar = async (p: Pedido) => {
+    if (!confirm('Cancelar pedido?')) return;
+    try {
+      await avancarStatus(p, 'CANCELADO');
+    } catch (e: any) {
+      setErroAcao(e?.message ?? 'Não foi possível cancelar.');
+    }
   };
 
   // Agendado "futuro" = ainda fora da janela de antecedência da loja — fica numa
@@ -284,13 +406,10 @@ export default function PainelPedidos() {
     .sort((a, b) => (a.agendado_para ?? '').localeCompare(b.agendado_para ?? ''));
   const encerrados = pedidos.filter((p) => ['FINALIZADO', 'CANCELADO'].includes(p.status));
 
-  const contagem = (f: (typeof FILTROS)[number]) =>
-    f.status.length === 0 ? pedidos.length : pedidos.filter((p) => f.status.includes(p.status)).length;
+  const contagem = (f: (typeof FILTROS)[number]) => pedidos.filter(f.pred).length;
 
   const filtroAtivo = FILTROS.find((f) => f.id === filtro) ?? FILTROS[0];
-  const visiveis = [...ativos, ...encerrados].filter(
-    (p) => filtroAtivo.status.length === 0 || filtroAtivo.status.includes(p.status),
-  );
+  const visiveis = [...ativos, ...encerrados].filter(filtroAtivo.pred);
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-5 dark:bg-[#070C18]">
@@ -299,10 +418,16 @@ export default function PainelPedidos() {
           <span className="font-['JetBrains_Mono'] text-[11px] tracking-[0.28em] text-orange-500 uppercase">PAINEL · AO VIVO</span>
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#22c55e]" />
         </div>
-        <h2 className="m-0 font-['Sora'] text-[26px] font-extrabold text-gray-900 dark:text-white">Cozinha &amp; Despacho</h2>
+        <h2 className="m-0 font-['Sora'] text-[26px] font-extrabold text-gray-900 dark:text-white">Balcão</h2>
         <p className="mt-1 font-['JetBrains_Mono'] text-xs text-gray-500 dark:text-gray-400">
           {pedidos.length} pedidos hoje · {ativos.length} em andamento
         </p>
+
+        {erroAcao && (
+          <div className="mt-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm font-semibold text-red-600 dark:border-red-900/40 dark:bg-red-900/10 dark:text-red-400">
+            <Lock size={15} className="shrink-0" /> {erroAcao}
+          </div>
+        )}
 
         {/* ── Filtro por status ── */}
         <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
@@ -364,16 +489,15 @@ export default function PainelPedidos() {
             <CardPedido
               key={p.id}
               p={p}
-              onAvancar={() => {
-                let proxStatus = FLUXO[p.status]?.prox!;
-                if (p.tipo_pedido === 'RETIRADA_BALCAO' && p.status === 'PRONTO') proxStatus = 'FINALIZADO';
-                mudarStatus(p, proxStatus);
-              }}
-              onCancelar={() => { if (confirm('Cancelar pedido?')) mudarStatus(p, 'CANCELADO'); }}
+              papel={papel}
+              onEnviarCozinha={() => enviarParaCozinha(p)}
+              onAvancar={(status) => avancarStatus(p, status)}
+              onCancelar={() => cancelar(p)}
               onImprimir={(v) => {
                 const map: Record<Via, any> = { cozinha: 'COMANDA_COZINHA', romaneio: 'VIA_ENTREGADOR', nota: 'RECIBO_CLIENTE' };
                 imprimir({ template: map[v], lojaNome: loja?.nome || 'MiseOn', loja, pedido: p, itens: p.itens_pedido });
               }}
+              onErro={setErroAcao}
             />
           ))}
           {visiveis.length === 0 && (

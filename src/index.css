@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@400;600;700&family=Montserrat:wght@400;600;700&family=Nunito:wght@400;600;700&family=Quicksand:wght@400;600;700&family=Playfair+Display:wght@400;600;700&family=Roboto+Slab:wght@400;600;700&family=Bebas+Neue&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@400;600;700&family=Montserrat:wght@400;600;700&family=Nunito:wght@400;600;700&family=Quicksand:wght@400;600;700&family=Playfair+Display:wght@400;600;700&family=Roboto+Slab:wght@400;600;700&family=Bebas+Neue&family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&family=Manrope:wght@400;600;700&display=swap');
 @import 'tailwindcss';
 
 /* modo escuro controlado por classe .dark na <html> */
@@ -157,12 +157,16 @@ html { -webkit-tap-highlight-color: transparent; }
 @keyframes mo-shimmer { 0%{background-position:-180% 0} 100%{background-position:180% 0} }
 
 /* ── Transição de telas ── */
-.mo-screen { animation:mo-screen-in .45s cubic-bezier(.2,.8,.2,1) both; }
+/* Sem fill-mode: transform residual em ancestral vira "viewport" de position:fixed
+   e afunda modais/overlays — o transform precisa zerar ao fim da animação. */
+.mo-screen { animation:mo-screen-in .45s cubic-bezier(.2,.8,.2,1); }
+.mo-screen-back { animation:mo-screen-in-back .45s cubic-bezier(.2,.8,.2,1); }
 @keyframes mo-screen-in { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:none} }
+@keyframes mo-screen-in-back { from{opacity:0;transform:translateX(-28px)} to{opacity:1;transform:none} }
 
 @media (prefers-reduced-motion: reduce) {
   .mo-intro,.mo-parts,.mo-parts img,.mo-shine span,.mo-word,.mo-line,.mo-spot,
-  .mo-ring-mark,.mo-screen { animation:none !important; }
+  .mo-ring-mark,.mo-screen,.mo-screen-back { animation:none !important; }
 }
 
 /* ── Comanda térmica ── */
@@ -174,8 +178,30 @@ html { -webkit-tap-highlight-color: transparent; }
   @page { size:80mm auto; margin:2mm; }
 }
 
+/* ── Confete de celebração (SuccessCelebration) ── */
+.mo-confete {
+  position: absolute; width: 8px; height: 12px; border-radius: 2px;
+  animation: mo-confete-cair var(--cd, 1.2s) cubic-bezier(.2,.7,.3,1) forwards;
+}
+@keyframes mo-confete-cair {
+  0%   { transform: translate(0,0) rotate(0deg); opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: translate(var(--cx, 0), calc(var(--cy, -200px) * -1 + 260px)) rotate(var(--cr, 360deg)); opacity: 0; }
+}
+
 /* ── Utils ── */
 @keyframes sheetUp   { from{transform:translateY(40px);opacity:.6} to{transform:translateY(0);opacity:1} }
+@keyframes popIn     { from{transform:scale(.95) translateY(14px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
+.pop { animation:popIn .26s cubic-bezier(.2,.8,.2,1); }
+/* Guia o olhar do usuário para o próximo campo pendente do formulário de cartão */
+@keyframes campoPulse {
+  0%,100% { box-shadow:0 0 0 0 color-mix(in srgb, var(--cor-primaria) 0%, transparent); }
+  50%     { box-shadow:0 0 0 4px color-mix(in srgb, var(--cor-primaria) 22%, transparent); }
+}
+.campo-proximo:not(:focus) {
+  border-color: color-mix(in srgb, var(--cor-primaria) 60%, transparent);
+  animation: campoPulse 1.5s ease-in-out infinite;
+}
 @keyframes fadeIn    { from{opacity:0} to{opacity:1} }
 @keyframes slideLeft { from{transform:translateX(100%);opacity:.8} to{transform:translateX(0);opacity:1} }
 .sheet      { animation:sheetUp   .28s cubic-bezier(.2,.8,.2,1); }
