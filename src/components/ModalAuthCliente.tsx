@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { X, LogIn, Mail, Lock } from 'lucide-react';
 
@@ -51,7 +52,8 @@ export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean;
     });
   };
 
-  return (
+  // Portal no body: fixed dentro de ancestral com transform seria posicionado errado.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm">
       <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 sm:p-8 shadow-2xl">
         <button onClick={onClose} className="absolute right-4 top-4 rounded-full p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
@@ -143,6 +145,7 @@ export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean;
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

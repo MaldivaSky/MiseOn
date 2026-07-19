@@ -1,5 +1,3 @@
-import '../brand.css';
-
 const C = 289;
 
 export function MiseOnLoader({

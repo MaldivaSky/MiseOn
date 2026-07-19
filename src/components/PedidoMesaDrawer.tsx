@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Check, Loader2, UtensilsCrossed } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { obterOuCriarComandaAberta } from '../lib/comandas';
@@ -45,6 +46,7 @@ export default function PedidoMesaDrawer({ loja, mesa, carrinho, setCarrinho, on
         identificador_cliente: nome.trim() || `Mesa ${mesa.numero}`,
         subtotal, valor_total: subtotal,
         observacao: observacao.trim() || null,
+        requer_cozinha: false, // trigger promove p/ true se algum item for COZINHA
       }).select('id, numero').single();
       if (erroPedido || !pedido) throw erroPedido ?? new Error('Falha ao enviar o pedido');
 
@@ -75,7 +77,8 @@ export default function PedidoMesaDrawer({ loja, mesa, carrinho, setCarrinho, on
     setEnviando(false);
   };
 
-  return (
+  // Portal no body: fixed dentro de ancestral com transform seria posicionado errado.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center" onClick={() => !enviando && onClose()}>
       <div className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-3xl p-5 shadow-2xl sm:rounded-3xl"
         style={{ background: 'var(--cor-card)' }} onClick={(e) => e.stopPropagation()}>
@@ -124,6 +127,7 @@ export default function PedidoMesaDrawer({ loja, mesa, carrinho, setCarrinho, on
           {enviando ? 'Enviando…' : `Enviar pedido para a Mesa ${mesa.numero}`}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
