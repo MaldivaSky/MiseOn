@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { User } from '@supabase/supabase-js';
 import {
   ShoppingBag, Plus, Minus, X, MapPin, LogIn, Lock,
@@ -34,7 +35,7 @@ interface Props {
   user: User | null;
   setCarrinho: (c: ItemCarrinho[]) => void;
   onClose: () => void;
-  onSucesso: (numero: number, pedidoId: string, metodo: MetodoPgto, pix?: { copia_e_cola: string; qr_imagem?: string } | null) => void;
+  onSucesso: (numero: number, pedidoId: string, metodo: MetodoPgto, pix?: { copia_e_cola: string; qr_imagem?: string } | null, total?: number) => void;
   onCartao?: (info: { pedidoId: string; numero: number; total: number }) => void;
   onAbrirAuth: () => void;
 }
@@ -340,6 +341,9 @@ export default function CheckoutDrawer({
       troco_para: metodo === 'DINHEIRO' && trocoPara ? Number(trocoPara) : null,
       agendado_para: agendadoParaISO,
       cashback_usado: cashbackAplicado,
+      // Nasce false; a trigger de itens_pedido promove pra true se algum
+      // item for estacao_preparo=COZINHA (fluxo passa-bastão, docs/PLANO-FLUXO-PEDIDOS.md).
+      requer_cozinha: false,
     }).select('id, numero').single();
 
     if (erroPedido || !pedido) {
@@ -409,7 +413,7 @@ export default function CheckoutDrawer({
         return setErro(mensagemErroSupabase('Erro ao confirmar o pagamento por cashback.', erroQuita));
       }
       setEnviando(false);
-      onSucesso(pedido.numero, pedido.id, metodo, null);
+      onSucesso(pedido.numero, pedido.id, metodo, null, total);
       return;
     }
 
@@ -434,10 +438,11 @@ export default function CheckoutDrawer({
     }
 
     setEnviando(false);
-    onSucesso(pedido.numero, pedido.id, metodo, pixInfo);
+    onSucesso(pedido.numero, pedido.id, metodo, pixInfo, total);
   };
 
-  return (
+  // Portal no body: fixed dentro de ancestral com transform seria posicionado errado.
+  return createPortal(
     // Overlay com backdrop
     <div
       className="fixed inset-0 z-40 flex items-stretch justify-end"
@@ -891,6 +896,7 @@ export default function CheckoutDrawer({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

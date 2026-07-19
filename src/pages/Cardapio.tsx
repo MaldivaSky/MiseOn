@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { createPortal } from 'react-dom';
+import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
-import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star, LogIn, LogOut, History, Lock, ShieldCheck, User as UserIcon, Trash2, QrCode, Copy, CheckCircle, CreditCard, Loader2, ChevronLeft, Check, ArrowRight, Sparkles, Compass, UtensilsCrossed, PartyPopper } from 'lucide-react';
+import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star, LogIn, LogOut, History, Lock, ShieldCheck, User as UserIcon, Trash2, QrCode, Copy, CreditCard, Loader2, ChevronLeft, Check, ArrowRight, Sparkles, Compass, UtensilsCrossed, PartyPopper, Receipt } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { maskCartaoCredito, maskValidadeCartao, maskCPF, validarCPF } from '../lib/mascaras';
 import ModalAuthCliente from '../components/ModalAuthCliente';
 import ModalMinhaConta from '../components/ModalMinhaConta';
 import EnderecoMixin, { EnderecoFormData } from '../components/EnderecoMixin';
 import PedidoMesaDrawer from '../components/PedidoMesaDrawer';
+import { Button, Modal, SuccessCelebration, BandeiraMark, BANDEIRAS_ACEITAS } from '../components/ui';
 import {
   Loja, Banner, Categoria, Produto, Cupom, TaxaEntrega, FaixaEntrega, ItemCarrinho, Cliente,
   HorarioFuncionamento, MetodoPgto, Mesa, fmt, precoItem,
@@ -15,6 +17,7 @@ import {
 import { fonteFamilia, isLightColor, obterFundoLojaPorTema, obterTokensLoja } from '../lib/personalizacao';
 import { aplicarTema, obterTemaPreferido, type PreferenciaTema } from '../lib/tema';
 import CheckoutDrawer from '../components/CheckoutDrawer';
+import PagamentoStatus, { type PixInfo } from '../components/PagamentoStatus';
 import ThemeToggle from '../components/ThemeToggle';
 
 const guardarUltimoPedido = (slug: string | undefined, pedidoId: string, numero: number) => {
@@ -51,17 +54,39 @@ const entrarComGoogle = (voltarPara: string) =>
   supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: voltarPara } });
 
 // ── Loja aberta? (horário automático + override manual) ─────
+// Horário que vira a noite (ex.: sábado 10:00–00:50, fecha já domingo de
+// madrugada) precisa ser checado contra a linha de ONTEM também — senão às
+// 00:50 de domingo a função só olha a linha de domingo e mostra "fechado".
 function lojaAberta(loja: Loja | null, horarios: HorarioFuncionamento[]): boolean {
   if (!loja) return false;
   if (loja.aberto_manual !== null && loja.aberto_manual !== undefined) return loja.aberto_manual;
   const agora = new Date();
-  const hoje = horarios.filter((h) => h.dia_semana === agora.getDay());
   const hm = agora.toTimeString().slice(0, 5);
-  return hoje.some((h) => hm >= h.abre.slice(0, 5) && hm <= h.fecha.slice(0, 5));
+  const diaHoje = agora.getDay();
+  const diaOntem = (diaHoje + 6) % 7;
+
+  const dentroDoIntervalo = (h: HorarioFuncionamento, ehLinhaDeOntem: boolean) => {
+    const abre = h.abre.slice(0, 5);
+    const fecha = h.fecha.slice(0, 5);
+    const cruzaMeiaNoite = fecha <= abre;
+    if (!cruzaMeiaNoite) return !ehLinhaDeOntem && hm >= abre && hm <= fecha;
+    // Cruza meia-noite: a linha de ontem cobre a madrugada de hoje (00:00 até
+    // "fecha"); a linha de hoje cobre a partir de "abre" até a meia-noite.
+    return ehLinhaDeOntem ? hm <= fecha : hm >= abre;
+  };
+
+  const linhasHoje = horarios.filter((h) => h.dia_semana === diaHoje);
+  const linhasOntem = horarios.filter((h) => h.dia_semana === diaOntem);
+  return linhasHoje.some((h) => dentroDoIntervalo(h, false)) || linhasOntem.some((h) => dentroDoIntervalo(h, true));
 }
+
+const ROTULO_METODO: Record<MetodoPgto, string> = {
+  PIX: 'Pix', CREDITO: 'Crédito', DEBITO: 'Débito', DINHEIRO: 'Dinheiro',
+};
 
 export default function Cardapio() {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const numeroMesaUrl = searchParams.get('mesa');
   const [mesaAtual, setMesaAtual] = useState<Mesa | null>(null);
@@ -96,7 +121,8 @@ export default function Cardapio() {
   const [checkoutAberto, setCheckoutAberto] = useState(false);
   const [pedidoNumero, setPedidoNumero] = useState<number | null>(null);
   const [pedidoId, setPedidoId] = useState<string | null>(null);
-  const [pix, setPix] = useState<{ copia_e_cola: string; qr_imagem?: string } | null>(null);
+  const [pedidoTotal, setPedidoTotal] = useState<number | null>(null);
+  const [pix, setPix] = useState<PixInfo | null>(null);
   const [metodo, setMetodo] = useState<MetodoPgto>('PIX');
   const [cartao, setCartao] = useState<{ pedidoId: string; numero: number; total: number } | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -122,24 +148,9 @@ export default function Cardapio() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Escuta o pagamento Pix em tempo real
-  useEffect(() => {
-    if (!pedidoId || !pix) return;
-    const canal = supabase
-      .channel(`pagamento-${pedidoId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pagamentos', filter: `pedido_id=eq.${pedidoId}` },
-        (payload) => {
-          if (payload.new.status === 'PAGO') {
-             // O banco confirmou! Tira o QR Code da tela e mostra a tela verde de sucesso
-             setPix(null);
-             
-             // Opcional: Tocar um som de 'caixa registradora' ou 'sucesso'
-             try { new Audio('/notificacao.mp3').play(); } catch(e) {}
-          }
-        })
-      .subscribe();
-    return () => { supabase.removeChannel(canal); };
-  }, [pedidoId, pix]);
+  // A confirmação do Pix é do <PagamentoStatus> (polling de pagamentos + realtime
+  // de pedidos). O realtime de `pagamentos` foi removido: essa tabela não está na
+  // publicação realtime, então nunca disparava — era a raiz do "sem feedback".
 
   useEffect(() => {
     if (!slug) return;
@@ -239,6 +250,14 @@ export default function Cardapio() {
       supabase.from('pagamentos').update({ status: 'CANCELADO' }).eq('pedido_id', pedidoId).eq('status', 'PENDENTE'),
       supabase.from('pedidos').update({ status: 'CANCELADO' }).eq('id', pedidoId).eq('status', 'NOVO'),
     ]);
+  };
+
+  // Gera uma nova cobrança Pix para o mesmo pedido (usado quando a janela expira).
+  const regenerarPix = async (): Promise<PixInfo | null> => {
+    if (!pedidoId) return null;
+    const { data, error } = await supabase.functions.invoke('pix-criar-cobranca', { body: { pedido_id: pedidoId } });
+    if (error || (data as any)?.error || !(data as any)?.copia_e_cola) return null;
+    return data as PixInfo;
   };
 
   if (!loja)
@@ -546,10 +565,10 @@ export default function Cardapio() {
         <CheckoutDrawer loja={loja} aberta={aberta} carrinho={carrinho} taxas={taxas} faixasDistancia={faixasDistancia} horarios={horarios} user={user} setCarrinho={setCarrinho}
           onClose={() => setCheckoutAberto(false)} onAbrirAuth={() => setModalAuthAberto(true)}
           onCartao={(info) => { setCheckoutAberto(false); setCartao(info); }}
-          onSucesso={(num, id, metodo, pixData) => {
+          onSucesso={(num, id, metodo, pixData, total) => {
             guardarUltimoPedido(slug, id, num);
             if (user) marcarCarrinhoRecuperado(loja.id, user);
-            setCarrinho([]); setCheckoutAberto(false); setPedidoNumero(num); setPedidoId(id); setPix(pixData ?? null); setMetodo(metodo);
+            setCarrinho([]); setCheckoutAberto(false); setPedidoNumero(num); setPedidoId(id); setPedidoTotal(total ?? null); setPix(pixData ?? null); setMetodo(metodo);
           }} />
       )}
 
@@ -559,7 +578,7 @@ export default function Cardapio() {
       }} onAprovado={() => {
         guardarUltimoPedido(slug, cartao.pedidoId, cartao.numero);
         if (user) marcarCarrinhoRecuperado(loja.id, user);
-        setCartao(null); setPedidoNumero(cartao.numero); setPedidoId(cartao.pedidoId);
+        setCartao(null); setPedidoNumero(cartao.numero); setPedidoId(cartao.pedidoId); setPedidoTotal(cartao.total); setMetodo('CREDITO');
       }} />}
 
       <ModalAuthCliente isOpen={modalAuthAberto} onClose={() => setModalAuthAberto(false)} />
@@ -572,125 +591,65 @@ export default function Cardapio() {
         userEmail={user?.email}
       />
 
-      {pedidoNumero !== null && (
-        <div className="fade fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 shadow-2xl">
-            
-            {pix ? (
-              <div className="flex flex-col items-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-teal-100 text-teal-600 mb-4 shadow-inner">
-                  <QrCode size={32} />
-                </div>
-                <h3 className="text-xl font-black dark:text-gray-100 text-center">Pedido #{pedidoNumero} Reservado!</h3>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 text-center mt-1">
-                  A cozinha começará o preparo assim que o Pix for confirmado.
+      {/* Pix: máquina de estados (aguardando -> confirmado -> expirado) com
+          confirmação automática por polling. Substitui o QR estático. */}
+      {pedidoNumero !== null && pedidoId && pix && (
+        <PagamentoStatus
+          pedidoId={pedidoId}
+          numero={pedidoNumero}
+          pix={pix}
+          onRegenerar={regenerarPix}
+          onFechar={() => { setPedidoNumero(null); setPix(null); setPedidoId(null); setPedidoTotal(null); }}
+        />
+      )}
+
+      {/* Cartão/dinheiro: pagamento já resolvido no ato -> confirmação direta. */}
+      {pedidoNumero !== null && pedidoId && !pix && (
+        <Modal aberto onFechar={() => { setPedidoNumero(null); setPix(null); setPedidoId(null); setPedidoTotal(null); setCheckoutAberto(false); }}>
+          <SuccessCelebration
+            titulo="Pagamento confirmado!"
+            subtitulo="A cozinha já foi notificada e começou a preparar."
+          >
+            <div className="mt-2 space-y-4">
+              {/* Resumo do pedido */}
+              <div className="rounded-2xl border border-[var(--cor-borda)] bg-[var(--cor-surface)] p-4 text-left">
+                <p className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[var(--cor-texto-fraco)]">
+                  <Receipt size={12} /> Resumo do pedido
                 </p>
-
-                <div className="mt-6 w-full p-5 bg-white dark:bg-gray-950 rounded-2xl border-2 border-teal-500 shadow-xl shadow-teal-500/10 relative overflow-hidden">
-                   <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-teal-400 to-teal-600"></div>
-                   
-                   {pix.qr_imagem ? (
-                     <img src={pix.qr_imagem} alt="QR Code Pix" className="mx-auto h-48 w-48 object-contain" />
-                   ) : (
-                     <div className="h-48 w-48 mx-auto flex items-center justify-center bg-gray-50 dark:bg-gray-900 rounded-xl">
-                       <div className="animate-spin h-8 w-8 border-4 border-gray-200 border-t-teal-500 rounded-full"></div>
-                     </div>
-                   )}
-                   
-                   <div className="mt-5 w-full">
-                      <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Pix Copia e Cola</p>
-                      <div className="flex items-center gap-2">
-                        <input readOnly value={pix.copia_e_cola} 
-                          className="w-full rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-3 text-xs text-gray-600 dark:text-gray-400 font-mono truncate focus:outline-none" />
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(pix.copia_e_cola);
-                            const btn = document.getElementById('btn-copy-pix');
-                            if(btn) {
-                              btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>';
-                              btn.classList.replace('bg-teal-100', 'bg-green-600');
-                              btn.classList.replace('text-teal-700', 'text-white');
-                              setTimeout(() => {
-                                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
-                                btn.classList.replace('bg-green-600', 'bg-teal-100');
-                                btn.classList.replace('text-white', 'text-teal-700');
-                              }, 2000);
-                            }
-                          }}
-                          id="btn-copy-pix"
-                          className="shrink-0 flex items-center justify-center p-3 rounded-xl bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 hover:bg-teal-200 transition-colors"
-                        >
-                          <Copy size={18} />
-                        </button>
-                      </div>
-                   </div>
-                </div>
-
-                <div className="mt-5 flex items-center justify-center gap-2 text-xs font-semibold text-teal-600 dark:text-teal-500">
-                   <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></div>
-                   Aguardando confirmação do banco...
-                </div>
-                
-                <div className="mt-4 flex w-full gap-2">
-                  <Link to="/lojas"
-                    className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-600 transition hover:border-gray-300 hover:text-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-white">
-                    Ver outras lojas
-                  </Link>
-                  <button onClick={() => { setPedidoNumero(null); setPix(null); setPedidoId(null); }} 
-                    className="flex-1 rounded-xl bg-gray-100 dark:bg-gray-800 py-3.5 text-sm font-semibold text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-200">
-                    Fechar
-                  </button>
-                  <a href={`/pedido/${pedidoId}`}
-                    className="flex-1 text-center rounded-xl bg-[var(--cor-primaria)] py-3.5 text-sm font-semibold text-white transition-opacity hover:opacity-90">
-                    Ver Pedido
-                  </a>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[var(--cor-texto-suave)]">Pedido</span>
+                    <span className="font-bold text-[var(--cor-texto)] dark:text-[var(--cor-texto-claro)]">#{pedidoNumero}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[var(--cor-texto-suave)]">Forma de pagamento</span>
+                    <span className="font-semibold text-[var(--cor-texto)] dark:text-[var(--cor-texto-claro)]">{ROTULO_METODO[metodo]}</span>
+                  </div>
+                  {pedidoTotal !== null && (
+                    <div className="flex items-center justify-between border-t border-[var(--cor-borda)] pt-2">
+                      <span className="font-semibold text-[var(--cor-texto)] dark:text-[var(--cor-texto-claro)]">Total</span>
+                      <span className="text-base font-black text-[var(--cor-primaria)]">{fmt(pedidoTotal)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
-            ) : (
-              <div className="space-y-6 text-center">
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-green-600 mb-4 shadow-inner flex-shrink-0">
-                  <CheckCircle size={36} />
-                </div>
 
-                {/* Mensagem específica por método de pagamento */}
-                {metodo === 'PIX' ? (
-                  <>
-                    <h3 className="text-2xl font-black dark:text-gray-100">Pix Recebido! ✓</h3>
-                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                      Aguardando confirmação do banco (geralmente em poucos minutos).
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <h3 className="text-2xl font-black dark:text-gray-100">Pagamento Confirmado! ✓</h3>
-                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                      O pedido #{pedidoNumero} foi confirmado e a cozinha já foi notificada.
-                    </p>
-                  </>
-                )}
-
-                <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-                  Enquanto isso, você pode continuar explorando nosso cardápio ou acompanhar seu pedido.
-                </p>
-
-                <div className="mt-6 flex flex-col sm:flex-row gap-3">
-                  <a href={`/pedido/${pedidoId}`}
-                    className="flex-1 flex items-center justify-center rounded-xl bg-[var(--cor-primaria)] py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all">
-                    Acompanhar Pedido
-                  </a>
-                  <button onClick={() => { setPedidoNumero(null); setPix(null); setPedidoId(null); setCheckoutAberto(false); }}
-                    className="flex-1 flex items-center justify-center rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
-                    Voltar ao Cardápio
-                  </button>
-                </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button size="lg" className="flex-1" onClick={() => navigate(`/pedido/${pedidoId}`)}>
+                  Acompanhar pedido
+                </Button>
+                <Button variant="secundario" size="lg" className="flex-1"
+                  onClick={() => { setPedidoNumero(null); setPix(null); setPedidoId(null); setPedidoTotal(null); setCheckoutAberto(false); }}>
+                  Voltar ao cardápio
+                </Button>
               </div>
-            )}
-            
-            <p className="mt-5 text-center text-[10px] font-semibold text-gray-400 flex items-center justify-center gap-1">
-              <ShieldCheck size={12} /> Transação protegida de ponta a ponta.
-            </p>
-          </div>
-        </div>
+
+              <p className="flex items-center justify-center gap-1 text-[10px] font-semibold text-[var(--cor-texto-fraco)]">
+                <ShieldCheck size={12} /> Transação protegida de ponta a ponta.
+              </p>
+            </div>
+          </SuccessCelebration>
+        </Modal>
       )}
     </div>
   );
@@ -722,7 +681,9 @@ function ModalProduto({ produto, onClose, onAdd }: {
 
   const imgs = produto.galeria?.length ? produto.galeria : (produto.imagem_url ? [produto.imagem_url] : []);
 
-  return (
+  // Portal no body: position:fixed dentro de ancestral com transform (ex.: .mo-screen)
+  // é posicionado em relação ao ancestral, não à janela — o modal "afunda".
+  return createPortal(
     <div className="fade fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div className="sheet max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white dark:bg-gray-900 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         
@@ -807,7 +768,8 @@ function ModalProduto({ produto, onClose, onAdd }: {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -837,93 +799,44 @@ const luhnValido = (digits: string): boolean => {
   return soma % 10 === 0;
 };
 
-// Ícone de bandeira estilo "flag" (retângulo arredondado, como no cartão real)
-function BandeiraMark({ id, className = 'h-6 w-auto' }: { id: string; className?: string }) {
-  const p = { viewBox: '0 0 40 26', className, role: 'img', 'aria-label': id } as const;
-  switch (id) {
-    case 'visa':
-      return (
-        <svg {...p}>
-          <rect width="40" height="26" rx="4" fill="#fff" stroke="#E6E8EF" />
-          <text x="20" y="17.5" textAnchor="middle" fontFamily="Arial, sans-serif" fontWeight="700" fontStyle="italic" fontSize="12" fill="#1A1F71">VISA</text>
-        </svg>
-      );
-    case 'mastercard':
-      return (
-        <svg {...p}>
-          <rect width="40" height="26" rx="4" fill="#fff" stroke="#E6E8EF" />
-          <circle cx="16.5" cy="13" r="7.5" fill="#EB001B" />
-          <circle cx="23.5" cy="13" r="7.5" fill="#F79E1B" fillOpacity="0.9" />
-        </svg>
-      );
-    case 'amex':
-      return (
-        <svg {...p}>
-          <rect width="40" height="26" rx="4" fill="#1F72CF" />
-          <text x="20" y="16" textAnchor="middle" fontFamily="Arial, sans-serif" fontWeight="700" fontSize="7.5" fill="#fff">AMEX</text>
-        </svg>
-      );
-    case 'elo':
-      return (
-        <svg {...p}>
-          <rect width="40" height="26" rx="4" fill="#000" />
-          <text x="20" y="17.5" textAnchor="middle" fontFamily="Arial, sans-serif" fontWeight="700" fontStyle="italic" fontSize="12" fill="#fff">elo</text>
-        </svg>
-      );
-    case 'hipercard':
-      return (
-        <svg {...p}>
-          <rect width="40" height="26" rx="4" fill="#822124" />
-          <text x="20" y="16" textAnchor="middle" fontFamily="Arial, sans-serif" fontWeight="700" fontSize="6" fill="#fff">Hipercard</text>
-        </svg>
-      );
-    case 'diners':
-      return (
-        <svg {...p}>
-          <rect width="40" height="26" rx="4" fill="#0079BE" />
-          <text x="20" y="16.5" textAnchor="middle" fontFamily="Arial, sans-serif" fontWeight="700" fontSize="6.5" fill="#fff">Diners</text>
-        </svg>
-      );
-    case 'discover':
-      return (
-        <svg {...p}>
-          <rect width="40" height="26" rx="4" fill="#fff" stroke="#E6E8EF" />
-          <circle cx="31" cy="17" r="6" fill="#F79E1B" />
-          <text x="16" y="16.5" textAnchor="middle" fontFamily="Arial, sans-serif" fontWeight="700" fontSize="6" fill="#111">Discover</text>
-        </svg>
-      );
-    default:
-      return (
-        <svg {...p}>
-          <rect width="40" height="26" rx="4" fill="#E5E7EB" />
-        </svg>
-      );
-  }
-}
-const BANDEIRAS_ACEITAS = ['visa', 'mastercard', 'amex', 'elo', 'hipercard'];
+// BandeiraMark/BANDEIRAS_ACEITAS agora vêm de components/ui (compartilhados com a Assinatura).
 
 // ── Tela dedicada de pagamento com cartão (Efí — tokenização no navegador) ──
+// Dados NÃO sensíveis do titular (nome + CPF) para agilizar a próxima compra.
+// NUNCA guardamos número do cartão nem CVV — só o que a Efí tokeniza no ato.
+const TITULAR_KEY = 'miseon_titular_cartao';
+function lerTitularSalvo(): { nome: string; cpf: string } | null {
+  try { const r = localStorage.getItem(TITULAR_KEY); return r ? JSON.parse(r) : null; } catch { return null; }
+}
+
 function CartaoModal({ loja, info, onFechar, onAprovado }: {
   loja: Loja;
   info: { pedidoId: string; numero: number; total: number };
   onFechar: () => void;
   onAprovado: () => void;
 }) {
+  const salvo = lerTitularSalvo();
   const [numero, setNumero] = useState('');
-  const [nome, setNome] = useState('');
-  const [cpf, setCpf] = useState('');
+  const [nome, setNome] = useState(salvo?.nome ?? '');
+  const [cpf, setCpf] = useState(salvo?.cpf ?? '');
   const [validade, setValidade] = useState(''); // MM/AA
   const [cvv, setCvv] = useState('');
   const [parcelas, setParcelas] = useState(1);
+  const [salvarDados, setSalvarDados] = useState(!!salvo);
   const [erro, setErro] = useState('');
   const [processando, setProcessando] = useState(false);
   const [verso, setVerso] = useState(false); // vira o cartão ao focar o CVV
   const [tocado, setTocado] = useState<Record<string, boolean>>({});
   const numeroRef = useRef<HTMLInputElement>(null);
+  const nomeRef = useRef<HTMLInputElement>(null);
+  const validadeRef = useRef<HTMLInputElement>(null);
+  const cvvRef = useRef<HTMLInputElement>(null);
+  const cpfRef = useRef<HTMLInputElement>(null);
+  const pagarRef = useRef<HTMLButtonElement>(null);
 
   // Comportamento de modal profissional: foco no 1º campo, trava o scroll do fundo e fecha no Esc.
   useEffect(() => {
-    const t = setTimeout(() => numeroRef.current?.focus(), 120);
+    const t = setTimeout(() => numeroRef.current?.focus({ preventScroll: true }), 120);
     const overflowAnterior = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !processando) onFechar(); };
@@ -953,6 +866,10 @@ function CartaoModal({ loja, info, onFechar, onAprovado }: {
   const okCpf = validarCPF(cpf);
   const okCvv = /^\d{3,4}$/.test(cvv);
   const tudoOk = okNumero && okNome && okCpf && validadeOk && okCvv;
+
+  // Próximo campo pendente na ordem de preenchimento — recebe o destaque pulsante
+  // (classe .campo-proximo) que conduz o olhar do usuário durante o fluxo.
+  const proximo = !okNumero ? 'numero' : !okNome ? 'nome' : !validadeOk ? 'validade' : !okCvv ? 'cvv' : !okCpf ? 'cpf' : '';
 
   // Número renderizado no cartão visual (dígitos digitados + placeholders)
   const numeroDisplay = (() => {
@@ -1027,6 +944,11 @@ function CartaoModal({ loja, info, onFechar, onAprovado }: {
         // Garante texto: nunca joga objeto no JSX (senão o React quebra a tela).
         setErro(typeof msg === 'string' ? msg : 'Pagamento não autorizado. Confira os dados ou tente outro cartão.');
       } else {
+        // Guarda (ou limpa) os dados do titular para a próxima compra.
+        try {
+          if (salvarDados) localStorage.setItem(TITULAR_KEY, JSON.stringify({ nome, cpf }));
+          else localStorage.removeItem(TITULAR_KEY);
+        } catch { /* localStorage indisponível: ignora */ }
         onAprovado();
       }
     } catch (e: any) {
@@ -1042,16 +964,19 @@ function CartaoModal({ loja, info, onFechar, onAprovado }: {
       invalido(k, ok)
         ? 'border-red-400 focus:border-red-500 dark:border-red-500/60'
         : 'border-gray-200 focus:border-[var(--cor-primaria)] dark:border-gray-700'
-    }`;
+    }${!invalido(k, ok) && k === proximo ? ' campo-proximo' : ''}`;
   const rotuloCls = 'mb-0.5 block text-[11px] font-semibold text-gray-500 dark:text-gray-400';
 
-  return (
-    <div className="fade fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/60 p-3 backdrop-blur-sm">
-      {/* Painel único e compacto (não fecha ao digitar; só no X) */}
-      <div className="sheet my-auto w-full max-w-[400px] overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900">
+  // Portal no body: garante que o fixed se refira à janela mesmo com
+  // ancestral transformado (ex.: animação de transição de tela).
+  return createPortal(
+    <div className="fade fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm sm:p-4">
+      {/* Modal centralizado; header e botão de pagar ficam FIXOS
+          e o miolo rola sozinho — o botão nunca some da tela. */}
+      <div className="pop flex max-h-[92dvh] w-full max-w-[420px] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-gray-900 sm:max-h-[90dvh]">
 
-        {/* Cabeçalho */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+        {/* Cabeçalho fixo */}
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3.5 dark:border-gray-800">
           <div className="flex items-center gap-1.5 text-sm font-bold text-gray-900 dark:text-gray-100">
             <Lock size={15} className="text-emerald-500" /> Pagamento seguro
           </div>
@@ -1061,7 +986,9 @@ function CartaoModal({ loja, info, onFechar, onAprovado }: {
           </div>
         </div>
 
-        <div className="px-4 py-3">
+        {/* Corpo rolável — min-h-0 é obrigatório: sem ele o flex item não encolhe
+            e empurra o rodapé (botão de pagar) para fora da tela. */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           {/* Mini-cartão compacto que reage ao que é digitado (flip no CVV) */}
           <div className="mb-3 [perspective:1000px]">
             <div className={`relative h-36 w-full transition-transform duration-500 [transform-style:preserve-3d] ${verso ? '[transform:rotateY(180deg)]' : ''}`}>
@@ -1096,7 +1023,15 @@ function CartaoModal({ loja, info, onFechar, onAprovado }: {
             <label className="block">
               <span className={rotuloCls}>Número do cartão</span>
               <div className="relative">
-                <input ref={numeroRef} value={numero} onChange={(e) => setNumero(maskCartaoCredito(e.target.value))} onBlur={() => marcar('numero')}
+                <input ref={numeroRef} value={numero}
+                  onChange={(e) => {
+                    const v = maskCartaoCredito(e.target.value);
+                    setNumero(v);
+                    const d = v.replace(/\D/g, '');
+                    // Número completo → avança sozinho para o nome
+                    if (d.length >= (detectarBandeira(d)?.id === 'amex' ? 15 : 16)) nomeRef.current?.focus();
+                  }}
+                  onBlur={() => marcar('numero')}
                   inputMode="numeric" autoComplete="cc-number" placeholder="0000 0000 0000 0000"
                   className={campoCls('numero', okNumero) + ' pr-16 font-mono tracking-wide'} />
                 <div className="absolute right-2.5 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
@@ -1108,19 +1043,31 @@ function CartaoModal({ loja, info, onFechar, onAprovado }: {
 
             <label className="block">
               <span className={rotuloCls}>Nome impresso no cartão</span>
-              <input value={nome} onChange={(e) => setNome(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s]/g, '').toUpperCase())} onBlur={() => marcar('nome')}
+              <input ref={nomeRef} value={nome} onChange={(e) => setNome(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s]/g, '').toUpperCase())} onBlur={() => marcar('nome')}
+                onKeyDown={(e) => { if (e.key === 'Enter' && okNome) validadeRef.current?.focus(); }}
                 autoComplete="cc-name" placeholder="COMO ESTÁ NO CARTÃO" className={campoCls('nome', okNome)} />
             </label>
 
             <div className="grid grid-cols-2 gap-2.5">
               <label className="block">
                 <span className={rotuloCls}>Validade</span>
-                <input value={validade} onChange={(e) => setValidade(maskValidadeCartao(e.target.value))} onBlur={() => marcar('validade')}
+                <input ref={validadeRef} value={validade}
+                  onChange={(e) => {
+                    const v = maskValidadeCartao(e.target.value);
+                    setValidade(v);
+                    if (v.length === 5) cvvRef.current?.focus(); // MM/AA completo → CVV
+                  }}
+                  onBlur={() => marcar('validade')}
                   inputMode="numeric" autoComplete="cc-exp" placeholder="MM/AA" className={campoCls('validade', validadeOk)} />
               </label>
               <label className="block">
                 <span className={rotuloCls}>CVV</span>
-                <input value={cvv} onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                <input ref={cvvRef} value={cvv}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    setCvv(v);
+                    if (v.length >= (bandeira?.id === 'amex' ? 4 : 3)) cpfRef.current?.focus(); // CVV completo → CPF
+                  }}
                   onFocus={() => setVerso(true)} onBlur={() => { setVerso(false); marcar('cvv'); }}
                   inputMode="numeric" autoComplete="cc-csc" placeholder="000" className={campoCls('cvv', okCvv)} />
               </label>
@@ -1129,7 +1076,13 @@ function CartaoModal({ loja, info, onFechar, onAprovado }: {
             <div className="grid grid-cols-2 gap-2.5">
               <label className="block">
                 <span className={rotuloCls}>CPF do titular</span>
-                <input value={cpf} onChange={(e) => setCpf(maskCPF(e.target.value))} onBlur={() => marcar('cpf')}
+                <input ref={cpfRef} value={cpf}
+                  onChange={(e) => {
+                    const v = maskCPF(e.target.value);
+                    setCpf(v);
+                    if (v.length === 14 && validarCPF(v)) pagarRef.current?.focus(); // CPF completo → botão pagar
+                  }}
+                  onBlur={() => marcar('cpf')}
                   inputMode="numeric" placeholder="000.000.000-00" className={campoCls('cpf', okCpf)} />
               </label>
               <label className="block">
@@ -1142,19 +1095,17 @@ function CartaoModal({ loja, info, onFechar, onAprovado }: {
             </div>
           </div>
 
-          {erro && (
-            <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-[13px] font-medium text-red-600 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
-              <X size={15} className="mt-0.5 shrink-0" /> <span>{erro}</span>
-            </div>
-          )}
+          {/* Salvar dados do titular — só nome e CPF, jamais número/CVV */}
+          <label className="mt-3 flex cursor-pointer items-center gap-2.5 rounded-xl border border-gray-200 px-3 py-2.5 dark:border-gray-700">
+            <input type="checkbox" checked={salvarDados} onChange={(e) => setSalvarDados(e.target.checked)}
+              className="h-4 w-4 shrink-0 accent-[var(--cor-primaria)]" />
+            <span className="text-[12px] leading-tight text-gray-600 dark:text-gray-300">
+              Salvar meu <b>nome e CPF</b> para a próxima compra
+              <span className="block text-[10px] text-gray-400">Nunca guardamos o número nem o CVV do cartão.</span>
+            </span>
+          </label>
 
-          {/* Botão pagar */}
-          <button onClick={pagar} disabled={processando}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--cor-primaria)] py-3.5 text-[15px] font-black text-white shadow-lg shadow-[var(--cor-primaria)]/30 transition-all hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50">
-            {processando ? <><Loader2 size={17} className="animate-spin" /> Processando…</> : <><Lock size={15} /> Pagar {fmt(info.total)}</>}
-          </button>
-
-          {/* Rodapé de confiança — compacto, uma linha */}
+          {/* Selos de confiança */}
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[10px] text-gray-400">
             <span className="flex items-center gap-1"><Lock size={11} className="text-emerald-500" /> SSL</span>
             <span>·</span>
@@ -1167,8 +1118,22 @@ function CartaoModal({ loja, info, onFechar, onAprovado }: {
               <BandeiraMark key={b} id={b} className={`h-[18px] w-auto rounded-sm transition-opacity ${bandeira && bandeira.id !== b ? 'opacity-25' : 'opacity-100'}`} />
             ))}
           </div>
+        </div>{/* fim do corpo rolável */}
+
+        {/* Rodapé FIXO: erro + botão de pagar sempre visíveis, sem depender de scroll */}
+        <div className="shrink-0 border-t border-gray-100 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
+          {erro && (
+            <div className="mb-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-[13px] font-medium text-red-600 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
+              <X size={15} className="mt-0.5 shrink-0" /> <span>{erro}</span>
+            </div>
+          )}
+          <button ref={pagarRef} onClick={pagar} disabled={processando}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--cor-primaria)] py-3.5 text-[15px] font-black text-white shadow-lg shadow-[var(--cor-primaria)]/30 transition-all hover:brightness-110 focus-visible:ring-4 focus-visible:ring-[var(--cor-primaria)]/40 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50">
+            {processando ? <><Loader2 size={17} className="animate-spin" /> Processando…</> : <><Lock size={15} /> Pagar {fmt(info.total)}</>}
+          </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

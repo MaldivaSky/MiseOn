@@ -255,10 +255,12 @@ export default function AcompanharPedido() {
     return () => { supabase.removeChannel(canal); };
   }, [id, pedido?.status]);
 
-  const etapasAtuais = useMemo(
-    () => pedido?.tipo_pedido === 'DELIVERY' ? ETAPAS_DELIVERY : ETAPAS_RETIRADA,
-    [pedido?.tipo_pedido],
-  );
+  // Pedido só de revenda direta (requer_cozinha=false) nunca passa por "Preparando"
+  // — pula direto de Aceito para Pronto (fluxo passa-bastão, docs/PLANO-FLUXO-PEDIDOS.md).
+  const etapasAtuais = useMemo(() => {
+    const base = pedido?.tipo_pedido === 'DELIVERY' ? ETAPAS_DELIVERY : ETAPAS_RETIRADA;
+    return pedido?.requer_cozinha === false ? base.filter((e) => e.status !== 'PREPARANDO') : base;
+  }, [pedido?.tipo_pedido, pedido?.requer_cozinha]);
 
   if (!pedido) {
     return <div className="flex h-screen items-center justify-center text-gray-400 dark:bg-gray-950">Carregando pedido...</div>;
