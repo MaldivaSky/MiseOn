@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { CreditCard, CheckCircle, AlertCircle, Calendar, Lock, ShieldCheck, QrCode, Copy } from 'lucide-react';
+import { CreditCard, CheckCircle, AlertCircle, Calendar, Lock, ShieldCheck, QrCode, Copy, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { avaliarAssinatura } from '../../lib/assinatura';
+import { Button, Card, SuccessCelebration, BandeiraMark } from '../../components/ui';
 import type { CtxLoja } from './AdminLayout';
 
 export default function Assinatura() {
@@ -203,10 +204,11 @@ export default function Assinatura() {
             </div>
           </div>
           
-          <div className="flex items-center justify-center gap-4 opacity-50 grayscale">
-            <img src="https://logospng.org/download/pix/logo-pix-icone-1024.png" className="h-5 object-contain" alt="Pix" />
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Mastercard_2019_logo.svg/800px-Mastercard_2019_logo.svg.png" className="h-5 object-contain" alt="Mastercard" />
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/2560px-Visa_Inc._logo.svg.png" className="h-4 object-contain" alt="Visa" />
+          <div className="flex items-center justify-center gap-2.5 opacity-80">
+            <BandeiraMark id="pix" className="h-6 w-auto rounded-sm shadow-sm" />
+            <BandeiraMark id="mastercard" className="h-6 w-auto rounded-sm shadow-sm" />
+            <BandeiraMark id="visa" className="h-6 w-auto rounded-sm shadow-sm" />
+            <BandeiraMark id="elo" className="h-6 w-auto rounded-sm shadow-sm" />
           </div>
         </div>
 

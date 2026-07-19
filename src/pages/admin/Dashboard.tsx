@@ -3,7 +3,7 @@ import { Link, Navigate, useOutletContext } from 'react-router-dom';
 import {
   DollarSign, ShoppingBag, Ticket, Flame, AlertTriangle, Timer, ArrowRight,
   ClipboardList, UtensilsCrossed, TrendingUp, Boxes, Megaphone, LifeBuoy,
-  Check, Circle, X, Rocket, BellRing,
+  Check, Circle, X, Rocket, BellRing, ChefHat, Trophy,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { fmt, type Pedido, type ProducaoPreparo } from '../../types';
@@ -44,6 +44,32 @@ export default function Dashboard() {
   const [dados, setDados] = useState<DadosDia | null>(null);
   const [onboarding, setOnboarding] = useState<Onboarding | null>(null);
   const [onboardingOculto, setOnboardingOculto] = useState(() => localStorage.getItem(`miseon_onb_ocultar_${lojaId}`) === '1');
+  const [metricasCozinha, setMetricasCozinha] = useState<{
+    meta_min: number;
+    por_dia: { dia: string; media_total_min: number }[];
+    ranking_operadores: { operador_nome: string; pedidos: number; media_min: number }[];
+    media_hoje_min: number | null;
+    pedidos_hoje: number | null;
+  } | null>(null);
+
+  useEffect(() => {
+    supabase.rpc('fn_metricas_cozinha', { p_loja_id: lojaId }).then(({ data }) => {
+      if (data) setMetricasCozinha(data as any);
+    });
+  }, [lojaId]);
+
+  // Streak: dias consecutivos (terminando ontem, hoje só conta se já tiver
+  // pedidos concluídos) com média dentro da meta — calculado no cliente.
+  const streakCozinha = useMemo(() => {
+    if (!metricasCozinha) return 0;
+    const dias = [...metricasCozinha.por_dia].reverse();
+    let streak = 0;
+    for (const d of dias) {
+      if (d.media_total_min <= metricasCozinha.meta_min) streak++;
+      else break;
+    }
+    return streak;
+  }, [metricasCozinha]);
 
   const carregar = async () => {
     const inicioHoje = new Date(); inicioHoje.setHours(0, 0, 0, 0);
@@ -269,6 +295,34 @@ export default function Dashboard() {
             </Link>
           )}
         </div>
+      )}
+
+      {/* ── Cozinha hoje (fluxo passa-bastão: tempo médio, meta, ranking) ── */}
+      {metricasCozinha && metricasCozinha.pedidos_hoje != null && (
+        <Link to="/admin/kds" className="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition hover:border-orange-300 dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400">
+              <ChefHat size={20} />
+            </div>
+            <div>
+              <p className="flex items-center gap-1.5 text-sm font-black dark:text-gray-100">
+                Cozinha hoje
+                {streakCozinha > 0 && (
+                  <span className="flex items-center gap-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-black text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                    <Trophy size={10} /> {streakCozinha}d na meta
+                  </span>
+                )}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {metricasCozinha.media_hoje_min != null
+                  ? `${metricasCozinha.media_hoje_min}min de média · meta ${metricasCozinha.meta_min}min · ${metricasCozinha.pedidos_hoje} pedido(s)`
+                  : 'Ainda sem pedidos concluídos hoje'}
+                {metricasCozinha.ranking_operadores[0] && ` · 🥇 ${metricasCozinha.ranking_operadores[0].operador_nome}`}
+              </p>
+            </div>
+          </div>
+          <ArrowRight size={18} className="shrink-0 text-gray-300" />
+        </Link>
       )}
 
       {/* ── Últimos pedidos de hoje ── */}

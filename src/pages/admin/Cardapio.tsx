@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
-  Plus, Pencil, Trash2, X, Star, EyeOff, Eye, Search, ChevronUp, ChevronDown, Save, Sparkles,
+  Plus, Pencil, Trash2, X, Star, EyeOff, Eye, Search, ChevronUp, ChevronDown, Save, Sparkles, ChefHat, Store,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { Categoria, Produto, GrupoOpcoes, Opcao, Insumo, fmt } from '../../types';
+import { Categoria, Produto, GrupoOpcoes, Opcao, Insumo, EstacaoPreparo, fmt } from '../../types';
 import ImageUpload from '../../components/ImageUpload';
 import type { CtxLoja } from './AdminLayout';
 
@@ -65,6 +65,17 @@ export default function CardapioAdmin() {
     carregar();
   };
 
+  // Ação em massa: marcar toda a categoria como revenda direta (não entra no
+  // KDS, balcão entrega sem passar pela cozinha) ou como preparo (padrão).
+  const marcarCategoriaEstacao = async (categoriaId: string | null, estacao: EstacaoPreparo) => {
+    const alvo = categoriaId ? produtos.filter((p) => p.categoria_id === categoriaId) : visiveis;
+    if (!alvo.length) return;
+    const rotulo = estacao === 'DIRETO' ? 'revenda direta (não vai para a cozinha)' : 'preparo na cozinha';
+    if (!confirm(`Marcar ${alvo.length} produto(s) desta categoria como "${rotulo}"?`)) return;
+    await supabase.from('produtos').update({ estacao_preparo: estacao }).in('id', alvo.map((p) => p.id));
+    carregar();
+  };
+
   return (
     <div className="p-4">
       <div className="mb-3 flex gap-2">
@@ -106,6 +117,20 @@ export default function CardapioAdmin() {
             <Plus size={15} /> Novo produto
           </button>
 
+          {catAtiva && (
+            <div className="mb-3 flex items-center gap-2 rounded-xl border border-dashed border-gray-200 bg-gray-50/60 px-3 py-2 text-xs dark:border-gray-800 dark:bg-gray-900/40">
+              <span className="font-semibold text-gray-500 dark:text-gray-400">Marcar categoria toda:</span>
+              <button onClick={() => marcarCategoriaEstacao(catAtiva, 'DIRETO')}
+                className="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-bold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-400">
+                <Store size={12} /> Revenda direta
+              </button>
+              <button onClick={() => marcarCategoriaEstacao(catAtiva, 'COZINHA')}
+                className="flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 font-bold text-orange-700 hover:bg-orange-100 dark:border-orange-900/50 dark:bg-orange-900/20 dark:text-orange-400">
+                <ChefHat size={12} /> Preparo na cozinha
+              </button>
+            </div>
+          )}
+
           <div className="space-y-2">
             {visiveis.map((p) => (
               <div key={p.id} className={`flex items-center gap-3 rounded-xl bg-white dark:bg-gray-900 dark:border-gray-800 p-3 shadow-sm dark:bg-gray-900 dark:border dark:border-gray-800 ${!p.disponivel ? 'opacity-50' : ''}`}>
@@ -117,6 +142,11 @@ export default function CardapioAdmin() {
                     {p.nome}
                     {p.tem_estoque === false && (
                       <span className="shrink-0 rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-600">SEM INSUMO</span>
+                    )}
+                    {p.estacao_preparo === 'DIRETO' && (
+                      <span title="Revenda direta — não entra na fila da cozinha" className="flex shrink-0 items-center gap-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                        <Store size={9} /> REVENDA
+                      </span>
                     )}
                   </p>
                   <p className="text-xs text-gray-400">{nomeCategoria(p.categoria_id)}</p>
@@ -240,6 +270,7 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, rateioFixo, onClos
   const [isCombo, setIsCombo] = useState(produto?.is_combo ?? false);
   const [destaque, setDestaque] = useState(produto?.destaque ?? false);
   const [controlaEstoque, setControlaEstoque] = useState(produto?.controla_estoque ?? true);
+  const [estacaoPreparo, setEstacaoPreparo] = useState<EstacaoPreparo>(produto?.estacao_preparo ?? 'COZINHA');
   const [grupos, setGrupos] = useState<GrupoForm[]>(
     (produto?.grupos_opcoes ?? []).map((g) => ({
       ...g, _key: g.id,
@@ -320,6 +351,7 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, rateioFixo, onClos
         is_combo: isCombo,
         destaque,
         controla_estoque: controlaEstoque,
+        estacao_preparo: estacaoPreparo,
       };
 
       let produtoId = produto?.id;
@@ -423,6 +455,34 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, rateioFixo, onClos
             <label className="flex items-center gap-1.5"><input type="checkbox" checked={isCombo} onChange={(e) => setIsCombo(e.target.checked)} /> Combo</label>
             <label className="flex items-center gap-1.5"><input type="checkbox" checked={destaque} onChange={(e) => setDestaque(e.target.checked)} /> Destaque</label>
             <label className="flex items-center gap-1.5"><input type="checkbox" checked={controlaEstoque} onChange={(e) => setControlaEstoque(e.target.checked)} /> Controla estoque</label>
+          </div>
+
+          {/* Estação de preparo: define se o item entra na fila do KDS. */}
+          <div className="rounded-2xl border p-3 dark:border-gray-800">
+            <p className="mb-2 text-sm font-semibold dark:text-gray-200">Onde este produto é preparado?</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setEstacaoPreparo('COZINHA')}
+                className={`flex items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-bold transition-colors ${
+                  estacaoPreparo === 'COZINHA'
+                    ? 'border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-900/50 dark:bg-orange-900/20 dark:text-orange-400'
+                    : 'border-gray-200 text-gray-400 dark:border-gray-700'
+                }`}>
+                <ChefHat size={14} /> Preparo na cozinha
+              </button>
+              <button type="button" onClick={() => setEstacaoPreparo('DIRETO')}
+                className={`flex items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-bold transition-colors ${
+                  estacaoPreparo === 'DIRETO'
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-400'
+                    : 'border-gray-200 text-gray-400 dark:border-gray-700'
+                }`}>
+                <Store size={14} /> Revenda direta
+              </button>
+            </div>
+            <p className="mt-1.5 text-[11px] text-gray-400">
+              {estacaoPreparo === 'DIRETO'
+                ? 'Não entra na fila do KDS — o balcão separa e entrega direto (ex.: bebidas, sobremesas prontas).'
+                : 'Entra na fila da cozinha (KDS). Use para itens que precisam de preparo.'}
+            </p>
           </div>
         </div>
 
