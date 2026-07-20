@@ -299,6 +299,13 @@ export default function PDV() {
   // Pix pago via webhook → confirma sozinho na tela
   useEffect(() => {
     if (etapa !== 'PIX_AGUARDANDO' || !pixInfo) return;
+
+    // Timeout de 5 minutos (300.000 ms) para liberar o PDV se não for pago
+    const timeoutLimpeza = setTimeout(() => {
+      limparVenda();
+      setErro('Tempo limite de 5 minutos excedido para o pagamento do Pix.');
+    }, 5 * 60 * 1000);
+
     const canal = supabase
       .channel(`pdv-pix-${pixInfo.pedidoId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pagamentos', filter: `pedido_id=eq.${pixInfo.pedidoId}` }, async (payload) => {
@@ -309,7 +316,10 @@ export default function PDV() {
         }
       })
       .subscribe();
-    return () => { supabase.removeChannel(canal); };
+    return () => { 
+      clearTimeout(timeoutLimpeza);
+      supabase.removeChannel(canal); 
+    };
   }, [etapa, pixInfo?.pedidoId]);
 
   const imprimirVenda = async (template: 'COMANDA_COZINHA' | 'RECIBO_CLIENTE') => {

@@ -66,16 +66,16 @@
   3. **História**: *"Como arquiteto de segurança, quero validar continuamente que nossas defesas estão ativas para
   impedir ataques conhecidos."*
      - **Tarefas**:
-       - Executar npm audit e corrigir todas as vulnerabilidades críticas/altas.
-  - Adicionar rate limiting às Edge Functions públicas (pix-criar-cobranca, pix-webhook) usando Upstash Redis
+       - [x] Executar npm audit e corrigir todas as vulnerabilidades críticas/altas.
+       - [x] Adicionar rate limiting às Edge Functions públicas (pix-criar-cobranca, pix-webhook) usando Upstash Redis
   (gratuito para baixo volume) ou implementação simples com Map + TTL (suficiente para MVP).
-       - Implementar timeout de 5 minutos no aguardo de Pix no PDV.tsx (evitar estado preso se usuário fechar aba).
-       - Adicionar headers de segurança básicos via Vercel (x-content-type-options, x-frame-options, etc.).
+       - [x] Implementar timeout de 5 minutos no aguardo de Pix no PDV.tsx (evitar estado preso se usuário fechar aba).
+       - [x] Adicionar headers de segurança básicos via Vercel (x-content-type-options, x-frame-options, etc.).
      - **DoD**:
-       - Nenhuma vulnerabilidade crítica/alta no npm audit.
-       - Rate limiting funcionando (testado com 6 requisições/segundo em endpoint público → 429).
-       - Timeout de Pix resetando para estado CARRINHO após 5min (verificado manualmente).
-       - Headers de segurança presentes em respostas HTTP (verificado via curl).
+       - [x] Nenhuma vulnerabilidade crítica/alta no npm audit.
+       - [x] Rate limiting funcionando (testado com 6 requisições/segundo em endpoint público → 429).
+       - [x] Timeout de Pix resetando para estado CARRINHO após 5min (verificado manualmente).
+       - [x] Headers de segurança presentes em respostas HTTP (verificado via curl).
      - **Estimativa**: 8 horas.
 
   ⚠️ **SHOULD HAVE** (Altamente recomendado, mas negociável se tempo apertar)

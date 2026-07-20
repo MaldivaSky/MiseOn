@@ -70,7 +70,33 @@ function valorPagoDaCobranca(cob: any): number {
   return Number(cob?.valor?.original ?? 0);
 }
 
+// Rate limiting map (persiste na mesma instância/isolate do Edge Function)
+const rateLimit = new Map<string, { count: number; resetAt: number }>();
+const MAX_REQ_PER_SEC = 6;
+const WINDOW_MS = 1000;
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const state = rateLimit.get(ip) ?? { count: 0, resetAt: now + WINDOW_MS };
+  
+  if (now > state.resetAt) {
+    state.count = 1;
+    state.resetAt = now + WINDOW_MS;
+  } else {
+    state.count++;
+  }
+  
+  rateLimit.set(ip, state);
+  return state.count <= MAX_REQ_PER_SEC;
+}
+
 Deno.serve(async (req) => {
+  // Rate limiting (429 Too Many Requests)
+  const clientIp = req.headers.get('x-forwarded-for') || 'unknown';
+  if (!checkRateLimit(clientIp)) {
+    return Response.json({ error: 'Too Many Requests' }, { status: 429 });
+  }
+
   try {
     const payload = await req.json().catch(() => ({}));
     const pixList: { txid?: string }[] = payload?.pix ?? [];
