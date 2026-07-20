@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
   MapPin, Navigation, CheckCircle2, Phone, Bike, MessageCircle, X,
   Plus, Trash2, Users, Send, Route, Loader2, AlertCircle, UserPlus, ChevronDown,
-  Eye, Radio, Printer
+  Radio, Printer
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Pedido, Entregador, RotaEntrega, MensagemPedido, fmt } from '../../types';
 import type { CtxLoja } from './AdminLayout';
 import { imprimir } from '../../lib/print';
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 
 const iconeMoto = L.divIcon({
   html: '<div style="font-size:26px;line-height:1">🛵</div>',
@@ -82,7 +83,7 @@ function LiveTrackingAdmin({ lojaId }: { lojaId: string }) {
   };
 
   useEffect(() => {
-    carregarPosicoes();
+    setTimeout(carregarPosicoes, 0);
 
     // Realtime: atualiza ao receber nova posição de qualquer entregador
     const canal = supabase.channel('admin-live-tracking')
@@ -192,8 +193,9 @@ function FilaDeEntregas({ lojaId }: { lojaId: string }) {
     setPedidos((data as Pedido[]) ?? []);
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
-    carregar();
+    setTimeout(carregar, 0);
     const canal = supabase.channel('entregas-loja-fila')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: `loja_id=eq.${lojaId}` }, () => carregar())
       .subscribe();
@@ -412,7 +414,7 @@ function GestaoEntregadores({ lojaId }: { lojaId: string }) {
   };
 
   useEffect(() => {
-    carregar();
+    setTimeout(carregar, 0);
     const canal = supabase.channel('entregas-loja-gestao')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: `loja_id=eq.${lojaId}` }, () => carregar())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rotas_entrega', filter: `loja_id=eq.${lojaId}` }, () => carregar())
@@ -813,6 +815,8 @@ function GestaoEntregadores({ lojaId }: { lojaId: string }) {
 export default function Entregas() {
   const { lojaId, papel } = useOutletContext<CtxLoja>();
   const [aba, setAba] = useState<'fila' | 'gestao'>(papel === 'admin' ? 'gestao' : 'fila');
+
+  useRealtimeNotifications({ lojaId, contexto: 'ENTREGAS' });
 
   return (
     <div className="p-4 max-w-4xl mx-auto pb-28">

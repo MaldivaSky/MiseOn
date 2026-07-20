@@ -3,12 +3,14 @@ import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import { Navigation, MapPin, CheckCircle2, MessageCircle, AlertTriangle, ArrowLeft, Send, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { CtxEntregador } from './EntregadorLayout';
-import { fmt } from '../../types';
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 
 export default function EntregadorRota() {
   const { id } = useParams();
   const navigate = useNavigate();
   const ctx = useOutletContext<CtxEntregador>();
+
+  useRealtimeNotifications({ contexto: 'ROTA', entregadorId: ctx.entregadorId });
 
   const [rota, setRota] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -19,6 +21,13 @@ export default function EntregadorRota() {
   const [mensagens, setMensagens] = useState<any[]>([]);
   const [msgInput, setMsgInput] = useState('');
   const [pedidoChatAtual, setPedidoChatAtual] = useState<any>(null);
+
+  const pararGps = () => {
+    if (watchId.current !== null) {
+      navigator.geolocation.clearWatch(watchId.current);
+      watchId.current = null;
+    }
+  };
 
   const carregar = async () => {
     setLoading(true);
@@ -49,7 +58,7 @@ export default function EntregadorRota() {
   };
 
   useEffect(() => {
-    carregar();
+    setTimeout(carregar, 0);
     return () => pararGps();
   }, [id]);
 
@@ -68,13 +77,6 @@ export default function EntregadorRota() {
       (err) => console.error(err),
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
     );
-  };
-
-  const pararGps = () => {
-    if (watchId.current !== null) {
-      navigator.geolocation.clearWatch(watchId.current);
-      watchId.current = null;
-    }
   };
 
   useEffect(() => {
