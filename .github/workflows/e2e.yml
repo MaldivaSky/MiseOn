@@ -1,0 +1,41 @@
+name: Cypress E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --legacy-peer-deps
+      
+      - name: Run Cypress Tests
+        uses: cypress-io/github-action@v6
+        with:
+          build: npm run build
+          start: npm run preview
+          wait-on: 'http://localhost:4173'
+          wait-on-timeout: 120
+          record: false
+        env:
+          VITE_SUPABASE_URL: 'https://placeholder.supabase.co'
+          VITE_SUPABASE_ANON_KEY: 'placeholder'
+          CYPRESS_E2E: 'true'
+
+      - name: Check Coverage
+        run: |
+          npx nyc check-coverage --lines 80 --functions 80 --branches 80 --statements 80
+          
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/

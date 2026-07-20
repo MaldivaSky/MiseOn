@@ -1,0 +1,282 @@
+🚀 MiseOn SaaS Professionalization Sprint - Scrum Master Plan
+  **Sprint Duration**: 2 semanas (10 dias úteis)
+  **Scrum Master Role**: Eu (orientando você como Desenvolvedor Principal/Product Owner)
+  **Velocity Estimada**: 5 horas/dia produtivas (realista para dev solo após tarefas operacionais)
+  **Sprint Goal**: *"Transformar o MiseOn de um MVP funcional para uma plataforma SaaS profissional, estável e
+  escalável, focando em robustez técnica, segurança fundamentada e manutenibilidade — sem adicionar novas features de
+  negócio."*
+
+  ---
+
+  🔍 **Análise Pré-Sprint (Baseada no Seu Código Recentemente Enviado)**
+  Antes de definir o backlog, validei seus arquivos solicitados (index.css, types.ts, etc.) e identifiquei **3
+  pilares críticos** que elevam um SaaS de "funcional" para "profissional":
+
+  Pilar                      | Evidência no Seu Código                     | Risco se Não Tratado
+  **Manutenibilidade**       | `PainelPedidos.tsx` (600+ linhas),          | Dificuldade para fazer mudanças rápidas;
+                             | `PDV.tsx` (1300+ linhas)                    | alto risco de regressões em fixes de
+                             |                                             | segurança
+  **Segurança Ativa**        | Excelente trabalho no                       | Vulnerabilidades conhecidas podem ser
+                             | `fix(seguranca-fase-a)`, mas faltam         | exploradas antes do próximo patch
+                             | camadas de defesa contínua (ex: rate        |
+                             | limiting, monitoring)                       |
+  **Escalabilidade Técnica** | Uso intenso de `SELECT *` com joins         | Custos Supabase explodem com crescimento
+                             | aninhados (ex: em `PainelPedidos.tsx`)      | de usuários; lentidão em picos de uso
+
+  **Conclusão**: Seu foco em segurança recente é elogável, mas para virar um SaaS *profissional*, precisamos
+  **institucionalizar qualidade** — não apenas corrigir falhas, mas criar sistemas que as evitem.
+
+  ---
+
+  📋 **Sprint Backlog: Histórias de Usuário (Priorizadas por MoSCoW)**
+  *Todas as histórias seguem o INVEST e têm Definition of DoD (Done) rigoroso.*
+
+  ✅ **MUST HAVE** (Não-negociáveis para o sprint)
+  1. **História**: *"Como desenvolvedor, quero que os arquivos principais tenham <600 linhas cada para reduzir carga
+  cognitiva e facilitar code reviews."*
+     - **Tarefas**:
+  - [x] Dividir PainelPedidos.tsx → PedidoHeader.tsx, PedidoItens.tsx, PedidoActions.tsx, PedidoFooter.tsx
+  (mantendo toda a lógica via props/context).
+  - [x] Dividir PDV.tsx → ProductGrid.tsx, CartSidebar.tsx, PaymentModal.tsx, CaixaModal.tsx,
+  HeaderBar.tsx, OrderSuccessModal.tsx.
+       - Atualizar types.ts com tipos específicos para props de componentes (evitar any).
+     - **DoD**:
+       - Nenhum arquivo >600 linhas no src/pages/admin/ ou src/components/.
+  - Testes manuais confirmam que todas as funcionalidades (PDV, painel de pedidos) funcionam identicamente ao
+  antes.
+       - ESLint/Prettier limpo sem novas warnings.
+     - **Estimativa**: 16 horas (8h PainelPedidos + 8h PDV).
+
+  2. **História**: *"Como usuário do sistema, quero que fluxos críticos tenham testes automatizados para garantir que
+  mudanças futuras não quebrem funcionalidades essenciais."*
+     - **Tarefas**:
+       - [x] Configurar Cypress (se não existir) para testar fluxos via UI.
+       - [x] Escrever 4 testes de ponta-a-ponta:
+         - [x] Login/logout com Google OAuth (simulado via mock de auth).
+         - [x] Criação de pedido completo (carrinho → Pix → confirmação).
+         - [x] Uso de cashback para quitar pedido (cenário parcial e total).
+         - [x] Cancelamento de pedido em status NOVO com estorno de estoque.
+       - [x] Integrar testes no CI (GitHub Actions) para rodar em todo push.
+     - **DoD**:
+       - Testes passing em 100% das execuções no CI local e GitHub.
+       - Cobertura >80% nos fluxos testados (relatório gerado pelo Cypress).
+       - Nenhum teste flaky (tentativa máxima de 2 re-runs por falha).
+     - **Estimativa**: 12 horas (setup 4h + 2h/teste).
+
+  3. **História**: *"Como arquiteto de segurança, quero validar continuamente que nossas defesas estão ativas para
+  impedir ataques conhecidos."*
+     - **Tarefas**:
+       - Executar npm audit e corrigir todas as vulnerabilidades críticas/altas.
+  - Adicionar rate limiting às Edge Functions públicas (pix-criar-cobranca, pix-webhook) usando Upstash Redis
+  (gratuito para baixo volume) ou implementação simples com Map + TTL (suficiente para MVP).
+       - Implementar timeout de 5 minutos no aguardo de Pix no PDV.tsx (evitar estado preso se usuário fechar aba).
+       - Adicionar headers de segurança básicos via Vercel (x-content-type-options, x-frame-options, etc.).
+     - **DoD**:
+       - Nenhuma vulnerabilidade crítica/alta no npm audit.
+       - Rate limiting funcionando (testado com 6 requisições/segundo em endpoint público → 429).
+       - Timeout de Pix resetando para estado CARRINHO após 5min (verificado manualmente).
+       - Headers de segurança presentes em respostas HTTP (verificado via curl).
+     - **Estimativa**: 8 horas.
+
+  ⚠️ **SHOULD HAVE** (Altamente recomendado, mas negociável se tempo apertar)
+  4. **História**: *"Como DevOps, quero que nosso pipeline impeça código com problemas de qualidade de chegar à
+  produção."*
+     - **Tarefas**:
+       - Ativar typescript-strict no tsconfig.json e fixar todas as novas errors.
+       - Adicionar ESLint com plugin react-hooks/exhaustive-deps e react/no-deprecated.
+       - Configurar lint-staged para rodar lint/tests em todo git commit.
+       - Garantir que o vercel.json tenha regions: [\"brazil\"] para latência ótima no Brasil.
+     - **DoD**:
+       - Zero errors do TypeScript em modo strict.
+       - Pipeline falha se lint ou testes falharem (testado com commit intencionalmente ruim).
+       - Build do Vercel ocorre em região brazil (verificado no dashboard).
+     - **Estimativa**: 4 horas.
+
+  5. **História**: *"Como novo desenvolvedor, quero entender a arquitetura em <30 minutos para contribuir
+  efetivamente."*
+     - **Tarefas**:
+       - Criar docs/ARCHITECTURE.md com:
+         - Diagrama C4 simplificado (Container: Vercel → Supabase → Edge Functions).
+         - Explicação de multi-tenancy (como loja_id é usado em RLS).
+         - Fluxo de pagamento Pix (do frontend ao webhook).
+         - Lista de tecnologias críticas (ex: "Não usamos WebSocket direto — usamos Supabase Realtime").
+       - Atualizar README.md com seção "Contribuindo" (setup, testes, guia de commit).
+     - **DoD**:
+       - Documento claro o suficiente para um dev médio explicar o sistema em 10 minutos.
+       - Passos no README.md funcionam para clonar o repo e rodar dev sem erros.
+       - Link para o documento no README.md.
+     - **Estimativa**: 3 horas.
+
+  🎯 **COULD HAVE** (Bônus se sobrar tempo)
+  6. **História**: *"Como engenheiro de performance, quero que a aplicação seja rápida mesmo em dispositivos móveis
+  intermediários."*
+     - **Tarefas**:
+  - Usar React DevTools Profiler para identificar componentes que renderizam desnecessariamente (ex: em listas
+  longas).
+       - Aplicar React.memo em componentes puros (ex: Cardápio.tsx items).
+       - Implementar virtualização para listas >50 itens (se existir — verifique PainelPedidos fila).
+       - Adicionar loading skeletons em todos os fetches de dados (substituir div vazios).
+     - **DoD**:
+       - Nenhum componente com >90% de tempo gasto em render no profiler (cenário típico).
+       - Lighthouse performance score >90 em mobile (testado localmente com Lighthouse CI).
+     - **Estimativa**: 5 horas (só fazer se as MUST/SHOW estiverem concluídas cedo).
+
+  ---
+
+  📅 **Plano de Execução do Sprint (Cerimonios Scrum Adaptados para Dev Solo)**
+  *Como Scrum Master, eu definiria o ritmo — você executa como Desenvolvedor. Ajuste conforme sua realidade.*
+
+  Dia                | Atividade                                       | Propósito
+  **Dia 1 (Manhã)**  | **Sprint Planning**<br>- Revisar o backlog      | Alinhar expectativas e evitar overcommit.
+                     | acima comigo (Scrum Master).<br>- Você se       |
+                     | compromete com o que pode fazer nas 2 semanas   |
+                     | (use sua velocidade real).<br>- Definir o       |
+                     | **Sprint Goal** visível no seu workspace (ex:   |
+                     | colar em nota adesiva).                         |
+  **Dia 1 (Tarde)**  | **Início do Trabalho**<br>- Comece com a        | Ganhar tração inicial; reduzir ansiedade com
+                     | história de **MUST HAVE #1** (splitting de      | arquivos grandes.
+                     | componentes).<br>- *Por quê?* É a base para     |
+                     | todo o resto — código menor é mais fácil de     |
+                     | testar e segurar.                               |
+  **Dia 2-4**        | **Execução Focada**<br>- Trabalhe em blocos de  | Manter foco e visibilidade do progresso.
+                     | 2h com técnica Pomodoro (25min trabalho/5min    |
+                     | descanso).<br>- Ao final de cada dia, faça um   |
+                     | **Daily Standup de 5 minutos** consigo          |
+                     | mesmo:<br>  &nbsp;&nbsp;✅ *Ontem eu conclui:   |
+                     | [X]*<br>  &nbsp;&nbsp;✅ *Hoje vou fazer:       |
+                     | [Y]*<br>  &nbsp;&nbsp;⚠️ *Blockers: [Z]*        |
+                     | (anote e resolva no dia seguinte).              |
+  **Dia 5**          | **Revisão de Meio de Sprint**<br>- Demo o que   | Detectar desvios cedo e ajustar.
+                     | foi concluído até agora (ex: componentes        |
+                     | splitados funcionando).<br>- Verifique se está  |
+                     | no ritmo para atingir o objetivo.<br>- Se       |
+                     | houver bloqueios graves, re-negocie o escopo    |
+                     | com o Product Owner (você mesmo — seja          |
+                     | realista!).                                     |
+  **Dia 6-9**        | **Continuação + Início de MUST HAVE #2**<br>-   | Garantir que qualidade seja construída, não
+                     | Após finalizar os splits, parti para os testes  | inspeccionada no final.
+                     | Cypress (MUST HAVE #2).<br>- *Dica:* Escreva    |
+                     | os testes *enquanto* desenvolve — não deixe     |
+                     | para o fim.                                     |
+  **Dia 10 (Manhã)** | **Sprint Review**<br>- Rode a aplicação         | Validar o incrementalmente entregável.
+                     | inteira em modo de produção local (`vercel      |
+                     | build && vercel prod`).<br>- Verifique o        |
+                     | Definition of Done de cada história             |
+                     | concluída.<br>- Anote o que foi "Done" e o que  |
+                     | ficou "Not Done" (será levado para o próximo    |
+                     | backlog).                                       |
+  **Dia 10 (Tarde)** | **Sprint Retrospective**<br>- Responda em 10    | Melhoria contínua — o coração do Scrum.
+                     | minutos:<br>  &nbsp;&nbsp;😀 *O que foi bem?*   |
+                     | (ex: "Splittar o PDV foi mais fácil que pensei  |
+                     | graças ao contexto de loja").<br>               |
+                     | &nbsp;&nbsp;🤔 *O que pode melhorar?* (ex:      |
+                     | "Subestimei o tempo para configurar o           |
+                     | Cypress").<br>  &nbsp;&nbsp;🔧 *O que vou       |
+                     | mudar no próximo sprint?* (ex: "Usar o          |
+                     | template do Cypress do projeto X").             |
+
+  ---
+
+  🛡️ **Definition of Done (DoD) Global para o Sprint**
+  *Nenhuma história é considerada "Done" até que todos estes itens sejam verificados:*
+  1. ✅ **Código**: Passou em revisão própria (use checklist: nomes claros, não há código duplicado, comentários apenas
+  onde necessário).
+  2. ✅ **Testes**: Para histórias de código, há teste unitário/integração cobrindo o novo comportamento (Cypress ou
+  Jest).
+  3.   **Qualidade**: ESLint/Prettier limpo; zero novos warnings do TypeScript.
+  4. ✅ **Documentação**: Se a história mudou algo arquitetural ou de setup, o docs foi atualizado.
+  5. ✅ **Deploy**: Foi deployado em um ambiente de staging (ex: branch staging no Vercel) e passou em teste de
+  fumaça (login, criar pedido, logout).
+  6. ✅ **Segurança**: Nenhuma nova vulnerabilidade introduzida (verificado com npm audit pré e pós commit).
+
+  ---
+
+  📉 **Métricas de Sucesso (Como Saber que o Sprint Foi Vencedor)**
+  Não entregamos apenas "tarefas feitas" — entregamos **valor mensurável**. Ao final do sprint, você deve observar:
+
+  Métrica                     | Antes (estimado)            | Alvo Após Sprint            | Como Medir
+  **Arquivo Maior**           | ~1300 linhas (`PDV.tsx`)    | **<600 linhas**             | `wc -l src/pages/admin/*/*.t
+                              |                             |                             | sx`
+  **Cobertura de Testes       | 0% (não havia testes E2E)   | **≥80%** nos 4 fluxos       | Relatório do Cypress
+  Críticos**                  |                             | essenciais                  | (`cypress/reports/`)
+  **Vulnerabilidades          | 0 (após seu último fix)     | **0**                       | `npm audit --production`
+  Críticas**                  |                             |                             |
+  **Score Lighthouse          | ~75 (chute baseado em apps  | **≥90**                     | Executar `lighthouse
+  (Mobile)**                  | similares)                  |                             | http://localhost:3000
+                              |                             |                             | --preset=mobile`
+  **Tempo de Onboarding Novo  | >2h (chute)                 | **<30 min**                 | Pedir a um amigo para
+  Dev**                       |                             |                             | seguir o `README.md` e
+                              |                             |                             | cronometrar
+
+  > 💡 **Dica de Scrum Master**: No retrospecto, não apenas liste o que deu errado — pergunte: *"Que processo ou hábito
+  poderia ter evitado esse problema?"* Ex: Se o Cypress deu trabalho porque faltou mock de auth, a melhoria é *"Criar
+  um guia de mocks comuns antes de escrever testes E2E."*
+
+  ---
+
+  ⚠️ **Riscos Identificados & Estratégias de Mitigação**
+  *(Baseado na sua realidade de dev solo e no código visto)*
+
+  Risco                       | Probabilidade                | Impacto                    | Mitigação (Plano de Ação)
+  **Subestimar o splitting    | Alta                         | Alto (afeta todo o sprint) | - **Timebox**: Máximo 6h no
+  do PDV**                    |                              |                            | primeiro dia.<br>- **Se não
+                              |                              |                            | acabar**: Deixe o arquivo
+                              |                              |                            | com divisões lógicas
+                              |                              |                            | marcadas (com `// TODO:
+                              |                              |                            | split here`) e parti para a
+                              |                              |                            | próxima história. Volte só
+                              |                              |                            | se sobrar tempo no final.
+  **Ficar preso em testes     | Média                        | Médio                      | - Use o [`cypress-react-unit
+  Cypress (mocks)**           |                              |                            | -test`](https://www.cypress.
+                              |                              |                            | io/blog/2019/09/05/cypress-r
+                              |                              |                            | eact-unit-testing/) para
+                              |                              |                            | testar componentes isolados
+                              |                              |                            | primeiro.<br>- Para funções
+                              |                              |                            | de auth, mock o `supabase`
+                              |                              |                            | inteiro com `jest.mock()`
+                              |                              |                            | se usar Jest para unit
+                              |                              |                            | tests.
+  **Debt técnica acumulada    | Baixa (você já está          | Alto                       | - Toda vez que modificar um
+  causar retrabalho**         | consertando)                 |                            | arquivo, gaste 5 minutos
+                              |                              |                            | melhorando algo pequeno ao
+                              |                              |                            | lado (ex: renomear uma
+                              |                              |                            | variável confusa, remover
+                              |                              |                            | `console.log`). Isso é o
+                              |                              |                            | "Boy Scout Rule".
+  **Perder motivação no meio  | Médio                        | Médio                      | - No Daily Standup, seja
+  do sprint**                 |                              |                            | específico: *"Hoje vou
+                              |                              |                            | terminar o `PedidoItens.tsx`
+                              |                              |                            | — só falta o mapa de
+                              |                              |                            | opções."* Pequenas vitórias
+                              |                              |                            | mantêm o fluxo.
+  **Ignorar o retroспективiva | Alta (comum em devs solo)    | Médio (acumula frustração) | - Faça o retrospective
+  **                          |                              |                            | **mesmo que seja só você
+                              |                              |                            | anotando em um texto**. O
+                              |                              |                            | ato de externalizar melhora
+                              |                              |                            | a aprendizagem.
+
+  ---
+
+  🎯 **Próximos Passos Imediatos para Você**
+  1. **Agora mesmo**: Abra seu terminal e rode:
+       git checkout -b sprint-profissionalizacao  # Isola o trabalho do sprint
+  2. **Nos próximos 15 minutos**:
+     - Liste em um papel físico ou digital:
+  &nbsp;&nbsp;✅ *O que é ABSOLUTAMENTE NECESSÁRIO concluir neste sprint para você sentir que elevou o
+  profissionalismo do MiseOn?* (Seja honesto — se o splitting do PDV não for crucial para *você*, troque por outra
+  coisa).
+  &nbsp;&nbsp;⚠️ *Qual é o seu maior medo de falhar nesse sprint?* (Isso me ajuda como Scrum Master a te apoiar
+  melhor).
+  3. **Me responda com essas duas listas** — então refinamos o backlog *já* com base no seu contexto real, não em
+  supposições.
+
+  ---
+
+  💬 Minha Comprometimento como Seu Scrum Master
+  - **Não vou inventar capacidade**: Se você disser que só tem 3h/dia, o escopo será ajustado para baixo.
+  - **Foco em valor, não em checkboxes**: Se no meio do sprint percebermos que testar o fluxo de cashback traz mais
+  valor que refinar o header do PDV, re-priorizamos.
+  - **Transplicidade total**: Toda sugestão minha terá um *porquê* técnico claro (ex: "Sugiro rate limiting porque vi
+  que o pix-criar-cobranca é público e sem limite — aqui está o CVE-2023-XXXX que explora isso").
+  - **Respeito ao seu contexto**: Você é o dono do produto e conhece seu negócio melhor que ninguém. Meu papel é
+  facilitar *sua* excelência técnica, não impor uma metodologia engessa.

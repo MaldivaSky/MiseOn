@@ -1,0 +1,73 @@
+export const mockSupabase = () => {
+  cy.intercept('GET', '**/rest/v1/lojas*', {
+    statusCode: 200,
+    body: [{
+      id: 'mock-loja-1',
+      nome: 'Loja Teste',
+      slug: 'teste',
+      cor_primaria: '#FF0000',
+      aberto_manual: true,
+      pedido_minimo: 0,
+      endereco: 'Rua de Teste, 123'
+    }]
+  }).as('getLojas');
+
+  cy.intercept('GET', '**/rest/v1/horarios_funcionamento*', { body: [] });
+  cy.intercept('GET', '**/rest/v1/banners_destaque*', { body: [] });
+  cy.intercept('GET', '**/rest/v1/categorias*', { 
+    body: [{ id: 'cat-1', nome: 'Lanches', ordem: 1 }] 
+  });
+  
+  cy.intercept('GET', '**/rest/v1/produtos*', { 
+    body: [{
+      id: 'prod-1',
+      nome: 'X-Burger',
+      descricao: 'Hamburguer simples',
+      preco: 15.00,
+      categoria_id: 'cat-1',
+      grupos_opcoes: [],
+      tem_estoque: true
+    }] 
+  });
+  
+  cy.intercept('GET', '**/rest/v1/taxas_entrega*', { body: [] });
+  cy.intercept('GET', '**/rest/v1/faixas_entrega*', { body: [] });
+  cy.intercept('POST', '**/rpc/fn_produtos_com_estoque', { 
+    body: [{ produto_id: 'prod-1', tem_estoque: true }] 
+  });
+  
+  cy.intercept('GET', '**/rest/v1/clientes*', {
+    body: [{ id: 'client-1', user_id: '00000000-0000-0000-0000-000000000000', saldo_cashback: 10.00 }]
+  }).as('getClientes');
+
+  // Checkout POSTs
+  cy.intercept('POST', '**/rest/v1/pedidos*', {
+    statusCode: 201,
+    body: [{ id: 'pedido-1', numero: 1001 }]
+  }).as('createPedido');
+
+  cy.intercept('POST', '**/rest/v1/pedido_itens*', {
+    statusCode: 201,
+    body: []
+  });
+
+  cy.intercept('POST', '**/rest/v1/pagamentos*', {
+    statusCode: 201,
+    body: [{ id: 'pag-1' }]
+  });
+  
+  // Edge Function mock for PIX
+  cy.intercept('POST', '**/functions/v1/pix-criar-cobranca', {
+    statusCode: 200,
+    body: {
+      copia_e_cola: '00020126580014br.gov.bcb.pix...',
+      qr_imagem: 'data:image/png;base64,...'
+    }
+  }).as('pixCreate');
+
+  // Edge function mock for Card
+  cy.intercept('POST', '**/functions/v1/cartao-pagar', {
+    statusCode: 200,
+    body: { success: true }
+  }).as('cardPay');
+};
