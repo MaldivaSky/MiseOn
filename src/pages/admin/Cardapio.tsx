@@ -4,7 +4,7 @@ import {
   Plus, Pencil, Trash2, X, Star, EyeOff, Eye, Search, ChevronUp, ChevronDown, Save, Sparkles, ChefHat, Store,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { Categoria, Produto, GrupoOpcoes, Opcao, Insumo, EstacaoPreparo, fmt } from '../../types';
+import { Categoria, Produto, Insumo, EstacaoPreparo, fmt } from '../../types';
 import ImageUpload from '../../components/ImageUpload';
 import type { CtxLoja } from './AdminLayout';
 
@@ -40,7 +40,7 @@ export default function CardapioAdmin() {
     setProdutos(((p as Produto[]) ?? []).map((prod) => ({ ...prod, tem_estoque: mapaEstoque.get(prod.id) ?? true })));
     setInsumos((i as Insumo[]) ?? []);
   };
-  useEffect(() => { carregar(); }, [lojaId]);
+  useEffect(() => { setTimeout(carregar, 0); }, [lojaId]);
 
   const visiveis = useMemo(
     () => produtos.filter((p) =>

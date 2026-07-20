@@ -403,7 +403,7 @@ export default function KDSProducao() {
     setCarregando(false);
   };
 
-  useEffect(() => { carregar(); }, [lojaId]);
+  useEffect(() => { setTimeout(carregar, 0); }, [lojaId]);
   useEffect(() => {
     supabase.from('lojas').select('*').eq('id', lojaId).single()
       .then(({ data }) => setLoja((data as Loja) ?? null));

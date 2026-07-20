@@ -75,7 +75,7 @@ export default function Equipe() {
     else setEquipe(data?.equipe ?? []);
     setCarregando(false);
   };
-  useEffect(() => { carregar(); }, [lojaId]);
+  useEffect(() => { setTimeout(carregar, 0); }, [lojaId]);
 
   const abrirCriacao = () => {
     setForm({ ...FORM_VAZIO, senha: gerarSenha() });

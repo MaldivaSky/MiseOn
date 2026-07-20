@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useOutletContext, Link } from 'react-router-dom';
 import { Store, Save, Check, Palette, Type as TypeIcon, Copy, ExternalLink, Share2, Clock, Plus, Trash2, MapPin, ArrowRight, Shield, Monitor, Sun, Moon, Bike, LocateFixed } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { PALETA_CORES, PALETA_FUNDO_POR_TEMA, FONTES, isLightColor, fonteFamilia, obterFundoLojaPorTema, obterTokensLoja, resolverTemaLoja, type TemaLoja } from '../../lib/personalizacao';
+import { PALETA_CORES, PALETA_FUNDO_POR_TEMA, isLightColor, fonteFamilia, obterFundoLojaPorTema, obterTokensLoja, resolverTemaLoja, type TemaLoja } from '../../lib/personalizacao';
 import ColorSwatchPicker from '../../components/ColorSwatchPicker';
 import FontPicker from '../../components/FontPicker';
 import ImageUpload from '../../components/ImageUpload';
@@ -231,7 +231,6 @@ export default function Loja() {
     const faixasNormalizadas = faixasEntrega
       .filter((faixa) => faixa.ativo && faixa.km_ate)
       .map((faixa, index) => ({
-        id: faixa.id,
         loja_id: lojaId,
         nome: faixa.nome.trim() || null,
         km_ate: Number(faixa.km_ate),
@@ -360,7 +359,7 @@ export default function Loja() {
       return;
     }
     if (faixasNormalizadas.length > 0) {
-      const { error: erroInserirFaixas } = await supabase.from('faixas_entrega').insert(faixasNormalizadas.map(({ id, ...faixa }) => faixa));
+      const { error: erroInserirFaixas } = await supabase.from('faixas_entrega').insert(faixasNormalizadas);
       if (erroInserirFaixas) {
         const erroRestauracao = await restaurarFaixasOriginais();
         setSalvando(false);

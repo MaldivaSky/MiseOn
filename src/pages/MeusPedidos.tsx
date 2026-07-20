@@ -63,7 +63,7 @@ export default function MeusPedidos() {
   useEffect(() => {
     if (!loja) return;
     const padrao = loja.tema_cardapio === 'escuro' ? 'escuro' : 'claro';
-    setTemaCliente(obterTemaPreferido(padrao));
+    setTimeout(() => setTemaCliente(obterTemaPreferido(padrao)), 0);
     const sincronizarTema = (event: Event) => {
       const tema = (event as CustomEvent<{ tema: PreferenciaTema }>).detail?.tema;
       if (tema === 'claro' || tema === 'escuro') setTemaCliente(tema);

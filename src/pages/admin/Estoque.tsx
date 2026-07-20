@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
-import { AlertTriangle, Plus, Pencil, Archive, ArchiveRestore, Calculator, Trash2, ArrowRight } from 'lucide-react';
+import { AlertTriangle, Plus, Pencil, Calculator, Trash2, ArrowRight, ArchiveRestore } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Insumo, fmt, InsumoRendimentoJSON } from '../../types';
 import type { CtxLoja } from './AdminLayout';
@@ -43,7 +43,7 @@ export default function Estoque() {
     setInsumos(todos.filter((i) => i.ativo));
     setInativos(todos.filter((i) => !i.ativo));
   };
-  useEffect(() => { carregar(); }, [lojaId]);
+  useEffect(() => { setTimeout(carregar, 0); }, [lojaId]);
 
   const criar = async () => {
     if (!nome) return;

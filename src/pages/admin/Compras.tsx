@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { ShoppingCart, CheckCircle2, Circle, HelpCircle, PackageCheck, AlertTriangle, ArrowRight, Loader2, Info } from 'lucide-react';
+import { ShoppingCart, CheckCircle2, Circle, PackageCheck, AlertTriangle, ArrowRight, Loader2, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Insumo, fmt } from '../../types';
 import type { CtxLoja } from './AdminLayout';

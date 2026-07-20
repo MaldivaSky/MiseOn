@@ -62,7 +62,12 @@ export default function Historico() {
     setPedidos((data as Pedido[]) ?? []);
     setCarregando(false);
   };
-  useEffect(() => { carregar(); carregarTMP(); }, [lojaId, status, de, ate]);
+  useEffect(() => {
+    setTimeout(() => {
+      carregar();
+      carregarTMP();
+    }, 0);
+  }, [lojaId, status, de, ate]);
 
   const visiveis = pedidos.filter((p) =>
     !busca || p.identificador_cliente?.toLowerCase().includes(busca.toLowerCase()) || String(p.numero).includes(busca));

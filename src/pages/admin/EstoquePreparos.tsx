@@ -54,7 +54,7 @@ export default function EstoquePreparos({ lojaId, insumosTotais, onUpdate }: { l
       .order('produzido_em', { ascending: false });
     setProducoes((data as ProducaoPreparo[]) ?? []);
   };
-  useEffect(() => { carregarProducoes(); }, [lojaId]);
+  useEffect(() => { setTimeout(carregarProducoes, 0); }, [lojaId]);
 
   const descartarLote = async (lote: ProducaoPreparo) => {
     const preparo = insumosTotais.find(i => i.id === lote.preparo_id);

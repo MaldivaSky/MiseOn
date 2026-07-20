@@ -96,9 +96,7 @@ export default function EntregadorDashboard() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    carregar();
-  }, [ctx.entregadorId]);
+  useEffect(() => { setTimeout(carregar, 0); }, [ctx.entregadorId]);
 
   const iniciarRota = async () => {
     if (!rotaAtiva) return;

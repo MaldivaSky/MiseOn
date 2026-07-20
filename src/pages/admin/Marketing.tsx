@@ -44,7 +44,7 @@ function CuponsTab({ lojaId }: { lojaId: string }) {
     const { data } = await supabase.from('cupons').select('*').eq('loja_id', lojaId).order('codigo');
     setCupons((data as Cupom[]) ?? []);
   };
-  useEffect(() => { carregar(); }, [lojaId]);
+  useEffect(() => { setTimeout(carregar, 0); }, [lojaId]);
 
   const toggleAtivo = async (c: Cupom) => {
     await supabase.from('cupons').update({ ativo: !c.ativo }).eq('id', c.id);
@@ -174,7 +174,7 @@ function BannersTab({ lojaId }: { lojaId: string }) {
     const { data } = await supabase.from('banners_destaque').select('*').eq('loja_id', lojaId).order('ordem_exibicao');
     setBanners((data as Banner[]) ?? []);
   };
-  useEffect(() => { carregar(); }, [lojaId]);
+  useEffect(() => { setTimeout(carregar, 0); }, [lojaId]);
 
   const criar = async () => {
     if (!novo.imagem_url) return;
@@ -241,7 +241,7 @@ function TaxasTab({ lojaId }: { lojaId: string }) {
     const { data } = await supabase.from('taxas_entrega').select('*').eq('loja_id', lojaId).order('bairro');
     setTaxas((data as TaxaEntrega[]) ?? []);
   };
-  useEffect(() => { carregar(); }, [lojaId]);
+  useEffect(() => { setTimeout(carregar, 0); }, [lojaId]);
 
   const criar = async () => {
     if (!novo.bairro || !novo.valor) return;
@@ -295,7 +295,7 @@ function HorariosTab({ lojaId }: { lojaId: string }) {
     const { data } = await supabase.from('horarios_funcionamento').select('*').eq('loja_id', lojaId).order('dia_semana');
     setHorarios((data as HorarioFuncionamento[]) ?? []);
   };
-  useEffect(() => { carregar(); }, [lojaId]);
+  useEffect(() => { setTimeout(carregar, 0); }, [lojaId]);
 
   const addIntervalo = async (dia: number) => {
     await supabase.from('horarios_funcionamento').insert({ loja_id: lojaId, dia_semana: dia, abre: '08:00', fecha: '18:00' });
@@ -422,7 +422,7 @@ function CashbackTab({ lojaId }: { lojaId: string }) {
     });
     setCarregando(false);
   };
-  useEffect(() => { carregar(); }, [lojaId]);
+  useEffect(() => { setTimeout(carregar, 0); }, [lojaId]);
 
   const salvar = async () => {
     setSalvando(true); setMsg('');
@@ -523,10 +523,11 @@ function RecuperacaoTab({ lojaId, lojaSlug }: { lojaId: string; lojaSlug: string
     setCarrinhos((abandonados as CarrinhoAbandonado[] ?? []).map((c) => ({ ...c, ...mapa.get(c.user_id) })));
     setCarregando(false);
   };
-  useEffect(() => { carregar(); }, [lojaId]);
+  useEffect(() => { setTimeout(carregar, 0); }, [lojaId]);
 
   const linkCardapio = `${window.location.origin}/${lojaSlug}`;
   const tempoDecorrido = (iso: string) => {
+    // eslint-disable-next-line react-hooks/purity
     const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
     if (min < 60) return `${min}min atrás`;
     if (min < 1440) return `${Math.floor(min / 60)}h atrás`;

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Bike, Mail, Lock, Loader2, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -43,7 +43,7 @@ export default function EntregadorLogin() {
 
         navigate('/entregador');
       }
-    } catch (err: any) {
+    } catch {
       setErro('Ocorreu um erro ao conectar.');
       setLoading(false);
     }

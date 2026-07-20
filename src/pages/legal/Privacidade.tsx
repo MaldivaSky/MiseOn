@@ -1,4 +1,4 @@
-import { ShieldCheck, FileText, Lock } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 export default function Privacidade() {
   return (

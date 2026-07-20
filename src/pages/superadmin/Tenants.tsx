@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { fmt } from '../../types';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { Users, DollarSign, Activity, TrendingUp } from 'lucide-react';
 
 interface Loja {
@@ -50,12 +50,12 @@ export default function Tenants() {
     setMetricas(dict);
     setCarregando(false);
   };
-  useEffect(() => { carregar(); }, []);
+  useEffect(() => { setTimeout(carregar, 0); }, []);
 
   // Lógica Faturas Reais
   useEffect(() => {
     if (!lojaFaturas) return;
-    setCarregandoFaturas(true);
+    setTimeout(() => setCarregandoFaturas(true), 0);
     supabase.from('faturas').select('*').eq('loja_id', lojaFaturas.id).order('criado_em', { ascending: false })
       .then(({ data }) => { setFaturas(data || []); setCarregandoFaturas(false); });
   }, [lojaFaturas]);
@@ -63,8 +63,10 @@ export default function Tenants() {
   // Lógica Chat Real-time
   useEffect(() => {
     if (!lojaSuporte) {
-      setMensagens([]);
-      setChatId(null);
+      setTimeout(() => {
+        setMensagens([]);
+        setChatId(null);
+      }, 0);
       return;
     }
 

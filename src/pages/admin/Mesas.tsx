@@ -73,7 +73,7 @@ export default function Mesas() {
     const comandaPorMesa = new Map((comandas as Comanda[] ?? []).map((c) => [c.mesa_id, c]));
     const comandaIds = (comandas ?? []).map((c: any) => c.id);
 
-    let pedidosPorComanda = new Map<string, { total: number; qtd: number; emPreparo: boolean }>();
+    const pedidosPorComanda = new Map<string, { total: number; qtd: number; emPreparo: boolean }>();
     if (comandaIds.length > 0) {
       const { data: pedidos } = await supabase
         .from('pedidos')

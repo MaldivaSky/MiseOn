@@ -1,5 +1,4 @@
-import { ShieldCheck, FileText, Lock } from 'lucide-react';
-
+import { FileText } from 'lucide-react';
 export default function Termos() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#070C18] dark:text-[#EAF1FB] py-12 px-4 sm:px-6 lg:px-8">

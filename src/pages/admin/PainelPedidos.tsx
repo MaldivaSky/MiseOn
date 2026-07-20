@@ -97,8 +97,7 @@ export default function PainelPedidos() {
   const observerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLimiteRender(20);
+    setTimeout(() => setLimiteRender(20), 0);
   }, [filtro]);
 
   useEffect(() => {
@@ -139,8 +138,7 @@ export default function PainelPedidos() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    carregar();
+    setTimeout(carregar, 0);
     if ('Notification' in window) Notification.requestPermission?.();
     const canal = supabase
       .channel('pedidos-loja')

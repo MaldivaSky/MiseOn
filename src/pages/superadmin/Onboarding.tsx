@@ -32,7 +32,7 @@ export default function Onboarding() {
     const { data } = await supabase.from('leads_cadastro').select('*').order('criado_em', { ascending: false });
     setLeads((data as LeadCadastro[]) ?? []);
   };
-  useEffect(() => { carregarLeads(); }, []);
+  useEffect(() => { setTimeout(carregarLeads, 0); }, []);
 
   const usarLead = (l: LeadCadastro) => {
     setNome(l.nome_loja);

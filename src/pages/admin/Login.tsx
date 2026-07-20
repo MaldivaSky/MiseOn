@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
 import MiseOnLogo from '../../components/MiseOnLogo';
 import { useNavigate } from 'react-router-dom';
 import { Mail, KeyRound, AlertCircle, CheckCircle2 } from 'lucide-react';
