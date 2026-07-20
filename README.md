@@ -25,6 +25,7 @@
 
 ## 📖 Sobre
 
+> 🧠 **Novo no projeto?** Leia a nossa [Documentação de Arquitetura](docs/ARCHITECTURE.md) (Diagrama C4, RLS, Fluxo Pix) para entender o sistema em <30 minutos antes de contribuir.
 O **MiseOn** é uma plataforma SaaS para lanchonetes, restaurantes e delivery que substitui sistemas como o Anota AI com um diferencial que eles não entregam bem: **controle de estoque com baixa automática por ficha técnica e visão de custo/lucro por produto**.
 
 O cliente pede pela vitrine (link próprio da loja), o dono recebe em tempo real no painel (PWA instalável no celular, com som e notificação), imprime a comanda térmica, gerencia a entrega — e a cada pedido aceito o estoque de insumos baixa sozinho, alimentando a lista de compras e o custo real de cada item vendido.
@@ -150,6 +151,24 @@ Pipeline em `.github/workflows/ci.yml`:
 2. **CD** (push na `main`): deploy no Vercel + deploy das Edge Functions no Supabase
 
 Secrets necessários no GitHub: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`.
+
+## 🤝 Como Contribuir
+
+Antes de colocar a mão na massa, certifique-se de ler nossa [Documentação de Arquitetura](docs/ARCHITECTURE.md).
+
+### 1. Setup Local
+- Faça o clone do repositório.
+- Rode `npm install --legacy-peer-deps` (necessário para compatibilidade do Vite com Cypress/Code Coverage e UI).
+- Copie `.env.example` para `.env.local` e insira as credenciais do seu Supabase.
+
+### 2. Rodando o Projeto
+- Execute `npm run dev`.
+- Acesse a vitrine em `http://localhost:5173/natureba` e o painel em `http://localhost:5173/admin`.
+
+### 3. Testes e Regras de Commit (Husky)
+- Este projeto possui proteção de qualidade via **Husky + Lint-Staged**.
+- Ao tentar rodar `git commit`, o sistema executará verificações estritas de TypeScript e ESLint. O commit será cancelado se houver erros de compilação ou violações de regras React Hooks.
+- Para rodar os testes End-to-End localmente, suba o frontend (`npm run dev`) e em outro terminal rode `npx cypress open`.
 
 ## 📁 Estrutura
 

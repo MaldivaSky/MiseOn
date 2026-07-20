@@ -82,29 +82,29 @@
   4. **História**: *"Como DevOps, quero que nosso pipeline impeça código com problemas de qualidade de chegar à
   produção."*
      - **Tarefas**:
-       - Ativar typescript-strict no tsconfig.json e fixar todas as novas errors.
-       - Adicionar ESLint com plugin react-hooks/exhaustive-deps e react/no-deprecated.
-       - Configurar lint-staged para rodar lint/tests em todo git commit.
-       - Garantir que o vercel.json tenha regions: [\"brazil\"] para latência ótima no Brasil.
+       - [x] Ativar typescript-strict no tsconfig.json e fixar todas as novas errors.
+       - [x] Adicionar ESLint com plugin react-hooks/exhaustive-deps e react/no-deprecated.
+       - [x] Configurar lint-staged para rodar lint/tests em todo git commit.
+       - [x] Garantir que o vercel.json tenha regions: ["brazil"] para latência ótima no Brasil.
      - **DoD**:
-       - Zero errors do TypeScript em modo strict.
-       - Pipeline falha se lint ou testes falharem (testado com commit intencionalmente ruim).
-       - Build do Vercel ocorre em região brazil (verificado no dashboard).
+       - [x] Zero errors do TypeScript em modo strict.
+       - [x] Pipeline falha se lint ou testes falharem (testado com commit intencionalmente ruim).
+       - [x] Build do Vercel ocorre em região brazil (verificado no dashboard).
      - **Estimativa**: 4 horas.
 
   5. **História**: *"Como novo desenvolvedor, quero entender a arquitetura em <30 minutos para contribuir
   efetivamente."*
      - **Tarefas**:
-       - Criar docs/ARCHITECTURE.md com:
-         - Diagrama C4 simplificado (Container: Vercel → Supabase → Edge Functions).
-         - Explicação de multi-tenancy (como loja_id é usado em RLS).
-         - Fluxo de pagamento Pix (do frontend ao webhook).
-         - Lista de tecnologias críticas (ex: "Não usamos WebSocket direto — usamos Supabase Realtime").
-       - Atualizar README.md com seção "Contribuindo" (setup, testes, guia de commit).
+       - [x] Criar docs/ARCHITECTURE.md com:
+         - [x] Diagrama C4 simplificado (Container: Vercel → Supabase → Edge Functions).
+         - [x] Explicação de multi-tenancy (como loja_id é usado em RLS).
+         - [x] Fluxo de pagamento Pix (do frontend ao webhook).
+         - [x] Lista de tecnologias críticas (ex: "Não usamos WebSocket direto — usamos Supabase Realtime").
+       - [x] Atualizar README.md com seção "Contribuindo" (setup, testes, guia de commit).
      - **DoD**:
-       - Documento claro o suficiente para um dev médio explicar o sistema em 10 minutos.
-       - Passos no README.md funcionam para clonar o repo e rodar dev sem erros.
-       - Link para o documento no README.md.
+       - [x] Documento claro o suficiente para um dev médio explicar o sistema em 10 minutos.
+       - [x] Passos no README.md funcionam para clonar o repo e rodar dev sem erros.
+       - [x] Link para o documento no README.md.
      - **Estimativa**: 3 horas.
 
   🎯 **COULD HAVE** (Bônus se sobrar tempo)
