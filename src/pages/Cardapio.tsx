@@ -1,17 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
-import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star, LogIn, LogOut, History, Lock, ShieldCheck, User as UserIcon, Trash2, QrCode, Copy, CreditCard, Loader2, ChevronLeft, Check, ArrowRight, Sparkles, Compass, UtensilsCrossed, PartyPopper, Receipt } from 'lucide-react';
+import { ShoppingBag, Plus, Minus, X, Search, Clock, MapPin, Star, LogIn, History, Lock, ShieldCheck, User as UserIcon, Trash2, CreditCard, Loader2, Check, ArrowRight, Sparkles, Compass, UtensilsCrossed, PartyPopper, Receipt } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { maskCartaoCredito, maskValidadeCartao, maskCPF, validarCPF } from '../lib/mascaras';
 import ModalAuthCliente from '../components/ModalAuthCliente';
 import ModalMinhaConta from '../components/ModalMinhaConta';
-import EnderecoMixin, { EnderecoFormData } from '../components/EnderecoMixin';
 import PedidoMesaDrawer from '../components/PedidoMesaDrawer';
 import { Button, Modal, SuccessCelebration, BandeiraMark, BANDEIRAS_ACEITAS } from '../components/ui';
 import {
-  Loja, Banner, Categoria, Produto, Cupom, TaxaEntrega, FaixaEntrega, ItemCarrinho, Cliente,
+  Loja, Banner, Categoria, Produto, TaxaEntrega, FaixaEntrega, ItemCarrinho,
   HorarioFuncionamento, MetodoPgto, Mesa, fmt, precoItem,
 } from '../types';
 import { fonteFamilia, isLightColor, obterFundoLojaPorTema, obterTokensLoja } from '../lib/personalizacao';
@@ -50,8 +49,7 @@ const marcarCarrinhoRecuperado = async (lojaId: string, user: User) => {
   } catch { /* idem */ }
 };
 
-const entrarComGoogle = (voltarPara: string) =>
-  supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: voltarPara } });
+
 
 // ── Loja aberta? (horário automático + override manual) ─────
 // Horário que vira a noite (ex.: sábado 10:00–00:50, fecha já domingo de
@@ -185,11 +183,12 @@ export default function Cardapio() {
         if (mesa) setMesaAtual(mesa as Mesa); else setMesaErro(true);
       }
     })();
-  }, [slug]);
+  }, [slug, numeroMesaUrl]);
 
   useEffect(() => {
     if (!loja) return;
     const padrao = loja.tema_cardapio === 'escuro' ? 'escuro' : 'claro';
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTemaCliente(obterTemaPreferido(padrao));
     const sincronizarTema = (event: Event) => {
       const tema = (event as CustomEvent<{ tema: PreferenciaTema }>).detail?.tema;
@@ -197,7 +196,7 @@ export default function Cardapio() {
     };
     window.addEventListener('miseon:tema', sincronizarTema as EventListener);
     return () => window.removeEventListener('miseon:tema', sincronizarTema as EventListener);
-  }, [loja?.id, loja?.tema_cardapio]);
+  }, [loja, loja?.id, loja?.tema_cardapio]);
 
   useEffect(() => {
     if (!loja) return;
@@ -260,8 +259,7 @@ export default function Cardapio() {
     return data as PixInfo;
   };
 
-  if (!loja)
-    return <div className="flex h-screen items-center justify-center text-gray-400">Carregando cardápio…</div>;
+  if (!loja) return <CardapioSkeleton />;
 
   const iniciais = loja.nome.trim() ? loja.nome.trim()[0].toUpperCase() : '?';
 
@@ -432,21 +430,7 @@ export default function Cardapio() {
               </div>
               <div className="flex gap-3 overflow-x-auto pb-2">
                 {maisPedidos.map((p) => (
-                  <button key={p.id} onClick={() => p.tem_estoque !== false && setProdutoAberto(p)}
-                    disabled={p.tem_estoque === false}
-                    className={`vitrine-card relative w-40 shrink-0 rounded-[24px] p-2.5 text-left ${p.tem_estoque === false ? 'opacity-50' : ''}`}>
-                    {p.imagem_url && <img src={p.imagem_url} className="vitrine-card-media mb-2 h-24 w-full rounded-2xl object-cover" alt="" />}
-                    {p.tem_estoque === false && (
-                      <span className="absolute right-3 top-3 rounded-full bg-gray-800 px-2 py-0.5 text-[9px] font-bold text-white">ESGOTADO</span>
-                    )}
-                    <p className="line-clamp-2 text-sm font-bold" style={{ color: 'var(--cor-texto)' }}>{p.nome}</p>
-                    <div className="mt-2 flex items-center justify-between">
-                      <p className="text-sm font-black text-[var(--cor-primaria)]">{fmt(Number(p.preco))}</p>
-                      <span className="vitrine-card-cta inline-flex items-center gap-1 text-[11px] font-semibold">
-                        Ver <ArrowRight size={13} />
-                      </span>
-                    </div>
-                  </button>
+                  <MaisPedidoCard key={p.id} p={p} onClick={() => setProdutoAberto(p)} />
                 ))}
               </div>
             </section>
@@ -466,26 +450,7 @@ export default function Cardapio() {
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {doGrupo.map((p) => (
-                      <button key={p.id} onClick={() => p.tem_estoque !== false && setProdutoAberto(p)}
-                        disabled={p.tem_estoque === false}
-                        className={`vitrine-card flex w-full gap-3 rounded-[24px] p-2.5 text-left ${p.tem_estoque === false ? 'opacity-50' : ''}`}>
-                        {p.imagem_url && <img src={p.imagem_url} className="vitrine-card-media h-24 w-24 shrink-0 rounded-2xl object-cover" alt="" />}
-                        <div className="min-w-0 flex-1 py-3 pr-3">
-                          <p className="flex flex-wrap items-center gap-2 font-bold" style={{ color: 'var(--cor-texto)' }}>
-                            {p.nome}
-                            {p.tem_estoque === false && (
-                              <span className="rounded-full bg-gray-800 px-2 py-0.5 text-[9px] font-bold text-white">ESGOTADO</span>
-                            )}
-                          </p>
-                          {p.descricao && <p className="line-clamp-2 text-xs" style={{ color: 'var(--cor-texto-suave)' }}>{p.descricao}</p>}
-                          <div className="mt-2 flex items-center justify-between gap-3">
-                            <p className="font-black text-[var(--cor-primaria)]">{fmt(Number(p.preco))}</p>
-                            <span className="vitrine-card-cta inline-flex items-center gap-1 text-xs font-semibold">
-                              Personalizar <ArrowRight size={14} />
-                            </span>
-                          </div>
-                        </div>
-                      </button>
+                      <ProdutoCard key={p.id} p={p} onClick={() => setProdutoAberto(p)} />
                     ))}
                   </div>
                 </section>
@@ -798,6 +763,83 @@ const luhnValido = (digits: string): boolean => {
   }
   return soma % 10 === 0;
 };
+
+// ── Otimização de Performance (React.memo) ──
+const MaisPedidoCard = memo(({ p, onClick }: { p: Produto; onClick: () => void }) => (
+  <button onClick={() => p.tem_estoque !== false && onClick()}
+    disabled={p.tem_estoque === false}
+    className={`vitrine-card relative w-40 shrink-0 rounded-[24px] p-2.5 text-left ${p.tem_estoque === false ? 'opacity-50' : ''}`}>
+    {p.imagem_url && <img src={p.imagem_url} className="vitrine-card-media mb-2 h-24 w-full rounded-2xl object-cover" alt="" />}
+    {p.tem_estoque === false && (
+      <span className="absolute right-3 top-3 rounded-full bg-gray-800 px-2 py-0.5 text-[9px] font-bold text-white">ESGOTADO</span>
+    )}
+    <p className="line-clamp-2 text-sm font-bold" style={{ color: 'var(--cor-texto)' }}>{p.nome}</p>
+    <div className="mt-2 flex items-center justify-between">
+      <p className="text-sm font-black text-[var(--cor-primaria)]">{fmt(Number(p.preco))}</p>
+      <span className="vitrine-card-cta inline-flex items-center gap-1 text-[11px] font-semibold">
+        Ver <ArrowRight size={13} />
+      </span>
+    </div>
+  </button>
+));
+
+const ProdutoCard = memo(({ p, onClick }: { p: Produto; onClick: () => void }) => (
+  <button onClick={() => p.tem_estoque !== false && onClick()}
+    disabled={p.tem_estoque === false}
+    className={`vitrine-card flex w-full gap-3 rounded-[24px] p-2.5 text-left ${p.tem_estoque === false ? 'opacity-50' : ''}`}>
+    {p.imagem_url && <img src={p.imagem_url} className="vitrine-card-media h-24 w-24 shrink-0 rounded-2xl object-cover" alt="" />}
+    <div className="min-w-0 flex-1 py-3 pr-3">
+      <p className="flex flex-wrap items-center gap-2 font-bold" style={{ color: 'var(--cor-texto)' }}>
+        {p.nome}
+        {p.tem_estoque === false && (
+          <span className="rounded-full bg-gray-800 px-2 py-0.5 text-[9px] font-bold text-white">ESGOTADO</span>
+        )}
+      </p>
+      {p.descricao && <p className="line-clamp-2 text-xs" style={{ color: 'var(--cor-texto-suave)' }}>{p.descricao}</p>}
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <p className="font-black text-[var(--cor-primaria)]">{fmt(Number(p.preco))}</p>
+        <span className="vitrine-card-cta inline-flex items-center gap-1 text-xs font-semibold">
+          Personalizar <ArrowRight size={14} />
+        </span>
+      </div>
+    </div>
+  </button>
+));
+
+const CardapioSkeleton = () => (
+  <div className="min-h-screen pb-28 lg:pb-16 bg-gray-50 dark:bg-gray-900 animate-pulse">
+    <div className="h-48 w-full bg-gray-300 dark:bg-gray-800 sm:h-64 lg:h-80" />
+    <div className="mx-auto max-w-6xl px-4 pb-4 sm:px-6 sm:pb-6 -mt-10 lg:-mt-16 flex items-end gap-4 relative z-10">
+      <div className="h-16 w-16 shrink-0 rounded-2xl bg-gray-400 dark:bg-gray-700 sm:h-24 sm:w-24" />
+      <div className="flex-1 space-y-2 pb-1">
+        <div className="h-6 w-1/3 rounded-lg bg-gray-400 dark:bg-gray-700" />
+        <div className="h-3 w-1/4 rounded-lg bg-gray-300 dark:bg-gray-600" />
+      </div>
+    </div>
+    <div className="mx-auto max-w-6xl px-4 lg:px-6 pt-4 space-y-8">
+      <div className="flex gap-2">
+        <div className="h-10 w-20 rounded-full bg-gray-300 dark:bg-gray-800" />
+        <div className="h-10 w-24 rounded-full bg-gray-300 dark:bg-gray-800" />
+        <div className="h-10 w-16 rounded-full bg-gray-300 dark:bg-gray-800" />
+      </div>
+      <div>
+        <div className="h-5 w-32 rounded-lg bg-gray-300 dark:bg-gray-800 mb-4" />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex gap-3 rounded-[24px] p-2.5 bg-gray-200 dark:bg-gray-800/50">
+              <div className="h-24 w-24 shrink-0 rounded-2xl bg-gray-300 dark:bg-gray-700" />
+              <div className="flex-1 py-3 pr-3 space-y-2">
+                <div className="h-4 w-3/4 rounded bg-gray-300 dark:bg-gray-700" />
+                <div className="h-3 w-full rounded bg-gray-300 dark:bg-gray-700" />
+                <div className="h-3 w-5/6 rounded bg-gray-300 dark:bg-gray-700" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 // BandeiraMark/BANDEIRAS_ACEITAS agora vêm de components/ui (compartilhados com a Assinatura).
 

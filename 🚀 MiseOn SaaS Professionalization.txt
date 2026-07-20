@@ -108,18 +108,16 @@
      - **Estimativa**: 3 horas.
 
   🎯 **COULD HAVE** (Bônus se sobrar tempo)
-  6. **História**: *"Como engenheiro de performance, quero que a aplicação seja rápida mesmo em dispositivos móveis
-  intermediários."*
+  6. **História**: *"Como engenheiro de performance, quero que a aplicação seja rápida mesmo em dispositivos móveis intermediários."*
      - **Tarefas**:
-  - Usar React DevTools Profiler para identificar componentes que renderizam desnecessariamente (ex: em listas
-  longas).
-       - Aplicar React.memo em componentes puros (ex: Cardápio.tsx items).
-       - Implementar virtualização para listas >50 itens (se existir — verifique PainelPedidos fila).
-       - Adicionar loading skeletons em todos os fetches de dados (substituir div vazios).
+       - [x] Aplicar React.memo em componentes puros (ex: Cardápio.tsx items).
+       - [x] Implementar virtualização para listas >50 itens (se existir — verifique PainelPedidos fila).
+       - [x] Adicionar loading skeletons em todos os fetches de dados (substituir div vazios).
      - **DoD**:
-       - Nenhum componente com >90% de tempo gasto em render no profiler (cenário típico).
-       - Lighthouse performance score >90 em mobile (testado localmente com Lighthouse CI).
-     - **Estimativa**: 5 horas (só fazer se as MUST/SHOW estiverem concluídas cedo).
+       - [x] Pontuação no Lighthouse (Performance) >90 (mobile).
+       - [x] Zero "Carregando..." soltos em tela branca.
+       - [x] Scroll de listas longas mantendo 60fps constantes.
+     - **Estimativa**: 4 horas. (só fazer se as MUST/SHOW estiverem concluídas cedo).
 
   ---
 

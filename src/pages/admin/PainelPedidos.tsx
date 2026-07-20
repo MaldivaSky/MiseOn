@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Printer, Bike, Check, X as XIcon, Store, ChefHat, Receipt, UtensilsCrossed, CalendarClock, Flame, Lock } from 'lucide-react';
+import { CalendarClock, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Loja, Pedido, StatusPedido, fmt, Via } from '../../types';
 import { imprimir } from '../../lib/print';
@@ -39,7 +39,7 @@ function CardPedido({
   const todosConferidos = precisaConferir && itens.length > 0 && itens.every((i) => conferidos.has(i.id));
   const toggleConferido = (id: string) => setConferidos((s) => {
     const novo = new Set(s);
-    novo.has(id) ? novo.delete(id) : novo.add(id);
+    if (novo.has(id)) { novo.delete(id); } else { novo.add(id); }
     return novo;
   });
 
@@ -93,6 +93,26 @@ export default function PainelPedidos() {
   const [loja, setLoja] = useState<Loja | null>(null);
   const [filtro, setFiltro] = useState('TODOS');
   const [erroAcao, setErroAcao] = useState('');
+  const [limiteRender, setLimiteRender] = useState(20);
+  const observerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLimiteRender(20);
+  }, [filtro]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setLimiteRender((prev) => prev + 20);
+        }
+      },
+      { rootMargin: '300px' } // Load when 300px away from bottom
+    );
+    if (observerRef.current) observer.observe(observerRef.current);
+    return () => observer.disconnect();
+  }, [pedidos, filtro]);
 
   useEffect(() => {
     supabase.from('lojas').select('*').eq('id', lojaId).single()
@@ -119,6 +139,7 @@ export default function PainelPedidos() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     carregar();
     if ('Notification' in window) Notification.requestPermission?.();
     const canal = supabase
@@ -167,6 +188,7 @@ export default function PainelPedidos() {
   // Agendado "futuro" = ainda fora da janela de antecedência da loja — fica numa
   // seção separada pra não misturar com o que está de fato acontecendo agora.
   const antecedenciaMs = (loja?.agendamento_antecedencia_min ?? 30) * 60000;
+  // eslint-disable-next-line react-hooks/purity
   const cutoffProducao = new Date(Date.now() + antecedenciaMs);
   const ehAgendadoFuturo = (p: Pedido) => !!p.agendado_para && new Date(p.agendado_para) > cutoffProducao;
 
@@ -180,6 +202,7 @@ export default function PainelPedidos() {
 
   const filtroAtivo = FILTROS.find((f) => f.id === filtro) ?? FILTROS[0];
   const visiveis = [...ativos, ...encerrados].filter(filtroAtivo.pred);
+  const visiveisLimitados = visiveis.slice(0, limiteRender);
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-5 dark:bg-[#070C18]">
@@ -255,7 +278,7 @@ export default function PainelPedidos() {
 
       {!carregando && (
         <div className="print:hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {visiveis.map((p) => (
+          {visiveisLimitados.map((p) => (
             <CardPedido
               key={p.id}
               p={p}
@@ -276,6 +299,11 @@ export default function PainelPedidos() {
               <p className="font-['JetBrains_Mono'] text-[13px] tracking-wider text-gray-500 dark:text-[#6C7A96]">
                 {pedidos.length === 0 ? 'NENHUM PEDIDO AINDA.' : `NENHUM PEDIDO EM "${filtroAtivo.label.toUpperCase()}".`}
               </p>
+            </div>
+          )}
+          {visiveis.length > limiteRender && (
+            <div ref={observerRef} className="col-span-full h-16 flex items-center justify-center">
+              <MiseOnLoader status="Renderizando mais pedidos..." rows={1} />
             </div>
           )}
         </div>
