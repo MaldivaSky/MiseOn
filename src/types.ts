@@ -507,6 +507,7 @@ export interface VendaConcluida {
   metodo: MetodoPgto;
   troco: number;
   itens: ItemCarrinho[];
+  temCozinha?: boolean;
 }
 
 export interface PedidoHeaderProps {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Check, X, Plus, Minus } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import {
   fmt, precoItem, type Produto, type Opcao, type ItemCarrinho, type Loja, type Mesa,
@@ -17,6 +17,10 @@ import { PaymentModal } from '../../components/pdv/PaymentModal';
 import { OrderSuccessModal } from '../../components/pdv/OrderSuccessModal';
 import { CaixaModal } from '../../components/pdv/CaixaModal';
 import { ModalOpcoes } from '../../components/pdv/ModalOpcoes';
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
+import { useToast } from '../../components/ui/Toast';
+import { tocarSom } from '../../lib/som';
+import { createPedidoPedido } from '../../lib/pedidos';
 
 /* ─────────────────────────────────────────────────────────────
    PDV — Frente de balcão touch-first.
@@ -39,10 +43,12 @@ interface VendaConcluida {
   metodo: MetodoPgto;
   troco: number;
   itens: ItemCarrinho[];
+  temCozinha?: boolean;
 }
 
 export default function PDV() {
   const { lojaId } = useOutletContext<CtxLoja>();
+  const toast = useToast();
 
   // catálogo
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -78,6 +84,8 @@ export default function PDV() {
 
   // modal de opções do produto
   const [escolhendo, setEscolhendo] = useState<Produto | null>(null);
+
+  useRealtimeNotifications({ lojaId, contexto: 'PDV', modoPdv: modo });
 
   /* ── carregamento ── */
   const carregarCatalogo = async () => {
@@ -116,7 +124,13 @@ export default function PDV() {
     setDinheiroTurno(soma);
   };
 
-  useEffect(() => { carregarCatalogo(); carregarCaixa(); }, [lojaId]);
+   
+  useEffect(() => {
+    setTimeout(() => {
+      carregarCatalogo();
+      carregarCaixa();
+    }, 0);
+  }, [lojaId]);
 
   /* ── derivados ── */
   const produtosVisiveis = useMemo(() => {
@@ -138,6 +152,8 @@ export default function PDV() {
 
   /* ── carrinho ── */
   const adicionarProduto = (p: Produto, opcoes: Opcao[] = [], quantidade = 1, observacao = '') => {
+    toast(`${p.nome} adicionado!`, 'info');
+    tocarSom();
     setCarrinho((c) => {
       // agrupa itens idênticos (mesmo produto, mesmas opções, mesma obs)
       const chave = (i: ItemCarrinho) => i.produto.id + '|' + i.opcoesSelecionadas.map((o) => o.id).sort().join(',') + '|' + (i.observacao ?? '');
@@ -157,6 +173,7 @@ export default function PDV() {
   };
 
   const mudarQtd = (idx: number, delta: number) => {
+    tocarSom();
     setCarrinho((c) => c.map((i, x) => x === idx ? { ...i, quantidade: Math.max(1, i.quantidade + delta) } : i));
   };
 
@@ -171,8 +188,8 @@ export default function PDV() {
     if (met === 'DINHEIRO' && recebidoNum < total) { setErro('Valor recebido menor que o total.'); return; }
     setProcessando(true); setErro('');
     try {
-      const { data: ped, error: e1 } = await supabase.from('pedidos').insert({
-        loja_id: lojaId,
+      const ped = await createPedidoPedido({
+        lojaId,
         tipo_pedido: 'RETIRADA_BALCAO',
         origem: 'balcao',
         identificador_cliente: nomeCliente.trim() || 'Balcão',
@@ -180,29 +197,11 @@ export default function PDV() {
         desconto: descontoNum,
         valor_total: total,
         troco_para: met === 'DINHEIRO' && recebidoNum > total ? recebidoNum : null,
-        requer_cozinha: false, // trigger promove p/ true se algum item for COZINHA
-      }).select('id, numero').single();
-      if (e1 || !ped) throw e1 ?? new Error('Falha ao criar o pedido');
+        carrinho,
+      });
 
-      for (const item of carrinho) {
-        const { data: it, error: e2 } = await supabase.from('itens_pedido').insert({
-          pedido_id: ped.id,
-          produto_id: item.produto.id,
-          nome_produto: item.produto.nome,
-          preco_unitario: Number(item.produto.preco) + item.opcoesSelecionadas.reduce((s, o) => s + Number(o.preco_adicional), 0),
-          quantidade: item.quantidade,
-          observacao: item.observacao ?? null,
-        }).select('id').single();
-        if (e2 || !it) throw e2 ?? new Error('Falha ao registrar item');
-        if (item.opcoesSelecionadas.length > 0) {
-          const { error: e3 } = await supabase.from('itens_pedido_opcoes').insert(
-            item.opcoesSelecionadas.map((o) => ({
-              item_id: it.id, opcao_id: o.id, nome_opcao: o.nome, preco_adicional: Number(o.preco_adicional),
-            })),
-          );
-          if (e3) throw e3;
-        }
-      }
+      // Se só tem revenda direta (latas de Coca-Cola, etc.), não vai pra cozinha.
+      const temCozinha = carrinho.some((i) => i.produto.estacao_preparo === 'COZINHA' || !i.produto.estacao_preparo);
 
       const pagoAgora = met !== 'PIX'; // dinheiro/maquininha recebem na hora; Pix espera o QR
       const { error: e4 } = await supabase.from('pagamentos').insert({
@@ -213,18 +212,24 @@ export default function PDV() {
       if (e4) throw e4;
 
       if (met === 'PIX') {
+        toast('Aguardando pagamento Pix...', 'info');
         // gera a cobrança e mostra o QR na tela para o cliente apontar o celular
         const { data: pix, error: e5 } = await supabase.functions.invoke('pix-criar-cobranca', { body: { pedido_id: ped.id } });
         if (e5 || pix?.error) throw new Error(String(pix?.error ?? e5?.message ?? 'Falha ao gerar o Pix'));
         setPixInfo({ pedidoId: ped.id, copiaECola: pix.copia_e_cola, qrImagem: pix.qr_imagem });
-        setVenda({ pedidoId: ped.id, numero: ped.numero, total, metodo: met, troco: 0, itens: carrinho });
+        setVenda({ pedidoId: ped.id, numero: ped.numero, total, metodo: met, troco: 0, itens: carrinho, temCozinha });
         setEtapa('PIX_AGUARDANDO');
       } else {
-        // ACEITO dispara a baixa de estoque (fluxo passa-bastão: só vai pra
-        // cozinha quando o balcão enviar explicitamente, se requer_cozinha)
         await supabase.from('pedidos').update({ status: 'ACEITO' }).eq('id', ped.id);
+        if (!temCozinha) {
+          // Bypass completo pra revenda direta de balcão: o cliente já pegou a Coca-Cola e pagou
+          await supabase.rpc('fn_avancar_status_pedido', { p_pedido_id: ped.id, p_novo_status: 'PRONTO' });
+          await supabase.rpc('fn_avancar_status_pedido', { p_pedido_id: ped.id, p_novo_status: 'FINALIZADO' });
+        }
         setVenda({ pedidoId: ped.id, numero: ped.numero, total, metodo: met, troco, itens: carrinho });
         setEtapa('SUCESSO');
+        toast(`Venda concluída! Pedido #${ped.numero}`, 'sucesso');
+        tocarSom();
         carregarCaixa();
       }
     } catch (e) {
@@ -240,37 +245,22 @@ export default function PDV() {
     setEnviandoMesa(true); setErro('');
     try {
       const comandaId = await obterOuCriarComandaAberta(lojaId, mesaSelecionada.id);
-      const { data: ped, error: e1 } = await supabase.from('pedidos').insert({
-        loja_id: lojaId,
+      const ped = await createPedidoPedido({
+        lojaId,
         tipo_pedido: 'SALAO',
         origem: 'garcom',
         comanda_id: comandaId,
         mesa_numero: mesaSelecionada.numero,
         identificador_cliente: nomeCliente.trim() || `Mesa ${mesaSelecionada.numero}`,
-        subtotal, desconto: descontoNum, valor_total: total,
-        requer_cozinha: false, // trigger promove p/ true se algum item for COZINHA
-      }).select('id, numero').single();
-      if (e1 || !ped) throw e1 ?? new Error('Falha ao enviar o pedido');
-
-      for (const item of carrinho) {
-        const { data: it, error: e2 } = await supabase.from('itens_pedido').insert({
-          pedido_id: ped.id,
-          produto_id: item.produto.id,
-          nome_produto: item.produto.nome,
-          preco_unitario: Number(item.produto.preco) + item.opcoesSelecionadas.reduce((s, o) => s + Number(o.preco_adicional), 0),
-          quantidade: item.quantidade,
-          observacao: item.observacao ?? null,
-        }).select('id').single();
-        if (e2 || !it) throw e2 ?? new Error(`Falha ao registrar ${item.produto.nome}`);
-        if (item.opcoesSelecionadas.length > 0) {
-          const { error: e3 } = await supabase.from('itens_pedido_opcoes').insert(
-            item.opcoesSelecionadas.map((o) => ({ item_id: it.id, opcao_id: o.id, nome_opcao: o.nome, preco_adicional: Number(o.preco_adicional) })),
-          );
-          if (e3) throw e3;
-        }
-      }
+        subtotal,
+        desconto: descontoNum,
+        valor_total: total,
+        carrinho,
+      });
 
       setPedidoMesaOk({ numero: ped.numero, mesaNumero: mesaSelecionada.numero });
+      toast(`Pedido #${ped.numero} enviado para mesa ${mesaSelecionada.numero}`, 'sucesso');
+      tocarSom();
       setCarrinho([]); setNomeCliente(''); setDesconto('');
     } catch (e) {
       console.error(e);
@@ -291,6 +281,13 @@ export default function PDV() {
     await supabase.from('pagamentos').update({ status: 'PAGO', data_pagamento: new Date().toISOString() })
       .eq('pedido_id', pixInfo.pedidoId).eq('metodo', 'PIX');
     await supabase.from('pedidos').update({ status: 'ACEITO' }).eq('id', pixInfo.pedidoId);
+    if (venda && !venda.temCozinha) {
+      await supabase.rpc('fn_avancar_status_pedido', { p_pedido_id: pixInfo.pedidoId, p_novo_status: 'PRONTO' });
+      await supabase.rpc('fn_avancar_status_pedido', { p_pedido_id: pixInfo.pedidoId, p_novo_status: 'FINALIZADO' });
+    }
+    setEtapa('SUCESSO');
+    toast(`Venda concluída! Pedido #${venda?.numero ?? ''}`, 'sucesso');
+    tocarSom();
     setEtapa('SUCESSO');
     setProcessando(false);
     carregarCaixa();
@@ -311,7 +308,13 @@ export default function PDV() {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pagamentos', filter: `pedido_id=eq.${pixInfo.pedidoId}` }, async (payload) => {
         if ((payload.new as any)?.status === 'PAGO') {
           await supabase.from('pedidos').update({ status: 'ACEITO' }).eq('id', pixInfo.pedidoId);
+          if (venda && !venda.temCozinha) {
+            await supabase.rpc('fn_avancar_status_pedido', { p_pedido_id: pixInfo.pedidoId, p_novo_status: 'PRONTO' });
+            await supabase.rpc('fn_avancar_status_pedido', { p_pedido_id: pixInfo.pedidoId, p_novo_status: 'FINALIZADO' });
+          }
           setEtapa('SUCESSO');
+          toast(`Venda concluída!`, 'sucesso');
+          tocarSom();
           carregarCaixa();
         }
       })
@@ -387,12 +390,10 @@ export default function PDV() {
 
   if (turno === undefined) return <div className="p-8 text-center text-gray-400">Abrindo o PDV…</div>;
 
-  const inputCls = 'w-full rounded-xl border border-gray-300 p-3 text-sm outline-none focus:border-[var(--cor-primaria)] dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100';
-
   const propsCaixaModal = {
-    modalCaixa, setModalCaixa, salvandoCaixa: processando, valorCaixa, setValorCaixa,
-    motivoCaixa: valorRecebido, setMotivoCaixa: setValorRecebido, // reaproveitamos state
-    obsFechamento: erro, setObsFechamento: setErro, // reaproveitando state
+    modalCaixa, setModalCaixa, salvandoCaixa, valorCaixa, setValorCaixa,
+    motivoCaixa, setMotivoCaixa,
+    obsFechamento, setObsFechamento,
     turno, dinheiroTurno, reforcos, sangrias, dinheiroGaveta,
     abrirTurno, registrarMov, fecharTurno
   };
@@ -401,7 +402,10 @@ export default function PDV() {
     <div className="flex h-[calc(100vh-64px)] flex-col lg:h-screen">
       <HeaderBar
         modo={modo}
-        setModo={setModo}
+        setModo={(m) => {
+          setModo(m);
+          toast(m === 'BALCAO' ? 'Modo Balcão ativado' : 'Modo Mesa ativado', 'info');
+        }}
         turno={turno}
         dinheiroGaveta={dinheiroGaveta}
         setModalCaixa={setModalCaixa}
