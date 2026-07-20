@@ -493,3 +493,136 @@ export const fmt = (v: number) =>
 
 export const precoItem = (i: ItemCarrinho) =>
   (Number(i.produto.preco) + i.opcoesSelecionadas.reduce((s, o) => s + Number(o.preco_adicional), 0)) * i.quantidade;
+
+// ── Props & Types UI ──────────────────────────────────────────
+
+export type Via = 'cozinha' | 'romaneio' | 'nota';
+export type EtapaVenda = 'CARRINHO' | 'PAGANDO' | 'PIX_AGUARDANDO' | 'SUCESSO';
+export type ModoPDV = 'BALCAO' | 'MESA';
+
+export interface VendaConcluida {
+  pedidoId: string;
+  numero: number;
+  total: number;
+  metodo: MetodoPgto;
+  troco: number;
+  itens: ItemCarrinho[];
+}
+
+export interface PedidoHeaderProps {
+  pedido: Pedido;
+}
+
+export interface PedidoItensProps {
+  pedido: Pedido;
+  precisaConferir: boolean;
+  conferidos: Set<string>;
+  toggleConferido: (id: string) => void;
+}
+
+export interface PedidoFooterProps {
+  pedido: Pedido;
+}
+
+export interface PedidoActionsProps {
+  pedido: Pedido;
+  papel: string;
+  naCozinha: boolean;
+  precisaConferir: boolean;
+  todosConferidos: boolean;
+  semAvancoSalao: boolean;
+  destinoStatus: StatusPedido;
+  destinoLabel: string;
+  isDelivery: boolean;
+  processando: boolean;
+  fluxoProx?: StatusPedido;
+  fluxoLabel?: string;
+  onAvancar: (status: StatusPedido) => Promise<void>;
+  onEnviarCozinha: () => Promise<void>;
+  onCancelar: () => void;
+  onImprimir: (via: Via) => void;
+  executar: (fn: () => Promise<void>) => Promise<void>;
+}
+
+export interface HeaderBarProps {
+  modo: ModoPDV;
+  setModo: (modo: ModoPDV) => void;
+  turno: CaixaTurno | null | undefined;
+  dinheiroGaveta: number;
+  setModalCaixa: (modal: 'ABRIR' | 'SANGRIA' | 'REFORCO' | 'FECHAR' | null) => void;
+  setValorCaixa: (valor: string) => void;
+}
+
+export interface ProductGridProps {
+  busca: string;
+  setBusca: (busca: string) => void;
+  categorias: { id: string; nome: string }[];
+  catAtiva: string;
+  setCatAtiva: (cat: string) => void;
+  produtosVisiveis: Produto[];
+  tocarProduto: (p: Produto) => void;
+}
+
+export interface CartSidebarProps {
+  carrinho: ItemCarrinho[];
+  limparVenda: () => void;
+  mudarQtd: (idx: number, delta: number) => void;
+  removerItem: (idx: number) => void;
+  nomeCliente: string;
+  setNomeCliente: (nome: string) => void;
+  desconto: string;
+  setDesconto: (desc: string) => void;
+  subtotal: number;
+  descontoNum: number;
+  total: number;
+  erro: string;
+  modo: ModoPDV;
+  turno: CaixaTurno | null | undefined;
+  mesaSelecionada: Mesa | null;
+  enviandoMesa: boolean;
+  setEtapa: (etapa: EtapaVenda) => void;
+  setMetodo: (metodo: MetodoPgto | null) => void;
+  setErro: (erro: string) => void;
+  enviarParaMesa: () => Promise<void>;
+}
+
+export interface PaymentModalProps {
+  total: number;
+  metodo: MetodoPgto | null;
+  setMetodo: (metodo: MetodoPgto | null) => void;
+  setErro: (erro: string) => void;
+  valorRecebido: string;
+  setValorRecebido: (valor: string) => void;
+  recebidoNum: number;
+  troco: number;
+  erro: string;
+  processando: boolean;
+  registrarVenda: (metodo: MetodoPgto) => Promise<void>;
+  setEtapa: (etapa: EtapaVenda) => void;
+}
+
+export interface OrderSuccessModalProps {
+  venda: VendaConcluida | null;
+  imprimirVenda: (template: 'COMANDA_COZINHA' | 'RECIBO_CLIENTE') => Promise<void>;
+  limparVenda: () => void;
+}
+
+export interface CaixaModalProps {
+  modalCaixa: 'ABRIR' | 'SANGRIA' | 'REFORCO' | 'FECHAR' | null;
+  setModalCaixa: (modal: 'ABRIR' | 'SANGRIA' | 'REFORCO' | 'FECHAR' | null) => void;
+  salvandoCaixa: boolean;
+  valorCaixa: string;
+  setValorCaixa: (valor: string) => void;
+  motivoCaixa: string;
+  setMotivoCaixa: (motivo: string) => void;
+  obsFechamento: string;
+  setObsFechamento: (obs: string) => void;
+  turno: CaixaTurno | null | undefined;
+  dinheiroTurno: number;
+  reforcos: number;
+  sangrias: number;
+  dinheiroGaveta: number;
+  abrirTurno: () => Promise<void>;
+  registrarMov: (tipo: 'SANGRIA' | 'REFORCO') => Promise<void>;
+  fecharTurno: () => Promise<void>;
+}

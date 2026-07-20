@@ -2,29 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Printer, Bike, Check, X as XIcon, Store, ChefHat, Receipt, UtensilsCrossed, CalendarClock, Flame, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { Loja, Pedido, StatusPedido, fmt } from '../../types';
+import { Loja, Pedido, StatusPedido, fmt, Via } from '../../types';
 import { imprimir } from '../../lib/print';
-
-type Via = 'cozinha' | 'romaneio' | 'nota';
 import { tocarSom } from '../../lib/som';
 import type { CtxLoja } from './AdminLayout';
 import { MiseOnLoader } from '../../components/MiseOnLoader';
-
-/* ── Mapa de status → label + cor brand ── */
-const FLUXO: Record<string, { prox?: StatusPedido; label?: string; bg: string; color: string }> = {
-  NOVO:       { prox: 'ACEITO',     label: 'Aceitar pedido',   bg: 'rgba(252,91,36,.18)',  color: '#FC5B24' },
-  ACEITO:     { bg: 'rgba(10,92,196,.18)',  color: '#6B9EFF' },
-  PREPARANDO: { bg: 'rgba(10,92,196,.18)',  color: '#6B9EFF' },
-  PRONTO:     { prox: 'EM_ROTA',    label: 'Saiu p/ entrega',  bg: 'rgba(124,58,237,.18)', color: '#A78BFA' },
-  EM_ROTA:    { prox: 'FINALIZADO', label: 'Finalizar',        bg: 'rgba(16,185,129,.18)', color: '#34D399' },
-  FINALIZADO: { bg: 'rgba(16,185,129,.14)', color: '#34D399' },
-  CANCELADO:  { bg: 'rgba(239,68,68,.14)',  color: '#F87171' },
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  NOVO: 'NOVO', ACEITO: 'ACEITO', PREPARANDO: 'PREP.', PRONTO: 'PRONTO',
-  EM_ROTA: 'EM ROTA', FINALIZADO: 'FINALIZADO', CANCELADO: 'CANCELADO',
-};
+import { FLUXO } from '../../components/pedidos/constants';
+import { PedidoHeader } from '../../components/pedidos/PedidoHeader';
+import { PedidoItens } from '../../components/pedidos/PedidoItens';
+import { PedidoFooter } from '../../components/pedidos/PedidoFooter';
+import { PedidoActions } from '../../components/pedidos/PedidoActions';
 
 const SELECT = '*, itens_pedido(*, itens_pedido_opcoes(*)), pagamentos(metodo, status, valor_pago)';
 
@@ -40,26 +27,13 @@ function CardPedido({
   onImprimir: (via: Via) => void;
   onErro: (msg: string) => void;
 }) {
-  // Mesa pronta fica esperando o garçom fechar a conta (Mapa de Mesas) — não avança sozinha pra EM_ROTA/FINALIZADO.
   const semAvancoSalao = p.tipo_pedido === 'SALAO' && p.status === 'PRONTO';
   const naCozinha = p.estacao_atual === 'COZINHA';
   const precisaConferir = p.status === 'PRONTO' && p.estacao_atual === 'BALCAO' && !semAvancoSalao;
   const fluxo = semAvancoSalao ? { ...FLUXO[p.status], prox: undefined } : (FLUXO[p.status] ?? FLUXO.CANCELADO);
-  const hora = new Date(p.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const [menu, setMenu] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const isDelivery = p.tipo_pedido === 'DELIVERY';
   const [conferidos, setConferidos] = useState<Set<string>>(new Set());
   const [processando, setProcessando] = useState(false);
-
-  useEffect(() => {
-    if (!menu) return;
-    const fora = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false); };
-    document.addEventListener('mousedown', fora);
-    return () => document.removeEventListener('mousedown', fora);
-  }, [menu]);
-
-  const escolher = (via: Via) => { setMenu(false); onImprimir(via); };
 
   const itens = p.itens_pedido ?? [];
   const todosConferidos = precisaConferir && itens.length > 0 && itens.every((i) => conferidos.has(i.id));
@@ -87,220 +61,16 @@ function CardPedido({
       className="flex flex-col overflow-hidden rounded-[20px] border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0B1120]"
       style={{ animation: 'mo-screen-in .45s cubic-bezier(.2,.8,.2,1) both' }}
     >
-      {/* ── Header azul ── */}
-      <div style={{ background: '#004198', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ background: '#fff', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-            <img src="/brand/icon.png" alt="MiseOn" style={{ width: 22, height: 22, objectFit: 'contain' }} />
-          </div>
-          <span style={{
-            fontFamily: "'Sora', sans-serif",
-            fontWeight: 800,
-            fontSize: 18,
-            color: '#EAF1FB',
-            letterSpacing: '.02em',
-          }}>
-            #{p.numero}
-          </span>
-        </div>
-        <span style={{
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: '.12em',
-          textTransform: 'uppercase',
-          padding: '4px 10px',
-          borderRadius: 8,
-          background: fluxo.bg,
-          color: fluxo.color,
-          border: `1px solid ${fluxo.color}40`,
-        }}>
-          {STATUS_LABEL[p.status] || p.status}
-        </span>
-      </div>
-
-      {/* ── Info cliente ── */}
-      <div className="border-b border-gray-100 px-4 py-3 dark:border-white/5">
-        <p className="m-0 font-['Sora'] text-sm font-semibold text-gray-900 dark:text-[#EAF1FB]">
-          {p.identificador_cliente}
-        </p>
-        <div className="mt-1 flex justify-between">
-          <span className="font-['JetBrains_Mono'] text-[11px] text-gray-500 dark:text-[#6C7A96]">{p.telefone_contato}</span>
-          <span className="rounded-md bg-gray-100 px-2 py-[1px] font-['JetBrains_Mono'] text-[11px] text-gray-500 dark:bg-white/5 dark:text-[#6C7A96]">{hora}</span>
-        </div>
-      </div>
-
-      {/* ── Status em destaque ── */}
-      {p.status === 'NOVO' && (
-        <div style={{ margin: '12px 16px 0', background: 'rgba(252,91,36,.1)', border: '1px solid rgba(252,91,36,.35)', borderRadius: 12, padding: '10px 14px' }}>
-          <div style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: 14, color: '#FE7A47' }}>Aguardando aceite</div>
-        </div>
-      )}
-      {naCozinha && (
-        <div className="mx-4 mt-3 flex items-center gap-2 rounded-xl border border-orange-300/40 bg-orange-500/10 px-3.5 py-2.5" style={{ animation: 'pulse 1.8s infinite' }}>
-          <Flame size={16} className="shrink-0 text-orange-500" />
-          <div>
-            <p className="font-['Sora'] text-sm font-bold text-orange-500">Na cozinha</p>
-            <p className="text-[11px] text-gray-400 dark:text-[#AEB9CE]">Só a cozinha avança este pedido agora.</p>
-          </div>
-        </div>
-      )}
-      {p.status === 'ACEITO' && !naCozinha && p.requer_cozinha && (
-        <div style={{ margin: '12px 16px 0', background: 'rgba(252,91,36,.1)', border: '1px solid rgba(252,91,36,.35)', borderRadius: 12, padding: '10px 14px' }}>
-          <div style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: 14, color: '#FE7A47' }}>Aceito — pronto para ir à cozinha</div>
-          <div style={{ fontSize: 12, color: '#AEB9CE', marginTop: 4 }}>Estoque baixado por ficha técnica ✓</div>
-        </div>
-      )}
-
-      {/* ── Itens (com checklist de conferência quando aplicável) ── */}
-      <div className="flex flex-1 flex-col gap-2 px-4 py-3">
-        {itens.map((i) => (
-          <div key={i.id} className={`flex justify-between text-[13px] ${precisaConferir ? 'cursor-pointer select-none' : ''}`}
-            onClick={() => precisaConferir && toggleConferido(i.id)}>
-            <span className="flex items-start gap-2 text-gray-700 dark:text-[#AEB9CE]">
-              {precisaConferir && (
-                <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${conferidos.has(i.id) ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300 dark:border-gray-600'}`}>
-                  {conferidos.has(i.id) && <Check size={11} className="text-white" />}
-                </span>
-              )}
-              <span>
-                {i.quantidade}× {i.nome_produto}
-                {i.itens_pedido_opcoes?.map((o, x) => (
-                  <span key={x} className="mt-0.5 block text-[11px] text-gray-500 dark:text-[#6C7A96]">+ {o.nome_opcao}</span>
-                ))}
-                {i.observacao && (
-                  <span className="mt-0.5 block text-[11px] font-semibold text-red-500 dark:text-red-400">⚠ {i.observacao}</span>
-                )}
-              </span>
-            </span>
-            <span className="ml-2 whitespace-nowrap font-['Sora'] font-semibold text-gray-900 dark:text-[#EAF1FB]">
-              {fmt(Number(i.preco_unitario) * i.quantidade)}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {precisaConferir && itens.length > 0 && (
-        <div className="mx-4 mb-1 flex items-center gap-2">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${(conferidos.size / itens.length) * 100}%` }} />
-          </div>
-          <span className="shrink-0 text-[10px] font-bold text-gray-400">{conferidos.size}/{itens.length}</span>
-        </div>
-      )}
-
-      {/* ── Entrega/Balcão/Mesa ── */}
-      <div className="mx-4 border-t border-gray-100 py-2.5 dark:border-white/5">
-        {p.tipo_pedido === 'DELIVERY' ? (
-          <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-[#AEB9CE]">
-            <Bike size={14} className="mt-0.5 shrink-0 text-blue-500 dark:text-[#6B9EFF]" />
-            <span>{p.endereco_entrega}{p.bairro ? ` — ${p.bairro}` : ''}</span>
-          </div>
-        ) : p.tipo_pedido === 'SALAO' ? (
-          <div className="flex items-center gap-1.5 font-semibold text-purple-500">
-            <UtensilsCrossed size={14} /> Mesa {p.mesa_numero ?? '—'}
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 text-emerald-500 font-semibold">
-            <Store size={14} /> Retirada no balcão
-          </div>
-        )}
-      </div>
-
-      <div className="px-4 py-3 flex justify-between border-t border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5">
-        <span className="font-['Sora'] font-bold text-[15px] text-gray-900 dark:text-gray-100">Total</span>
-        <span className="font-['Sora'] font-bold text-[15px] text-orange-500">{fmt(Number(p.valor_total))}</span>
-      </div>
-
-      <div className="p-4 flex gap-2 border-t border-gray-100 dark:border-white/5">
-        {/* NOVO → ACEITO */}
-        {p.status === 'NOVO' && (
-          <button disabled={processando} onClick={() => executar(() => onAvancar('ACEITO'))}
-            className="flex-1 flex items-center justify-center gap-2 bg-orange-500 text-white rounded-xl py-2.5 font-['Sora'] font-bold text-sm shadow-lg shadow-orange-500/20 hover:brightness-110 transition disabled:opacity-50">
-            <Check size={16} /> Aceitar pedido
-          </button>
-        )}
-
-        {/* ACEITO com bastão no balcão: enviar pra cozinha OU atalho de revenda */}
-        {p.status === 'ACEITO' && !naCozinha && (
-          p.requer_cozinha ? (
-            <button disabled={processando} onClick={() => executar(onEnviarCozinha)}
-              className="flex-1 flex items-center justify-center gap-2 bg-orange-500 text-white rounded-xl py-2.5 font-['Sora'] font-bold text-sm shadow-lg shadow-orange-500/20 hover:brightness-110 transition disabled:opacity-50">
-              <Flame size={16} /> Enviar para a cozinha
-            </button>
-          ) : (
-            <button disabled={processando} onClick={() => executar(() => onAvancar('PRONTO'))}
-              className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 text-white rounded-xl py-2.5 font-['Sora'] font-bold text-sm shadow-lg shadow-emerald-500/20 hover:brightness-110 transition disabled:opacity-50">
-              <Store size={16} /> Separar e entregar
-            </button>
-          )
-        )}
-
-        {/* Bastão com a cozinha: sem ação no balcão */}
-        {naCozinha && (
-          <div className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50 py-2.5 text-xs font-bold uppercase tracking-wide text-orange-600 dark:border-orange-900/40 dark:bg-orange-900/10 dark:text-orange-400">
-            <ChefHat size={14} /> Aguardando a cozinha
-          </div>
-        )}
-
-        {/* PRONTO com bastão no balcão: conferência antes do destino */}
-        {precisaConferir && (
-          <button disabled={processando || !todosConferidos} onClick={() => executar(() => onAvancar(destinoStatus))}
-            className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 text-white rounded-xl py-2.5 font-['Sora'] font-bold text-sm shadow-lg shadow-emerald-500/20 hover:brightness-110 transition disabled:cursor-not-allowed disabled:opacity-40">
-            <Check size={16} /> {destinoLabel}
-          </button>
-        )}
-
-        {/* EM_ROTA → FINALIZADO (segue igual) */}
-        {p.status === 'EM_ROTA' && fluxo.prox && (
-          <button disabled={processando} onClick={() => executar(() => onAvancar(fluxo.prox!))}
-            className="flex-1 flex items-center justify-center gap-2 bg-orange-500 text-white rounded-xl py-2.5 font-['Sora'] font-bold text-sm shadow-lg shadow-orange-500/20 hover:brightness-110 transition disabled:opacity-50">
-            <Check size={16} /> {fluxo.label}
-          </button>
-        )}
-
-        {semAvancoSalao && (
-          <div className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-purple-200 bg-purple-50 py-2.5 text-xs font-bold uppercase tracking-wide text-purple-600 dark:border-purple-900/40 dark:bg-purple-900/10 dark:text-purple-400">
-            <UtensilsCrossed size={14} /> Aguardando fechar a conta
-          </div>
-        )}
-
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={() => setMenu((m) => !m)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition"
-            title="Imprimir via"
-          >
-            <Printer size={18} />
-          </button>
-          {menu && (
-            <div className="absolute bottom-12 right-0 z-20 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-white/10 dark:bg-[#0B1120]">
-              <p className="px-3 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Imprimir via</p>
-              <button onClick={() => escolher('cozinha')} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5">
-                <ChefHat size={16} className="text-orange-500" /> Comanda da Cozinha
-              </button>
-              {isDelivery && (
-                <button onClick={() => escolher('romaneio')} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5">
-                  <Bike size={16} className="text-blue-500" /> Romaneio do Entregador
-                </button>
-              )}
-              <button onClick={() => escolher('nota')} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5">
-                <Receipt size={16} className="text-emerald-500" /> Nota do Cliente
-              </button>
-            </div>
-          )}
-        </div>
-
-        {['NOVO','ACEITO','PREPARANDO'].includes(p.status) && (naCozinha || p.status === 'PREPARANDO' ? papel === 'admin' : true) && (
-          <button
-            onClick={onCancelar}
-            title={naCozinha || p.status === 'PREPARANDO' ? 'A cozinha já começou — só admin cancela' : 'Cancelar pedido'}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 transition"
-          >
-            {(naCozinha || p.status === 'PREPARANDO') ? <Lock size={15} /> : <XIcon size={18} />}
-          </button>
-        )}
-      </div>
+      <PedidoHeader pedido={p} />
+      <PedidoItens pedido={p} precisaConferir={precisaConferir} conferidos={conferidos} toggleConferido={toggleConferido} />
+      <PedidoFooter pedido={p} />
+      <PedidoActions
+        pedido={p} papel={papel} naCozinha={naCozinha} precisaConferir={precisaConferir}
+        todosConferidos={todosConferidos} semAvancoSalao={semAvancoSalao} destinoStatus={destinoStatus}
+        destinoLabel={destinoLabel} isDelivery={isDelivery} processando={processando}
+        fluxoProx={fluxo.prox} fluxoLabel={fluxo.label} onAvancar={onAvancar}
+        onEnviarCozinha={onEnviarCozinha} onCancelar={onCancelar} onImprimir={onImprimir} executar={executar}
+      />
     </div>
   );
 }
