@@ -54,6 +54,12 @@ export interface Loja {
   nfe_inscricao_estadual?: string;
   nfe_id_csc?: string;
   nfe_csc?: string;
+
+  // iFood
+  ifood_merchant_id?: string;
+  ifood_authorization_code?: string;
+  ifood_refresh_token?: string;
+
   cashback_pct?: number | null; // % do pedido creditado como saldo pro cliente (0 = desligado)
   meta_preparo_min?: number; // meta de tempo de preparo da cozinha (min), default 20
   pix_chave?: string;
@@ -164,6 +170,7 @@ export interface Produto {
   fichas_tecnicas?: FichaTecnica[];
   tem_estoque?: boolean; // calculado no client via fn_produtos_com_estoque — não existe como coluna
   estacao_preparo?: EstacaoPreparo; // COZINHA (default) = entra no KDS. DIRETO = revenda, balcão entrega sem passar pela cozinha.
+  pdv_code?: string; // para mapeamento com iFood
 }
 
 export interface Cupom {
