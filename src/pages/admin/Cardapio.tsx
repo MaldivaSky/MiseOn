@@ -270,6 +270,7 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, rateioFixo, onClos
   const [isCombo, setIsCombo] = useState(produto?.is_combo ?? false);
   const [destaque, setDestaque] = useState(produto?.destaque ?? false);
   const [controlaEstoque, setControlaEstoque] = useState(produto?.controla_estoque ?? true);
+  const [pdvCode, setPdvCode] = useState(produto?.pdv_code ?? '');
   const [estacaoPreparo, setEstacaoPreparo] = useState<EstacaoPreparo>(produto?.estacao_preparo ?? 'COZINHA');
   const [grupos, setGrupos] = useState<GrupoForm[]>(
     (produto?.grupos_opcoes ?? []).map((g) => ({
@@ -352,6 +353,7 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, rateioFixo, onClos
         destaque,
         controla_estoque: controlaEstoque,
         estacao_preparo: estacaoPreparo,
+        pdv_code: pdvCode.trim() || null,
       };
 
       let produtoId = produto?.id;
@@ -425,6 +427,10 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, rateioFixo, onClos
               <option value="">Sem categoria</option>
               {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
+          </div>
+          <div className="pt-1">
+            <input value={pdvCode} onChange={(e) => setPdvCode(e.target.value)} placeholder="Código PDV / iFood (opcional)" className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
+            <p className="mt-1 text-[10px] text-gray-400">Use este código para mapear este produto com integrações externas como o iFood.</p>
           </div>
           <div>
             <p className="mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400">Fotos do Produto (até 3)</p>
