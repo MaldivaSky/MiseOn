@@ -20,14 +20,16 @@ export default function CardapioAdmin() {
   const [catAtiva, setCatAtiva] = useState<string | null>(null);
   const [editando, setEditando] = useState<Produto | 'novo' | null>(null);
   const [rateioFixo, setRateioFixo] = useState(0);
+  const [lojaInfo, setLojaInfo] = useState<any>(null);
 
   const carregar = async () => {
-    const [{ data: c }, { data: p }, { data: i }, { data: est }, { data: config }] = await Promise.all([
+    const [{ data: c }, { data: p }, { data: i }, { data: est }, { data: config }, { data: loja }] = await Promise.all([
       supabase.from('categorias').select('*').eq('loja_id', lojaId).order('ordem'),
       supabase.from('produtos').select('*, grupos_opcoes(*, opcoes(*)), fichas_tecnicas(*)').eq('loja_id', lojaId).order('ordem'),
       supabase.from('insumos').select('*').eq('loja_id', lojaId).eq('ativo', true).order('nome'),
       supabase.rpc('fn_produtos_com_estoque', { p_loja_id: lojaId }),
       supabase.from('configuracoes_custo').select('*').eq('loja_id', lojaId).maybeSingle(),
+      supabase.from('lojas').select('plano_tipo, ifood_addon_ativo, ifood_taxa_pct, ifood_taxa_fixa').eq('id', lojaId).single(),
     ]);
     const mapaEstoque = new Map<string, boolean>((est ?? []).map((e: any) => [e.produto_id, e.tem_estoque]));
     
@@ -39,6 +41,7 @@ export default function CardapioAdmin() {
     setCategorias((c as Categoria[]) ?? []);
     setProdutos(((p as Produto[]) ?? []).map((prod) => ({ ...prod, tem_estoque: mapaEstoque.get(prod.id) ?? true })));
     setInsumos((i as Insumo[]) ?? []);
+    setLojaInfo(loja);
   };
   useEffect(() => { setTimeout(carregar, 0); }, [lojaId]);
 
@@ -178,6 +181,7 @@ export default function CardapioAdmin() {
           categorias={categorias}
           insumos={insumos}
           rateioFixo={rateioFixo}
+          lojaInfo={lojaInfo}
           onClose={() => setEditando(null)}
           onSalvo={() => { setEditando(null); carregar(); }}
         />
@@ -253,12 +257,13 @@ interface OpcaoForm { _key: string; nome: string; preco_adicional: number; dispo
 interface GrupoForm { _key: string; nome: string; min_escolhas: number; max_escolhas: number; opcoes: OpcaoForm[]; }
 interface FichaForm { insumo_id: string; quantidade_consumida: string; }
 
-function ProdutoModal({ lojaId, produto, categorias, insumos, rateioFixo, onClose, onSalvo }: {
+function ProdutoModal({ lojaId, produto, categorias, insumos, rateioFixo, lojaInfo, onClose, onSalvo }: {
   lojaId: string;
   produto: Produto | null;
   categorias: Categoria[];
   insumos: Insumo[];
   rateioFixo: number;
+  lojaInfo: any;
   onClose: () => void;
   onSalvo: () => void;
 }) {
@@ -329,6 +334,11 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, rateioFixo, onClos
   const precoNum = Number(preco || 0);
   const lucroLiquidoReal = precoNum - custoInsumos - rateioFixo;
   const margemReal = precoNum > 0 ? (lucroLiquidoReal / precoNum) * 100 : 0;
+
+  const markupIfood = lojaInfo?.ifood_addon_ativo && lojaInfo?.ifood_taxa_pct 
+    ? (precoNum / (1 - (Number(lojaInfo.ifood_taxa_pct) / 100))) + Number(lojaInfo.ifood_taxa_fixa || 0)
+    : precoNum;
+  const isIfoodActive = lojaInfo?.ifood_addon_ativo && lojaInfo?.ifood_taxa_pct > 0;
 
   const addGrupo = () => setGrupos((g) => [...g, { _key: crypto.randomUUID(), nome: '', min_escolhas: 0, max_escolhas: 1, opcoes: [] }]);
   const addOpcao = (gKey: string) => setGrupos((g) => g.map((x) => x._key === gKey
@@ -431,6 +441,16 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, rateioFixo, onClos
           <div className="pt-1">
             <input value={pdvCode} onChange={(e) => setPdvCode(e.target.value)} placeholder="Código PDV / iFood (opcional)" className="w-full rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
             <p className="mt-1 text-[10px] text-gray-400">Use este código para mapear este produto com integrações externas como o iFood.</p>
+            {isIfoodActive && pdvCode && (
+              <div className="mt-2 rounded-xl bg-amber-50 p-3 border border-amber-200 dark:bg-amber-900/10 dark:border-amber-900/30">
+                <p className="text-[10px] font-bold text-amber-800 dark:text-amber-500">
+                  Bloqueio iFood Ativo
+                </p>
+                <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1">
+                  O markup está ligado. <b>Não altere o preço deste item manualmente no Portal do iFood</b>, pois o MiseOn será a fonte oficial do preço, sob pena de dessincronização financeira.
+                </p>
+              </div>
+            )}
           </div>
           <div>
             <p className="mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400">Fotos do Produto (até 3)</p>
@@ -511,12 +531,13 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, rateioFixo, onClos
               <Plus size={12} /> Adicionar insumo
             </button>
             {!insumos.length && <p className="mt-1 text-xs text-gray-400">Cadastre insumos em Estoque primeiro.</p>}
-            {ficha.length > 0 && (
+             {ficha.length > 0 && (
               <div className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-3">
                  <div className="grid grid-cols-4 gap-2 text-center text-[10px] sm:text-xs">
                     <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2 border border-gray-100 dark:border-gray-700">
-                      <p className="uppercase tracking-wide text-gray-400 mb-1">Preço</p>
+                      <p className="uppercase tracking-wide text-gray-400 mb-1">Preço PDV</p>
                       <p className="font-semibold dark:text-gray-200">{fmt(precoNum)}</p>
+                      {isIfoodActive && <p className="text-[9px] text-red-500 font-bold mt-0.5">iFood: {fmt(markupIfood)}</p>}
                     </div>
                     <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2 border border-gray-100 dark:border-gray-700">
                       <p className="uppercase tracking-wide text-gray-400 mb-1">Insumos</p>
