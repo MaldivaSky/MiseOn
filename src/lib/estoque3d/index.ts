@@ -28,3 +28,11 @@ export type {
   TipoNo,
 } from './types';
 export { COMPRAS_EXEMPLO } from './dadosExemplo';
+
+// Jogo 3D — a mesma conservação de valor, em versão linha de montagem jogável.
+export { extrairCadeias, CAP_ITENS } from './jogo/cadeiaJogo';
+export type { CadeiaJogo, EstagioJogo, PortaJogo, TipoPorta } from './jogo/cadeiaJogo';
+export { JogoTransformacaoEngine } from './jogo/JogoTransformacaoEngine';
+export type { EstadoJogo, EstadoPorta, StatusPorta } from './jogo/JogoTransformacaoEngine';
+export { JogoTransformacao3D } from './jogo/JogoTransformacao3D';
+export { EstoqueJogo3D } from './jogo/EstoqueJogo3D';

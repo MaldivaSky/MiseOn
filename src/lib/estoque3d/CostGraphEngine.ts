@@ -29,7 +29,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 
 import type { GrafoCusto, NoCusto } from './types';
-import { calcularLayout } from './layout';
+import { calcularLayout, type NoPosicionado } from './layout';
 
 export interface InfoHover {
   no: NoCusto;
@@ -38,9 +38,17 @@ export interface InfoHover {
   telaY: number;
 }
 
+export interface PosicaoTelaNo {
+  no: NoCusto;
+  telaX: number;
+  telaY: number;
+  visivel: boolean;
+}
+
 export interface OpcoesEngine {
   onHover?: (info: InfoHover | null) => void;
   onSelect?: (no: NoCusto) => void;
+  onRender?: () => void;
   /** Cor de fundo da cena. */
   corFundo?: number;
 }
@@ -64,6 +72,7 @@ export class CostGraphEngine {
   private malhaNos: THREE.InstancedMesh | null = null;
   private linhasArestas: THREE.LineSegments | null = null;
   private grafo: GrafoCusto | null = null;
+  private layoutPosicionados: NoPosicionado[] = [];
 
   // Cores de calor "cruas" (sem boost/pulsação), r,g,b intercalados por índice.
   // Servem de base estável para reaplicar a pulsação sem acumular erro por frame.
@@ -213,6 +222,7 @@ export class CostGraphEngine {
     this.grafo = grafo;
 
     const layout = calcularLayout(grafo);
+    this.layoutPosicionados = layout.posicionados;
     const quantidade = layout.posicionados.length;
     if (quantidade === 0) return;
 

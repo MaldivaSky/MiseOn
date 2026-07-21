@@ -1,17 +1,22 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   LayoutGrid, Plus, QrCode, X, Users, Clock, Check, Banknote, CreditCard,
-  Trash2, Printer, AlertTriangle, Loader2, Copy, Percent,
+  Trash2, Printer, AlertTriangle, Loader2, Copy, Percent, Box, SlidersHorizontal, Move,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { fmt, type Mesa, type Comanda, type Pedido, type Loja, type MetodoPgto } from '../../types';
 import { gerarQrDataUrl } from '../../lib/qr';
 import { imprimir } from '../../lib/print';
 import type { CtxLoja } from './AdminLayout';
+import { Mesas3DCanvas } from '../../lib/mesas3d/Mesas3DCanvas';
+import { prepararLayoutSalao3D } from '../../lib/mesas3d/layoutMesas';
+import type { Mesa3DPosicionada } from '../../lib/mesas3d/types';
+import { GarcomMesaDrawer } from '../../components/mesas3d/GarcomMesaDrawer';
+import { EditorLayout3DModal } from '../../components/mesas3d/EditorLayout3DModal';
 
 /* ─────────────────────────────────────────────────────────────
    Mapa de Mesas — visão do salão para o garçom/gerente.
@@ -54,6 +59,16 @@ export default function Mesas() {
   const [mesas, setMesas] = useState<MesaComComanda[]>([]);
   const [carregando, setCarregando] = useState(true);
 
+  // Estados da Engine 3D e Salão
+  const [viewModo, setViewModo] = useState<'SALAO_3D' | 'GRADE'>('SALAO_3D');
+  const [mesasBrutas, setMesasBrutas] = useState<Mesa[]>([]);
+  const [comandasCruas, setComandasCruas] = useState<Comanda[]>([]);
+  const [pedidosCruos, setPedidosCruos] = useState<Pedido[]>([]);
+  const [garcomDrawerMesa, setGarcomDrawerMesa] = useState<Mesa3DPosicionada | null>(null);
+  const [assentoInicialDrawer, setAssentoInicialDrawer] = useState<number | null>(null);
+  const [modalEditorLayout, setModalEditorLayout] = useState(false);
+  const [modoEdicao3D, setModoEdicao3D] = useState(false);
+
   const [modalNovaMesa, setModalNovaMesa] = useState(false);
   const [salvandoMesa, setSalvandoMesa] = useState(false);
 
@@ -76,24 +91,32 @@ export default function Mesas() {
   const [mostrarTransferencia, setMostrarTransferencia] = useState(false);
   const [transferindoPara, setTransferindoPara] = useState('');
 
-  const carregar = async () => {
+  const carregar = useCallback(async () => {
     const [{ data: mesasData }, { data: lj }, { data: comandas }] = await Promise.all([
       supabase.from('mesas').select('*').eq('loja_id', lojaId).eq('ativo', true).order('numero'),
       supabase.from('lojas').select('*').eq('id', lojaId).single(),
       supabase.from('comandas').select('*').eq('loja_id', lojaId).eq('status', 'ABERTA'),
     ]);
     setLoja((lj as Loja) ?? null);
+    setMesasBrutas((mesasData as Mesa[]) ?? []);
+    setComandasCruas((comandas as Comanda[]) ?? []);
 
     const comandaPorMesa = new Map((comandas as Comanda[] ?? []).map((c) => [c.mesa_id, c]));
     const comandaIds = (comandas ?? []).map((c: any) => c.id);
 
     const pedidosPorComanda = new Map<string, { total: number; pago: number; qtd: number; emPreparo: boolean }>();
+    let todosPedidosBrutos: Pedido[] = [];
+
     if (comandaIds.length > 0) {
       const { data: pedidos } = await supabase
         .from('pedidos')
-        .select('id, comanda_id, status, valor_total, itens_pedido(quantidade), pagamentos(valor_pago)')
+        .select('id, comanda_id, status, valor_total, criado_em, itens_pedido(*), pagamentos(valor_pago)')
         .in('comanda_id', comandaIds)
         .neq('status', 'CANCELADO');
+
+      todosPedidosBrutos = (pedidos as unknown as Pedido[]) ?? [];
+      setPedidosCruos(todosPedidosBrutos);
+
       for (const p of (pedidos as any[]) ?? []) {
         const atual = pedidosPorComanda.get(p.comanda_id) ?? { total: 0, pago: 0, qtd: 0, emPreparo: false };
         atual.total += Number(p.valor_total);
@@ -102,6 +125,8 @@ export default function Mesas() {
         if (STATUS_EM_PREPARO.includes(p.status)) atual.emPreparo = true;
         pedidosPorComanda.set(p.comanda_id, atual);
       }
+    } else {
+      setPedidosCruos([]);
     }
 
     setMesas(((mesasData as Mesa[]) ?? []).map((m) => {
@@ -117,7 +142,7 @@ export default function Mesas() {
       };
     }));
     setCarregando(false);
-  };
+  }, [lojaId]);
 
   useEffect(() => {
     setTimeout(() => {
@@ -129,7 +154,7 @@ export default function Mesas() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: `loja_id=eq.${lojaId}` }, () => carregar())
       .subscribe();
     return () => { supabase.removeChannel(canal); };
-  }, [lojaId]);
+  }, [lojaId, carregar]);
 
   const livres = mesas.filter((m) => !m.comanda);
   const ocupadas = mesas.filter((m) => !!m.comanda);
@@ -325,20 +350,86 @@ export default function Mesas() {
     setProcessandoFechamento(false);
   };
 
+  const mesas3D = useMemo(() => {
+    return prepararLayoutSalao3D(mesasBrutas, comandasCruas, pedidosCruos);
+  }, [mesasBrutas, comandasCruas, pedidosCruos]);
+
+  const salvarPosicaoMesa3D = async (mesaId: string, novaPos: { x: number; z: number; rotacao: number }) => {
+    await supabase.from('mesas').update({
+      pos_x: novaPos.x,
+      pos_z: novaPos.z,
+      rotacao: novaPos.rotacao,
+    }).eq('id', mesaId);
+    carregar();
+  };
+
   const inputCls = 'w-full rounded-xl border border-gray-300 p-2.5 text-sm outline-none focus:border-[var(--cor-primaria)] dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100';
 
   if (carregando) return <div className="p-8 text-center text-gray-400">Carregando o salão…</div>;
 
   return (
     <div className="mx-auto max-w-5xl p-4 pb-12">
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 text-xl font-black dark:text-gray-100"><LayoutGrid size={20} className="text-[var(--cor-primaria)]" /> Mapa de Mesas</h2>
-          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{ocupadas.length} ocupada{ocupadas.length !== 1 ? 's' : ''} · {livres.length} livre{livres.length !== 1 ? 's' : ''}</p>
+          <h2 className="flex items-center gap-2 text-xl font-black dark:text-gray-100">
+            <Box size={22} className="text-orange-500" /> Mapa do Salão & Assentos 3D
+          </h2>
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            {ocupadas.length} ocupada{ocupadas.length !== 1 ? 's' : ''} · {livres.length} livre{livres.length !== 1 ? 's' : ''}
+          </p>
         </div>
-        <button onClick={() => setModalNovaMesa(true)} className="flex items-center gap-1.5 rounded-xl bg-[var(--cor-primaria)] px-4 py-2.5 text-sm font-bold text-white shadow-md transition hover:brightness-110">
-          <Plus size={16} /> Nova mesa
-        </button>
+
+        <div className="flex items-center gap-2">
+          {/* Seletor de Modo: Salão 3D vs Grade 2D */}
+          <div className="flex rounded-xl border border-gray-200 bg-gray-100 p-1 dark:border-gray-800 dark:bg-gray-900">
+            <button
+              onClick={() => setViewModo('SALAO_3D')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                viewModo === 'SALAO_3D'
+                  ? 'bg-orange-500 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+              }`}
+            >
+              <Box size={14} /> Salão 3D
+            </button>
+            <button
+              onClick={() => setViewModo('GRADE')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                viewModo === 'GRADE'
+                  ? 'bg-orange-500 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+              }`}
+            >
+              <LayoutGrid size={14} /> Grade 2D
+            </button>
+          </div>
+
+          {viewModo === 'SALAO_3D' && (
+            <>
+              <button
+                onClick={() => setModoEdicao3D(!modoEdicao3D)}
+                className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition ${
+                  modoEdicao3D
+                    ? 'border-orange-500 bg-orange-500/20 text-orange-400'
+                    : 'border-gray-200 bg-white text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'
+                }`}
+              >
+                <Move size={14} /> {modoEdicao3D ? 'Arraste Ativo' : 'Mover Mesas'}
+              </button>
+
+              <button
+                onClick={() => setModalEditorLayout(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-600 transition hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                <SlidersHorizontal size={14} /> Ajustar Salão
+              </button>
+            </>
+          )}
+
+          <button onClick={() => setModalNovaMesa(true)} className="flex items-center gap-1.5 rounded-xl bg-[var(--cor-primaria)] px-4 py-2 text-sm font-bold text-white shadow-md transition hover:brightness-110">
+            <Plus size={16} /> Nova mesa
+          </button>
+        </div>
       </div>
 
       {mesas.length === 0 ? (
@@ -347,6 +438,17 @@ export default function Mesas() {
           <p className="text-sm font-semibold text-gray-500">Nenhuma mesa cadastrada ainda.</p>
           <p className="mt-1 text-xs text-gray-400">Crie suas mesas e gere o QR Code para os clientes pedirem direto de onde estão sentados.</p>
         </div>
+      ) : viewModo === 'SALAO_3D' ? (
+        <Mesas3DCanvas
+          mesas3D={mesas3D}
+          altura="650px"
+          modoEdicao={modoEdicao3D}
+          onSelecionarMesa={(m3d, assentoNum) => {
+            setGarcomDrawerMesa(m3d);
+            setAssentoInicialDrawer(assentoNum ?? null);
+          }}
+          onLayoutChange={salvarPosicaoMesa3D}
+        />
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {mesas.map((m) => {
@@ -614,6 +716,29 @@ export default function Mesas() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Drawer do Garçom com Gestão de Assentos e Divisão de Comanda */}
+      {garcomDrawerMesa && (
+        <GarcomMesaDrawer
+          mesa3d={garcomDrawerMesa}
+          assentoInicial={assentoInicialDrawer}
+          loja={loja}
+          onClose={() => setGarcomDrawerMesa(null)}
+          onAtualizar={carregar}
+        />
+      )}
+
+      {/* Modal de Edição de Layout e Formatos de Mesa */}
+      {modalEditorLayout && (
+        <EditorLayout3DModal
+          mesas={mesasBrutas}
+          onClose={() => setModalEditorLayout(false)}
+          onSalvo={() => {
+            setModalEditorLayout(false);
+            carregar();
+          }}
+        />
       )}
     </div>
   );

@@ -40,6 +40,7 @@ interface LinhaInsumo {
   id: string;
   nome: string;
   unidade_medida: string;
+  categoria_insumo?: string | null;
 }
 
 /**
@@ -105,7 +106,9 @@ export function montarCompras(
     if (cadeia.length === 0) {
       compras.push({
         id: lote.id, produto: insumo.nome, unidade: insumo.unidade_medida,
-        quantidade: qtdBase, custoTotal, data: lote.criado_em, transformacoes: [],
+        quantidade: qtdBase, custoTotal, data: lote.criado_em,
+        categoria: insumo.categoria_insumo ?? 'Ingrediente',
+        transformacoes: [],
       });
       continue;
     }
@@ -141,6 +144,7 @@ export function montarCompras(
       quantidade: qtdCompra,
       custoTotal,
       data: lote.criado_em,
+      categoria: insumo.categoria_insumo ?? 'Ingrediente',
       transformacoes: [niveis[0]],
     });
   }
@@ -150,7 +154,7 @@ export function montarCompras(
 /** Carrega o grafo real da loja. Lotes sem custo são ignorados. */
 export async function carregarGrafoDaLoja(lojaId: string, limiteLotes = 300): Promise<GrafoCusto> {
   const [insumosRes, lotesRes, fatoresRes] = await Promise.all([
-    supabase.from('insumos').select('id,nome,unidade_medida').eq('loja_id', lojaId),
+    supabase.from('insumos').select('id,nome,unidade_medida,categoria_insumo').eq('loja_id', lojaId),
     supabase
       .from('lotes_estoque')
       .select('id,insumo_id,quantidade_inicial,quantidade_restante,custo_unitario,criado_em')

@@ -18,21 +18,14 @@ import { validarConversao } from '../unidades';
 /** Uma transformação de estoque: consome X do pai, produz Y do filho. */
 export interface TransformacaoInput {
   id: string;
-  /** Nome do produto resultante (ex.: "Tomate unidade", "Fatia de tomate"). */
   produto: string;
-  /** Unidade do produto resultante (ex.: "un", "fatia"). */
   unidade: string;
-  /** Quantidade consumida do nó pai, na unidade do pai (ex.: 10 kg, 2 un). */
   quantidadeConsumida: number;
-  /** Quantidade produzida do filho, na unidade do filho (ex.: 50 un, 7 fatias). */
   quantidadeProduzida: number;
-  /** Data da transformação (ISO) — usada para destacar nós recém-fracionados. */
   data?: string;
-  /** Transformações seguintes (a quebra da quebra). */
   filhos?: TransformacaoInput[];
 }
 
-/** A compra original: a raiz da árvore genealógica do custo. */
 export interface CompraInput {
   id: string;
   produto: string;
@@ -40,12 +33,9 @@ export interface CompraInput {
   quantidade: number;
   custoTotal: number;
   data: string;
+  categoria?: string;
   transformacoes: TransformacaoInput[];
 }
-
-// ---------------------------------------------------------------------------
-// Saída (grafo pronto para o layout 3D)
-// ---------------------------------------------------------------------------
 
 export type TipoNo = 'compra' | 'conversao' | 'producao';
 
@@ -55,19 +45,17 @@ export interface NoCusto {
   tipo: TipoNo;
   rotulo: string;
   unidade: string;
-  /** Quantidade física deste lote/fração (na unidade do nó). */
   quantidade: number;
-  /** Custo herdado do pai (R$). Para a compra, é o custoTotal. */
   custoAlocado: number;
-  /** custoAlocado / quantidade — alimenta a escala de calor da cor. */
   custoUnitario: number;
-  /** Profundidade na árvore (0 = compra original). */
   profundidade: number;
-  /** Id da compra raiz — usado no tooltip ("Origem: Compra #452"). */
   compraOrigemId: string;
-  /** Custos já drenados pelos filhos (para auditoria de conservação). */
+  categoria?: string;
+  /** Proporção percentual de custo alocado em relação ao pai (ou total para raiz). */
+  proporcaoPaiPct: number;
+  /** Ordem de grandeza log10 do custo unitário (ex: 2 = R$ 10², 0 = R$ 10⁰, -2 = R$ 10⁻²). */
+  ordemGrandeza: number;
   custoConsumidoPelosFilhos: number;
-  /** true quando a transformação é recente → brilho seletivo (bloom). */
   destacar: boolean;
   filhos: NoCusto[];
 }
@@ -115,6 +103,7 @@ export function construirGrafoCusto(
     validarPositivo(compra.quantidade, `Compra ${compra.id}: quantidade`);
     validarPositivo(compra.custoTotal, `Compra ${compra.id}: custoTotal`);
 
+    const custoUnitario = compra.custoTotal / compra.quantidade;
     const raiz: NoCusto = {
       id: compra.id,
       paiId: null,
@@ -123,9 +112,12 @@ export function construirGrafoCusto(
       unidade: compra.unidade,
       quantidade: compra.quantidade,
       custoAlocado: compra.custoTotal,
-      custoUnitario: compra.custoTotal / compra.quantidade,
+      custoUnitario,
       profundidade: 0,
       compraOrigemId: compra.id,
+      categoria: compra.categoria,
+      proporcaoPaiPct: 100,
+      ordemGrandeza: Math.floor(Math.log10(Math.max(custoUnitario, 1e-6))),
       custoConsumidoPelosFilhos: 0,
       destacar: false,
       filhos: [],
@@ -198,6 +190,7 @@ function expandir(
 
     // --- A matemática da diluição (conservação de valor) -------------------
     const custoAlocado = pai.custoUnitario * t.quantidadeConsumida;
+    const custoUnitarioFilho = custoAlocado / t.quantidadeProduzida;
     const filho: NoCusto = {
       id: t.id,
       paiId: pai.id,
@@ -206,9 +199,12 @@ function expandir(
       unidade: t.unidade,
       quantidade: t.quantidadeProduzida,
       custoAlocado,
-      custoUnitario: custoAlocado / t.quantidadeProduzida,
+      custoUnitario: custoUnitarioFilho,
       profundidade: pai.profundidade + 1,
       compraOrigemId: pai.compraOrigemId,
+      categoria: pai.categoria,
+      proporcaoPaiPct: pai.custoAlocado > 0 ? Number(((custoAlocado / pai.custoAlocado) * 100).toFixed(2)) : 100,
+      ordemGrandeza: Math.floor(Math.log10(Math.max(custoUnitarioFilho, 1e-6))),
       custoConsumidoPelosFilhos: 0,
       destacar: t.data != null && agora - new Date(t.data).getTime() < JANELA_DESTAQUE_MS,
       filhos: [],
@@ -259,7 +255,7 @@ export function auditarConservacao(grafo: GrafoCusto): number {
   return desvioMax;
 }
 
-/** Formata a rota matemática do custo para o tooltip HTML. */
+/** Formata a rota matemática do custo para o tooltip HTML com Ordem de Grandeza e Proporção. */
 export function descreverRotaCusto(no: NoCusto): string {
   const custo = no.custoUnitario.toLocaleString('pt-BR', {
     style: 'currency',
@@ -267,5 +263,7 @@ export function descreverRotaCusto(no: NoCusto): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 4,
   });
-  return `${no.rotulo}: ${custo}/${no.unidade} — Origem: Compra #${no.compraOrigemId}`;
+  const expStr = no.ordemGrandeza >= 0 ? `10^${no.ordemGrandeza}` : `10^(${no.ordemGrandeza})`;
+  const propStr = no.profundidade === 0 ? '100% Lote Raiz' : `${no.proporcaoPaiPct}% do Pai`;
+  return `${no.rotulo} — ${custo}/${no.unidade} (Escala ${expStr} • ${propStr})`;
 }

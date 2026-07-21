@@ -128,7 +128,14 @@ export function CostGraph3D(props: Props) {
       {selecionado && (
         <aside className="mo-cg3d-painel">
           <header>
-            <span className="mo-cg3d-badge">{ROTULO_TIPO[selecionado.tipo]}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="mo-cg3d-badge">{ROTULO_TIPO[selecionado.tipo]}</span>
+              {selecionado.categoria && (
+                <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-md font-bold uppercase">
+                  {selecionado.categoria}
+                </span>
+              )}
+            </div>
             <button
               className="mo-cg3d-fechar"
               onClick={() => setSelecionado(null)}
@@ -140,28 +147,53 @@ export function CostGraph3D(props: Props) {
           <h4>{selecionado.rotulo}</h4>
           <dl>
             <div>
-              <dt>Quantidade</dt>
-              <dd>
+              <dt>Proporção do Fracionamento</dt>
+              <dd className="w-full">
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="font-bold text-blue-400">
+                    {selecionado.profundidade === 0 ? 'Lote Raiz (100%)' : `${selecionado.proporcaoPaiPct}% do Custo Pai`}
+                  </span>
+                  <span className="text-[10px] text-gray-400">Nível {selecionado.profundidade}</span>
+                </div>
+                <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden border border-gray-700">
+                  <div
+                    className="bg-blue-500 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(Math.max(selecionado.proporcaoPaiPct, 2), 100)}%` }}
+                  />
+                </div>
+              </dd>
+            </div>
+            <div>
+              <dt>Ordem de Grandeza</dt>
+              <dd className="font-bold text-purple-300">
+                10<sup>{selecionado.ordemGrandeza}</sup> R$/un <span className="text-[10px] font-normal text-gray-400">({selecionado.ordemGrandeza >= 0 ? `~R$ 10^${selecionado.ordemGrandeza}` : `~R$ 10^(${selecionado.ordemGrandeza})`})</span>
+              </dd>
+            </div>
+            <div>
+              <dt>Volume em Estoque</dt>
+              <dd className="font-bold text-blue-400">
                 {selecionado.quantidade} {selecionado.unidade}
               </dd>
             </div>
             <div>
-              <dt>Custo unitário</dt>
-              <dd>
+              <dt>Densidade de Custo</dt>
+              <dd className="font-black text-emerald-400">
                 {brl(selecionado.custoUnitario, 4)}/{selecionado.unidade}
               </dd>
             </div>
             <div>
-              <dt>Custo alocado</dt>
-              <dd>{brl(selecionado.custoAlocado)}</dd>
+              <dt>Capital Imobilizado</dt>
+              <dd className="font-black text-amber-300">{brl(selecionado.custoAlocado)}</dd>
             </div>
+            {selecionado.custoConsumidoPelosFilhos > 0 && (
+              <div>
+                <dt>Fracionado p/ Produção</dt>
+                <dd className="text-purple-300 font-semibold">{brl(selecionado.custoConsumidoPelosFilhos)}</dd>
+              </div>
+            )}
             <div>
-              <dt>Já fracionado</dt>
-              <dd>{brl(selecionado.custoConsumidoPelosFilhos)}</dd>
-            </div>
-            <div>
-              <dt>Origem</dt>
-              <dd>Compra #{selecionado.compraOrigemId}</dd>
+              <dt>Origem Rastreável</dt>
+              <dd className="text-gray-400 text-xs">Lote #{selecionado.compraOrigemId.slice(0, 8)}</dd>
             </div>
           </dl>
         </aside>

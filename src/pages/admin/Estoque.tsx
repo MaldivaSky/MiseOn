@@ -11,10 +11,11 @@ import type { ItemEstoque, FatorItem } from '../../lib/custeio';
 
 // three.js pesa ~600 KB: só entra no bundle de quem abrir a aba 3D.
 const EstoqueCusto3D = lazy(() => import('../../lib/estoque3d/EstoqueCusto3D'));
+const EstoqueJogo3D = lazy(() => import('../../lib/estoque3d/jogo/EstoqueJogo3D'));
 
 export default function Estoque() {
   const { lojaId } = useOutletContext<CtxLoja>();
-  const [tab, setTab] = useState<'insumos' | 'preparos' | 'custo3d'>('insumos');
+  const [tab, setTab] = useState<'insumos' | 'preparos' | 'custo3d' | 'jogo3d'>('insumos');
   const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [inativos, setInativos] = useState<Insumo[]>([]);
   const [mostrarInativos, setMostrarInativos] = useState(false);
@@ -280,10 +281,15 @@ export default function Estoque() {
            <button onClick={() => setTab('insumos')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'insumos' ? 'bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Matérias-Primas</button>
            <button onClick={() => setTab('preparos')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'preparos' ? 'bg-white dark:bg-gray-900 shadow-sm text-orange-600 dark:text-orange-500' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Receitas & Preparos</button>
            <button onClick={() => setTab('custo3d')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'custo3d' ? 'bg-white dark:bg-gray-900 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Custo 3D</button>
+           <button onClick={() => setTab('jogo3d')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'jogo3d' ? 'bg-white dark:bg-gray-900 shadow-sm text-emerald-600 dark:text-emerald-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Rastreio 3D</button>
          </div>
       </div>
 
-      {tab === 'custo3d' ? (
+      {tab === 'jogo3d' ? (
+        <Suspense fallback={<div className="h-[560px] rounded-2xl bg-gray-100 dark:bg-gray-800/40 animate-pulse" />}>
+          <EstoqueJogo3D lojaId={lojaId} />
+        </Suspense>
+      ) : tab === 'custo3d' ? (
         <Suspense fallback={<div className="h-[520px] rounded-2xl bg-gray-100 dark:bg-gray-800/40 animate-pulse" />}>
           <EstoqueCusto3D lojaId={lojaId} />
         </Suspense>

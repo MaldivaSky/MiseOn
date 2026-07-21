@@ -216,6 +216,7 @@ export interface ItemCarrinho {
   quantidade: number;
   observacao?: string;
   opcoesSelecionadas: Opcao[];
+  assento_numero?: number | null;
 }
 
 export interface ItemPedido {
@@ -225,6 +226,7 @@ export interface ItemPedido {
   preco_unitario: number;
   quantidade: number;
   observacao?: string;
+  assento_numero?: number | null;
   itens_pedido_opcoes?: { nome_opcao: string; preco_adicional: number }[];
 }
 
@@ -445,12 +447,19 @@ export interface MensagemPedido {
 
 // ── Mesas & Comandas (salão) ────────────────────────────────────
 
+export type FormatoMesa = 'REDONDA' | 'QUADRADA' | 'RETANGULAR' | 'BOOTH';
+
 export interface Mesa {
   id: string;
   loja_id: string;
   numero: number;
   nome?: string | null;
   capacidade?: number | null;
+  pos_x?: number | null;
+  pos_z?: number | null;
+  rotacao?: number | null;
+  formato?: FormatoMesa | null;
+  setor?: string | null;
   ativo: boolean;
   criado_em: string;
 }
