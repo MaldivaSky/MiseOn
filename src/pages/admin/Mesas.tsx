@@ -110,7 +110,9 @@ export default function Mesas() {
   };
 
   useEffect(() => {
-    carregar();
+    setTimeout(() => {
+      carregar();
+    }, 0);
     const canal = supabase
       .channel(`mesas-${lojaId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'comandas', filter: `loja_id=eq.${lojaId}` }, () => carregar())
@@ -198,13 +200,13 @@ export default function Mesas() {
   };
 
   const subtotalComanda = useMemo(() => pedidosComanda.reduce((s, p) => s + Number(p.valor_total), 0), [pedidosComanda]);
-  const valorServico = subtotalComanda * (Number(taxaEditavel || 0) / 100);
+  const valorServico = subtotalComanda * (Number(String(taxaEditavel).replace(',', '.') || 0) / 100);
   const totalComanda = subtotalComanda + valorServico;
   const valorJaPago = pedidosComanda.reduce((s, p) => s + ((p.pagamentos as any) ?? []).reduce((s2: number, pg: any) => s2 + Number(pg.valor_pago), 0), 0);
   const saldoDevedor = Math.max(0, totalComanda - valorJaPago);
   const bloqueadoPorPreparo = pedidosComanda.some((p) => STATUS_EM_PREPARO.includes(p.status));
   
-  const recebidoNum = Number(valorRecebido || (fechando !== 'DINHEIRO' ? saldoDevedor : 0));
+  const recebidoNum = Number(String(valorRecebido).replace(',', '.') || (fechando !== 'DINHEIRO' ? saldoDevedor : 0));
   const trocoFechamento = fechando === 'DINHEIRO' ? Math.max(0, recebidoNum - saldoDevedor) : 0;
 
   const confirmarFechamento = async (metodo: MetodoPgto) => {
@@ -480,7 +482,17 @@ export default function Mesas() {
                   <div className="mb-2 flex items-center justify-between">
                     <label className="flex items-center gap-1.5 text-xs font-bold text-gray-600 dark:text-gray-300"><Percent size={12} /> Taxa de serviço</label>
                     <div className="flex items-center gap-1">
-                      <input value={taxaEditavel} onChange={(e) => setTaxaEditavel(e.target.value.replace(/[^\d.,]/g, '').replace(',', '.'))} className="w-14 rounded-lg border border-gray-300 p-1.5 text-center text-xs font-bold dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" />
+                      <input value={taxaEditavel} onChange={(e) => {
+                        const value = e.target.value;
+                        if (value.startsWith('-')) { setErroFechamento('Valor não pode ser negativo'); return; }
+                        const clean = value.replace(/[^\d,]/g, '').replace(/,+/g, ',');
+                        const parts = clean.split(',');
+                        if (parts[1] && parts[1].length > 2) {
+                          setTaxaEditavel(parts[0] + ',' + parts[1].slice(0, 2));
+                        } else {
+                          setTaxaEditavel(clean);
+                        }
+                      }} className="w-14 rounded-lg border border-gray-300 p-1.5 text-center text-xs font-bold dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" />
                       <span className="text-xs font-bold text-gray-400">%</span>
                     </div>
                   </div>
@@ -520,7 +532,17 @@ export default function Mesas() {
                       {fechando === 'DINHEIRO' && (
                         <>
                           <label className="text-xs font-bold text-gray-600 dark:text-gray-300">Valor a pagar agora (pode ser parcial)</label>
-                          <input value={valorRecebido} onChange={(e) => setValorRecebido(e.target.value.replace(/[^\d.,]/g, '').replace(',', '.'))} placeholder={fmt(saldoDevedor)} inputMode="decimal" autoFocus
+                          <input value={valorRecebido} onChange={(e) => {
+                            const value = e.target.value;
+                            if (value.startsWith('-')) { setErroFechamento('Valor não pode ser negativo'); return; }
+                            const clean = value.replace(/[^\d,]/g, '').replace(/,+/g, ',');
+                            const parts = clean.split(',');
+                            if (parts[1] && parts[1].length > 2) {
+                              setValorRecebido(parts[0] + ',' + parts[1].slice(0, 2));
+                            } else {
+                              setValorRecebido(clean);
+                            }
+                          }} placeholder={fmt(saldoDevedor)} inputMode="decimal" autoFocus
                             className="mt-1 w-full rounded-xl border border-gray-300 p-3 text-center text-xl font-black outline-none focus:border-[var(--cor-primaria)] dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" />
                           {recebidoNum >= saldoDevedor && recebidoNum > 0 && (
                             <p className="mt-2 text-center text-sm font-bold text-gray-600 dark:text-gray-300">Troco: <span className="text-lg font-black text-emerald-600">{fmt(trocoFechamento)}</span></p>
@@ -530,7 +552,17 @@ export default function Mesas() {
                       {fechando !== 'DINHEIRO' && (
                         <div className="mb-3">
                           <label className="text-xs font-bold text-gray-600 dark:text-gray-300">Valor a passar na maquininha/pix</label>
-                          <input value={valorRecebido} onChange={(e) => setValorRecebido(e.target.value.replace(/[^\d.,]/g, '').replace(',', '.'))} placeholder={fmt(saldoDevedor)} inputMode="decimal"
+                          <input value={valorRecebido} onChange={(e) => {
+                            const value = e.target.value;
+                            if (value.startsWith('-')) { setErroFechamento('Valor não pode ser negativo'); return; }
+                            const clean = value.replace(/[^\d,]/g, '').replace(/,+/g, ',');
+                            const parts = clean.split(',');
+                            if (parts[1] && parts[1].length > 2) {
+                              setValorRecebido(parts[0] + ',' + parts[1].slice(0, 2));
+                            } else {
+                              setValorRecebido(clean);
+                            }
+                          }} placeholder={fmt(saldoDevedor)} inputMode="decimal"
                             className="mt-1 w-full rounded-xl border border-gray-300 p-3 text-center text-xl font-black outline-none focus:border-[var(--cor-primaria)] dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" />
                         </div>
                       )}

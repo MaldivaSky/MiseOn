@@ -141,9 +141,9 @@ export default function PDV() {
   }, [produtos, catAtiva, busca]);
 
   const subtotal = useMemo(() => carrinho.reduce((s, i) => s + precoItem(i), 0), [carrinho]);
-  const descontoNum = Math.min(Number(desconto || 0), subtotal);
+  const descontoNum = Math.min(Number(String(desconto).replace(',', '.') || 0), subtotal);
   const total = subtotal - descontoNum;
-  const recebidoNum = Number(valorRecebido || 0);
+  const recebidoNum = Number(String(valorRecebido).replace(',', '.') || 0);
   const troco = metodo === 'DINHEIRO' ? Math.max(0, recebidoNum - total) : 0;
 
   const reforcos = movs.filter((m) => m.tipo === 'REFORCO').reduce((s, m) => s + Number(m.valor), 0);
@@ -235,8 +235,9 @@ export default function PDV() {
     } catch (e) {
       console.error(e);
       setErro('Erro ao registrar a venda: ' + String((e as Error)?.message ?? e));
+    } finally {
+      setProcessando(false);
     }
-    setProcessando(false);
   };
 
   /* ── modo mesa: envia a rodada pra comanda, sem cobrar agora ── */
@@ -347,7 +348,7 @@ export default function PDV() {
       loja_id: lojaId,
       aberto_por: user?.id ?? null,
       aberto_por_nome: (user?.user_metadata?.nome as string) ?? user?.email ?? null,
-      fundo_troco: Number(valorCaixa || 0),
+      fundo_troco: Number(String(valorCaixa).replace(',', '.') || 0),
     });
     setSalvandoCaixa(false);
     setModalCaixa(null); setValorCaixa('');
@@ -360,7 +361,7 @@ export default function PDV() {
     const { data: { user } } = await supabase.auth.getUser();
     await supabase.from('caixa_movimentacoes').insert({
       loja_id: lojaId, turno_id: turno.id, tipo,
-      valor: Number(valorCaixa), motivo: motivoCaixa.trim() || null, user_id: user?.id ?? null,
+      valor: Number(String(valorCaixa).replace(',', '.')), motivo: motivoCaixa.trim() || null, user_id: user?.id ?? null,
     });
     setSalvandoCaixa(false);
     setModalCaixa(null); setValorCaixa(''); setMotivoCaixa('');
@@ -371,7 +372,7 @@ export default function PDV() {
     if (!turno) return;
     setSalvandoCaixa(true);
     const { data: { user } } = await supabase.auth.getUser();
-    const contado = Number(valorCaixa || 0);
+    const contado = Number(String(valorCaixa).replace(',', '.') || 0);
     await supabase.from('caixa_turnos').update({
       status: 'FECHADO',
       fechado_em: new Date().toISOString(),

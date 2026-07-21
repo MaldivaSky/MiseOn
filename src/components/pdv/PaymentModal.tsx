@@ -1,7 +1,6 @@
 import { X, Banknote, QrCode, CreditCard, Loader2, Check } from 'lucide-react';
 import { fmt } from '../../types';
 import type { PaymentModalProps, MetodoPgto } from '../../types';
-import { CurrencyInput } from '../ui/CurrencyInput';
 
 const NOTAS_RAPIDAS = [5, 10, 20, 50, 100, 200];
 
@@ -35,9 +34,22 @@ export function PaymentModal({
         {metodo === 'DINHEIRO' && (
           <div className="mt-4 rounded-2xl bg-gray-50 p-4 dark:bg-gray-800/50">
             <label className="text-xs font-bold text-gray-600 dark:text-gray-300">Quanto o cliente entregou?</label>
-            <CurrencyInput 
+            <input 
               value={valorRecebido} 
-              onChange={setValorRecebido}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value.startsWith('-')) {
+                  setErro('Valor não pode ser negativo');
+                  return;
+                }
+                const clean = value.replace(/[^\d,]/g, '').replace(/,+/g, ',');
+                const parts = clean.split(',');
+                if (parts[1] && parts[1].length > 2) {
+                  setValorRecebido(parts[0] + ',' + parts[1].slice(0, 2));
+                } else {
+                  setValorRecebido(clean);
+                }
+              }}
               placeholder="0,00" 
               autoFocus
               className="mt-1 w-full rounded-xl border border-gray-300 p-3 text-center text-2xl font-black outline-none focus:border-[var(--cor-primaria)] dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" 
@@ -48,7 +60,7 @@ export function PaymentModal({
                 <button key={n} onClick={() => setValorRecebido(String(n))} className="rounded-full border border-gray-300 px-3 py-1 text-xs font-bold text-gray-600 dark:border-gray-600 dark:text-gray-300">R$ {n}</button>
               ))}
             </div>
-            {recebidoNum >= total && (
+            {metodo === 'DINHEIRO' && recebidoNum >= total && (
               <p className="mt-3 text-center text-sm font-bold text-gray-600 dark:text-gray-300">
                 Troco: <span className="text-xl font-black text-emerald-600">{fmt(troco)}</span>
               </p>

@@ -19,7 +19,17 @@ export function CaixaModal({
             <h3 className="text-lg font-black dark:text-gray-100">Abrir o caixa</h3>
             <p className="mb-4 mt-1 text-xs text-gray-500">Conte o dinheiro que está na gaveta para começar o turno (fundo de troco).</p>
             <label className="text-xs font-bold text-gray-600 dark:text-gray-300">Fundo de troco (R$)</label>
-            <input value={valorCaixa} onChange={(e) => setValorCaixa(e.target.value.replace(/[^\d.,]/g, '').replace(',', '.'))} placeholder="0,00" inputMode="decimal" autoFocus className={`${inputCls} mt-1 text-center text-xl font-black`} />
+            <input value={valorCaixa} onChange={(e) => {
+              const value = e.target.value;
+              if (value.startsWith('-')) return;
+              const clean = value.replace(/[^\d,]/g, '').replace(/,+/g, ',');
+              const parts = clean.split(',');
+              if (parts[1] && parts[1].length > 2) {
+                setValorCaixa(parts[0] + ',' + parts[1].slice(0, 2));
+              } else {
+                setValorCaixa(clean);
+              }
+            }} placeholder="0,00" inputMode="decimal" autoFocus className={`${inputCls} mt-1 text-center text-xl font-black`} />
             <button onClick={abrirTurno} disabled={salvandoCaixa} className="mt-4 w-full rounded-2xl bg-[var(--cor-primaria)] py-3.5 text-sm font-black text-white disabled:opacity-50">
               {salvandoCaixa ? 'Abrindo…' : 'Abrir caixa'}
             </button>
@@ -30,10 +40,20 @@ export function CaixaModal({
             <h3 className="text-lg font-black dark:text-gray-100">{modalCaixa === 'SANGRIA' ? 'Sangria (retirar dinheiro)' : 'Reforço (colocar troco)'}</h3>
             <p className="mb-4 mt-1 text-xs text-gray-500">{modalCaixa === 'SANGRIA' ? 'Retirada de dinheiro da gaveta (ex: levar para o cofre).' : 'Entrada de dinheiro na gaveta (ex: buscar mais troco).'}</p>
             <label className="text-xs font-bold text-gray-600 dark:text-gray-300">Valor (R$)</label>
-            <input value={valorCaixa} onChange={(e) => setValorCaixa(e.target.value.replace(/[^\d.,]/g, '').replace(',', '.'))} placeholder="0,00" inputMode="decimal" autoFocus className={`${inputCls} mt-1 text-center text-xl font-black`} />
+            <input value={valorCaixa} onChange={(e) => {
+              const value = e.target.value;
+              if (value.startsWith('-')) return;
+              const clean = value.replace(/[^\d,]/g, '').replace(/,+/g, ',');
+              const parts = clean.split(',');
+              if (parts[1] && parts[1].length > 2) {
+                setValorCaixa(parts[0] + ',' + parts[1].slice(0, 2));
+              } else {
+                setValorCaixa(clean);
+              }
+            }} placeholder="0,00" inputMode="decimal" autoFocus className={`${inputCls} mt-1 text-center text-xl font-black`} />
             <label className="mt-3 block text-xs font-bold text-gray-600 dark:text-gray-300">Motivo</label>
             <input value={motivoCaixa} onChange={(e) => setMotivoCaixa(e.target.value)} placeholder={modalCaixa === 'SANGRIA' ? 'ex: depósito no cofre' : 'ex: troco do banco'} className={`${inputCls} mt-1`} />
-            <button onClick={() => registrarMov(modalCaixa)} disabled={salvandoCaixa || Number(valorCaixa || 0) <= 0} className="mt-4 w-full rounded-2xl bg-[var(--cor-primaria)] py-3.5 text-sm font-black text-white disabled:opacity-50">
+            <button onClick={() => registrarMov(modalCaixa)} disabled={salvandoCaixa || Number(String(valorCaixa).replace(',', '.') || 0) <= 0} className="mt-4 w-full rounded-2xl bg-[var(--cor-primaria)] py-3.5 text-sm font-black text-white disabled:opacity-50">
               {salvandoCaixa ? 'Registrando…' : 'Registrar'}
             </button>
           </>
@@ -49,12 +69,22 @@ export function CaixaModal({
               <div className="flex justify-between border-t border-gray-200 pt-1.5 text-sm font-black dark:border-gray-700 dark:text-gray-100"><span>Deve ter na gaveta</span><span>{fmt(dinheiroGaveta)}</span></div>
             </div>
             <label className="mt-4 block text-xs font-bold text-gray-600 dark:text-gray-300">Quanto você contou na gaveta? (R$)</label>
-            <input value={valorCaixa} onChange={(e) => setValorCaixa(e.target.value.replace(/[^\d.,]/g, '').replace(',', '.'))} placeholder="0,00" inputMode="decimal" autoFocus className={`${inputCls} mt-1 text-center text-xl font-black`} />
+            <input value={valorCaixa} onChange={(e) => {
+              const value = e.target.value;
+              if (value.startsWith('-')) return;
+              const clean = value.replace(/[^\d,]/g, '').replace(/,+/g, ',');
+              const parts = clean.split(',');
+              if (parts[1] && parts[1].length > 2) {
+                setValorCaixa(parts[0] + ',' + parts[1].slice(0, 2));
+              } else {
+                setValorCaixa(clean);
+              }
+            }} placeholder="0,00" inputMode="decimal" autoFocus className={`${inputCls} mt-1 text-center text-xl font-black`} />
             {valorCaixa !== '' && (
-              <p className={`mt-2 text-center text-sm font-bold ${Math.abs(Number(valorCaixa || 0) - dinheiroGaveta) < 0.005 ? 'text-emerald-600' : 'text-red-500'}`}>
-                {Math.abs(Number(valorCaixa || 0) - dinheiroGaveta) < 0.005
+              <p className={`mt-2 text-center text-sm font-bold ${Math.abs(Number(String(valorCaixa).replace(',', '.') || 0) - dinheiroGaveta) < 0.005 ? 'text-emerald-600' : 'text-red-500'}`}>
+                {Math.abs(Number(String(valorCaixa).replace(',', '.') || 0) - dinheiroGaveta) < 0.005
                   ? '✓ Caixa bateu!'
-                  : `Diferença: ${fmt(Number(valorCaixa || 0) - dinheiroGaveta)}`}
+                  : `Diferença: ${fmt(Number(String(valorCaixa).replace(',', '.') || 0) - dinheiroGaveta)}`}
               </p>
             )}
             <input value={obsFechamento} onChange={(e) => setObsFechamento(e.target.value)} placeholder="Observação (opcional)" className={`${inputCls} mt-3`} />

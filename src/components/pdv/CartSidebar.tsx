@@ -1,7 +1,6 @@
 import { ShoppingCart, Trash2, Plus, Minus, Loader2 } from 'lucide-react';
 import { fmt, precoItem } from '../../types';
 import type { CartSidebarProps } from '../../types';
-import { CurrencyInput } from '../ui/CurrencyInput';
 
 export function CartSidebar({
   carrinho, limparVenda, mudarQtd, removerItem,
@@ -46,11 +45,23 @@ export function CartSidebar({
         <div className="mb-2 grid grid-cols-2 gap-2">
           <input value={nomeCliente} onChange={(e) => setNomeCliente(e.target.value)} placeholder="Cliente (opcional)"
             className="rounded-xl border border-gray-200 p-2 text-xs dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" />
-          <CurrencyInput 
+          <input 
             value={desconto} 
-            onChange={setDesconto} 
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value.startsWith('-')) {
+                setErro('Valor não pode ser negativo');
+                return;
+              }
+              const clean = value.replace(/[^\d,]/g, '').replace(/,+/g, ',');
+              const parts = clean.split(',');
+              if (parts[1] && parts[1].length > 2) {
+                setDesconto(parts[0] + ',' + parts[1].slice(0, 2));
+              } else {
+                setDesconto(clean);
+              }
+            }}
             placeholder="Desconto R$"
-            max={subtotal}
             className="rounded-xl border border-gray-200 p-2 text-xs dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" 
           />
         </div>
