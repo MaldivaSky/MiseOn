@@ -6,6 +6,7 @@ import { PALETA_CORES, PALETA_FUNDO_POR_TEMA, isLightColor, fonteFamilia, obterF
 import ColorSwatchPicker from '../../components/ColorSwatchPicker';
 import FontPicker from '../../components/FontPicker';
 import ImageUpload from '../../components/ImageUpload';
+import { FiscalOnboarding } from '../../components/admin/FiscalOnboarding';
 import type { CtxLoja } from './AdminLayout';
 import type { EntregaModo, FaixaEntrega, HorarioFuncionamento } from '../../types';
 import { maskCPFouCNPJ, maskTelefone, validarCPFouCNPJ } from '../../lib/mascaras';
@@ -51,6 +52,12 @@ interface FormLoja {
   entrega_taxa_base: string;
   entrega_taxa_km: string;
   entrega_taxa_padrao: string;
+  nfe_ambiente: 'homologacao' | 'producao';
+  nfe_habilitado: boolean;
+  nfe_regime_tributario: string;
+  nfe_inscricao_estadual: string;
+  nfe_id_csc: string;
+  nfe_csc: string;
 }
 
 interface FaixaEntregaForm {
@@ -73,9 +80,10 @@ const vazio: FormLoja = {
   aceita_online: true, aceita_entrega: true,
   aceita_agendamento: false, agendamento_antecedencia_min: '30',
   lat: '', lng: '', entrega_modo: 'HIBRIDO', entrega_raio_km: '8', entrega_taxa_base: '0', entrega_taxa_km: '1.5', entrega_taxa_padrao: '0',
+  nfe_ambiente: 'homologacao', nfe_habilitado: false, nfe_regime_tributario: 'Simples Nacional', nfe_inscricao_estadual: '', nfe_id_csc: '', nfe_csc: ''
 };
 
-type Aba = 'aparencia' | 'identidade' | 'logistica' | 'horarios' | 'pagamentos';
+type Aba = 'aparencia' | 'identidade' | 'logistica' | 'horarios' | 'pagamentos' | 'fiscal';
 
 const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
@@ -126,6 +134,12 @@ export default function Loja() {
           entrega_taxa_base: data.entrega_taxa_base != null ? String(data.entrega_taxa_base) : '0',
           entrega_taxa_km: data.entrega_taxa_km != null ? String(data.entrega_taxa_km) : '1.5',
           entrega_taxa_padrao: data.entrega_taxa_padrao != null ? String(data.entrega_taxa_padrao) : '0',
+          nfe_ambiente: data.nfe_ambiente ?? 'homologacao',
+          nfe_habilitado: data.nfe_habilitado ?? false,
+          nfe_regime_tributario: data.nfe_regime_tributario ?? 'Simples Nacional',
+          nfe_inscricao_estadual: data.nfe_inscricao_estadual ?? '',
+          nfe_id_csc: data.nfe_id_csc ?? '',
+          nfe_csc: data.nfe_csc ?? '',
         });
         setTemaPreview(resolverTemaLoja(data.tema_cardapio, data.cor_texto ?? vazio.cor_fundo_claro));
       }
@@ -468,10 +482,10 @@ export default function Loja() {
       </div>
 
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-        {(['aparencia', 'identidade', 'logistica', 'horarios', 'pagamentos'] as Aba[]).map((a) => (
+        {(['aparencia', 'identidade', 'logistica', 'horarios', 'pagamentos', 'fiscal'] as Aba[]).map((a) => (
           <button key={a} onClick={() => setAba(a)}
             className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${aba === a ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-600 dark:text-gray-300 shadow-sm'}`}>
-            {a === 'aparencia' ? 'Aparência' : a === 'identidade' ? 'Identidade' : a === 'logistica' ? 'Entrega e Cobertura' : a === 'horarios' ? 'Horários' : 'Pagamentos e Integrações'}
+            {a === 'aparencia' ? 'Aparência' : a === 'identidade' ? 'Identidade' : a === 'logistica' ? 'Entrega e Cobertura' : a === 'horarios' ? 'Horários' : a === 'pagamentos' ? 'Pagamentos e Integrações' : 'Fiscal (NFC-e)'}
           </button>
         ))}
       </div>
@@ -1081,6 +1095,35 @@ export default function Loja() {
             </div>
           </div>
         </div>
+      )}
+
+      {aba === 'fiscal' && (
+        <FiscalOnboarding 
+          lojaId={lojaId}
+          cnpjLoja={form.cnpj}
+          nfeHabilitado={form.nfe_habilitado}
+          nfeAmbiente={form.nfe_ambiente}
+          nfeRegime={form.nfe_regime_tributario}
+          nfeIe={form.nfe_inscricao_estadual}
+          nfeIdCsc={form.nfe_id_csc}
+          nfeCsc={form.nfe_csc}
+          onSuccess={() => {
+            // Recarrega os dados pra garantir o state original atualizado
+            supabase.from('lojas').select('*').eq('id', lojaId).single().then(({ data }) => {
+              if (data) {
+                setForm(f => ({
+                  ...f,
+                  nfe_habilitado: data.nfe_habilitado,
+                  nfe_ambiente: data.nfe_ambiente,
+                  nfe_regime_tributario: data.nfe_regime_tributario,
+                  nfe_inscricao_estadual: data.nfe_inscricao_estadual,
+                  nfe_id_csc: data.nfe_id_csc,
+                  nfe_csc: data.nfe_csc
+                }));
+              }
+            });
+          }}
+        />
       )}
 
       {erro && <p className="mt-3 text-sm font-medium text-red-500">{erro}</p>}

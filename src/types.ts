@@ -48,6 +48,12 @@ export interface Loja {
   aberto_manual?: boolean | null;
   aceita_agendamento?: boolean | null;
   agendamento_antecedencia_min?: number | null; // antecedência mínima p/ agendar, em minutos
+  nfe_ambiente?: 'homologacao' | 'producao';
+  nfe_habilitado?: boolean;
+  nfe_regime_tributario?: string;
+  nfe_inscricao_estadual?: string;
+  nfe_id_csc?: string;
+  nfe_csc?: string;
   cashback_pct?: number | null; // % do pedido creditado como saldo pro cliente (0 = desligado)
   meta_preparo_min?: number; // meta de tempo de preparo da cozinha (min), default 20
   pix_chave?: string;
