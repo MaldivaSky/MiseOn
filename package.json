@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:integration": "vitest run __tests__/integration",
+    "k6": "k6 run k6/load-test.js",
     "typecheck": "tsc --noEmit",
     "prepare": "husky"
   },
