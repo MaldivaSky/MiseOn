@@ -4,6 +4,7 @@ import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizon
 import { supabase } from '../../lib/supabase';
 import { avaliarAssinatura } from '../../lib/assinatura';
 import ThemeToggle from '../../components/ThemeToggle';
+import { useLedgerAlerts } from '../../hooks/useLedgerAlerts';
 
 export interface CtxLoja {
   lojaId: string;
@@ -21,6 +22,10 @@ export default function AdminLayout() {
   const [semLoja, setSemLoja] = useState(false);
   const [erroConexao, setErroConexao] = useState(false);
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
+
+  // Monitoramento financeiro em tempo real — alertas de estorno suspeito,
+  // cancelamento com estoque comprometido e erros de webhook
+  useLedgerAlerts({ lojaId: ctx?.lojaId ?? '' });
   
   // Controle de menu interno no mobile
 
