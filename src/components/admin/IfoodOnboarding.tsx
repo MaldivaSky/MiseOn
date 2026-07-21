@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Loader2, CheckCircle2, Store, Lock, Percent, Zap, AlertCircle } from 'lucide-react';
 import { useToast } from '../../components/ui/Toast';
-import { Loja } from '../../types';
 
 interface IfoodOnboardingProps {
   lojaId: string;
