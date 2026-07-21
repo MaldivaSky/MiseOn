@@ -1,4 +1,17 @@
-import { useLocation } from 'react-router-dom';
+import { useInRouterContext, useLocation } from 'react-router-dom';
+
+/**
+ * Envolve a tela e refaz a animacao de entrada a cada troca de rota.
+ *
+ * A chave vem de `routeKey` quando informada; senao, do pathname atual.
+ * `useLocation` so pode ser chamado dentro de um Router, entao a leitura fica
+ * num subcomponente proprio: chamar o hook condicionalmente (dentro de if/try)
+ * muda a ordem dos hooks entre renders e quebra o React.
+ */
+function TelaPorRota({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
+  return <div key={pathname} className="mo-screen">{children}</div>;
+}
 
 export function ScreenTransition({
   children,
@@ -7,18 +20,16 @@ export function ScreenTransition({
   children: React.ReactNode;
   routeKey?: string;
 }) {
-  let key = routeKey;
-  try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    key = key ?? useLocation().pathname;
-  } catch {
-    key = key ?? 'default';
+  // Hook incondicional: seguro de chamar dentro ou fora do Router.
+  const dentroDoRouter = useInRouterContext();
+
+  if (routeKey !== undefined) {
+    return <div key={routeKey} className="mo-screen">{children}</div>;
   }
-  return (
-    <div key={key} className="mo-screen">
-      {children}
-    </div>
-  );
+  if (dentroDoRouter) {
+    return <TelaPorRota>{children}</TelaPorRota>;
+  }
+  return <div key="default" className="mo-screen">{children}</div>;
 }
 
 export default ScreenTransition;
