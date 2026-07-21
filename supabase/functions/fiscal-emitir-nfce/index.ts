@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     if (errPed || !pedido) return json({ error: 'Pedido não encontrado' }, { status: 404 });
 
     const isProd = pedido.lojas.nfe_ambiente === 'producao';
-    const baseUrl = isProd ? 'https://api.focusnfe.com.br/v2/nfce' : 'https://api.homologacao.focusnfe.com.br/v2/nfce';
+    const baseUrl = isProd ? 'https://api.focusnfe.com.br/v2/nfce' : 'https://homologacao.focusnfe.com.br/v2/nfce';
     const token = isProd ? TOKEN_PROD : TOKEN_HOMOLOG;
     
     // Map to Focus NFe format
