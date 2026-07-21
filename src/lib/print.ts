@@ -18,6 +18,7 @@ interface PrintOptions {
     valorServico: number;
     total: number;
     metodoPagamento?: string;
+    valorPagoParcial?: number;
   };
   // Específico para OS de Produção
   osData?: {
@@ -412,8 +413,8 @@ function htmlContaMesa(o: PrintOptions) {
     ${contaMesa.metodoPagamento ? `
     <div class="divider"></div>
     <div class="text-center">
-      <div class="font-bold uppercase sm">Forma de pagamento</div>
-      <div class="font-bold uppercase text-lg">${esc(contaMesa.metodoPagamento)}</div>
+      <div class="font-bold uppercase sm">${contaMesa.valorPagoParcial ? 'Pagamento Parcial' : 'Forma de pagamento'}</div>
+      <div class="font-bold uppercase text-lg">${esc(contaMesa.metodoPagamento)} ${contaMesa.valorPagoParcial ? `- ${fmt(contaMesa.valorPagoParcial)}` : ''}</div>
     </div>` : ''}
     <div class="divider"></div>
     <div class="text-center font-bold uppercase">Obrigado pela preferência!</div>
