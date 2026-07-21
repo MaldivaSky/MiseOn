@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { X, User, MapPin, Phone, History, LogOut, Loader2, Save, Heart, Plus, Trash2, CheckCircle2 } from 'lucide-react';
-import type { Cliente, EnderecoCliente, Pedido, Produto, FavoritoCliente } from '../types';
+import type { EnderecoCliente, Pedido, FavoritoCliente } from '../types';
 import EnderecoMixin, { EnderecoFormData } from './EnderecoMixin';
 import { fmt } from '../types';
 
@@ -112,7 +112,7 @@ export default function ModalMinhaConta({
   };
 
   useEffect(() => {
-    if (isOpen) carregarDados();
+    if (isOpen) setTimeout(carregarDados, 0);
   }, [isOpen, lojaId, userId]);
 
   if (!isOpen) return null;

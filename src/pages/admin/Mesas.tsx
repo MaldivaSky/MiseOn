@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
   LayoutGrid, Plus, QrCode, X, Users, Clock, Check, Banknote, CreditCard,
   Trash2, Printer, AlertTriangle, Loader2, Copy, Percent,
@@ -39,6 +42,12 @@ function minutosDesde(iso: string) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
 }
 
+const novaMesaSchema = z.object({
+  numero: z.string().min(1, 'O número é obrigatório').regex(/^\d+$/, 'Apenas números'),
+  nome: z.string().optional(),
+  capacidade: z.string().optional()
+});
+
 export default function Mesas() {
   const { lojaId, lojaSlug } = useOutletContext<CtxLoja>();
   const [loja, setLoja] = useState<Loja | null>(null);
@@ -46,10 +55,11 @@ export default function Mesas() {
   const [carregando, setCarregando] = useState(true);
 
   const [modalNovaMesa, setModalNovaMesa] = useState(false);
-  const [novoNumero, setNovoNumero] = useState('');
-  const [novoNome, setNovoNome] = useState('');
-  const [novaCapacidade, setNovaCapacidade] = useState('');
   const [salvandoMesa, setSalvandoMesa] = useState(false);
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<z.infer<typeof novaMesaSchema>>({
+    resolver: zodResolver(novaMesaSchema)
+  });
 
   const [mesaQr, setMesaQr] = useState<Mesa | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState('');
@@ -125,18 +135,18 @@ export default function Mesas() {
   const ocupadas = mesas.filter((m) => !!m.comanda);
 
   /* ── criar mesa ── */
-  const criarMesa = async () => {
-    if (!novoNumero.trim()) return;
+  const criarMesa = async (data: z.infer<typeof novaMesaSchema>) => {
     setSalvandoMesa(true);
     const { error } = await supabase.from('mesas').insert({
       loja_id: lojaId,
-      numero: Number(novoNumero),
-      nome: novoNome.trim() || null,
-      capacidade: novaCapacidade ? Number(novaCapacidade) : null,
+      numero: Number(data.numero),
+      nome: data.nome?.trim() || null,
+      capacidade: data.capacidade ? Number(data.capacidade) : null,
     });
     setSalvandoMesa(false);
     if (error) { alert('Erro ao criar mesa: ' + (error.message.includes('duplicate') ? 'já existe uma mesa com esse número.' : error.message)); return; }
-    setModalNovaMesa(false); setNovoNumero(''); setNovoNome(''); setNovaCapacidade('');
+    setModalNovaMesa(false); 
+    reset();
     carregar();
   };
 
@@ -378,21 +388,26 @@ export default function Mesas() {
       {/* ── Modal: nova mesa ── */}
       {modalNovaMesa && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => !salvandoMesa && setModalNovaMesa(false)}>
-          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
+          <form onSubmit={handleSubmit(criarMesa)} className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-black dark:text-gray-100">Nova mesa</h3>
-              <button onClick={() => setModalNovaMesa(false)} className="text-gray-400"><X size={20} /></button>
+              <button type="button" onClick={() => setModalNovaMesa(false)} className="text-gray-400"><X size={20} /></button>
             </div>
+            
             <label className="text-xs font-bold text-gray-600 dark:text-gray-300">Número da mesa *</label>
-            <input value={novoNumero} onChange={(e) => setNovoNumero(e.target.value.replace(/\D/g, ''))} placeholder="ex: 5" inputMode="numeric" autoFocus className={`${inputCls} mt-1 text-center text-xl font-black`} />
+            <input {...register('numero')} placeholder="ex: 5" inputMode="numeric" autoFocus className={`${inputCls} mt-1 text-center text-xl font-black ${errors.numero ? 'border-red-500 focus:border-red-500' : ''}`} />
+            {errors.numero && <p className="mt-1 text-[10px] text-red-500">{errors.numero.message}</p>}
+
             <label className="mt-3 block text-xs font-bold text-gray-600 dark:text-gray-300">Nome (opcional)</label>
-            <input value={novoNome} onChange={(e) => setNovoNome(e.target.value)} placeholder="ex: Varanda" className={`${inputCls} mt-1`} />
+            <input {...register('nome')} placeholder="ex: Varanda" className={`${inputCls} mt-1`} />
+            
             <label className="mt-3 block text-xs font-bold text-gray-600 dark:text-gray-300">Lugares (opcional)</label>
-            <input value={novaCapacidade} onChange={(e) => setNovaCapacidade(e.target.value.replace(/\D/g, ''))} placeholder="ex: 4" inputMode="numeric" className={`${inputCls} mt-1`} />
-            <button onClick={criarMesa} disabled={salvandoMesa || !novoNumero.trim()} className="mt-4 w-full rounded-2xl bg-[var(--cor-primaria)] py-3.5 text-sm font-black text-white disabled:opacity-50">
+            <input {...register('capacidade')} placeholder="ex: 4" inputMode="numeric" className={`${inputCls} mt-1`} />
+            
+            <button type="submit" disabled={salvandoMesa} className="mt-4 w-full rounded-2xl bg-[var(--cor-primaria)] py-3.5 text-sm font-black text-white disabled:opacity-50">
               {salvandoMesa ? 'Criando…' : 'Criar mesa'}
             </button>
-          </div>
+          </form>
         </div>
       )}
 

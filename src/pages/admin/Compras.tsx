@@ -56,7 +56,7 @@ export default function Compras() {
     setCarregando(false);
   };
 
-  useEffect(() => { carregar(); }, [lojaId]);
+  useEffect(() => { setTimeout(carregar, 0); }, [lojaId]);
 
   const toggleItem = (id: string) => {
     setItens(arr => arr.map(it => it.insumo.id === id ? { ...it, selecionado: !it.selecionado } : it));

@@ -49,42 +49,49 @@ async function getToken(clientId: string, clientSecret: string): Promise<string>
   return data.access_token;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
-  try {
-    const { pedido_id, payment_token, installments = 1, customer } = await req.json();
-    if (!pedido_id || !payment_token || !customer?.name || !customer?.cpf) {
-      return json({ error: 'pedido_id, payment_token e customer{name,cpf} são obrigatórios' }, { status: 400 });
-    }
+import { z } from 'npm:zod';
+import { withAuthAndValidation } from '../_shared/validate-middleware.ts';
+import { logger } from '../_shared/logger.ts';
 
-    const supabase = createClient(
+const cartaoPagarSchema = z.object({
+  pedido_id: z.string().uuid(),
+  payment_token: z.string(),
+  installments: z.number().int().min(1).optional().default(1),
+  customer: z.object({
+    name: z.string(),
+    cpf: z.string(),
+    email: z.string().email().optional(),
+    phone: z.string().optional(),
+    birth: z.string().optional() // YYYY-MM-DD
+  })
+});
+
+const handler = async (req: Request, ctx: { user: any, supabase: any }, body: z.infer<typeof cartaoPagarSchema>) => {
+  const reqLogger = logger.withContext({ req_id: crypto.randomUUID(), tenant_id: ctx.user?.id });
+  try {
+    const { pedido_id, payment_token, installments, customer } = body;
+
+    // Utilize o client injetado pelo withAuth que já está autenticado,
+    // mas se precisarmos de bypass de RLS para mutação (como estava no código original), 
+    // podemos usar a role key, mas a requisição já foi autenticada.
+    // Para manter a lógica exata de ler e escrever via service_role, criamos o cliente admin:
+    const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    const { data: pedido } = await supabase
+    const { data: pedido } = await supabaseAdmin
       .from('pedidos')
       .select('id, numero, valor_total, loja_id, telefone_contato, cep, logradouro, numero_endereco, complemento, bairro, cidade, uf, lojas(efi_payee_code, antecipacao_cartao), itens_pedido(nome_produto, preco_unitario, quantidade)')
       .eq('id', pedido_id)
       .single();
     if (!pedido) return json({ error: 'pedido não encontrado' }, { status: 404 });
 
-    // SEGURANÇA: valor cobrado é recalculado no servidor (preços reais + taxa +
-    // desconto − cashback). Não confia no valor_total/preco_unitario do browser.
-    const { data: totalReal, error: erroRecalc } = await supabase.rpc('fn_recalcular_pedido', { p_pedido_id: pedido_id });
+    const { data: totalReal, error: erroRecalc } = await supabaseAdmin.rpc('fn_recalcular_pedido', { p_pedido_id: pedido_id });
     if (erroRecalc) return json({ error: 'Falha ao validar o valor do pedido', detail: erroRecalc }, { status: 500 });
     const valorCobrancaCentavos = Math.round(Number(totalReal) * 100);
     if (!(valorCobrancaCentavos > 0)) return json({ error: 'Valor do pedido inválido para cobrança.' }, { status: 400 });
 
-    // Modelo split: a cobrança é sempre processada pela conta da plataforma (MiseOn)
-    // e o valor é repassado 100% ao lojista via payee_code. O lojista só precisa do
-    // "Identificador de conta" da Efí — nenhuma credencial de API.
-    //
-    // Prazo de recebimento do CARTÃO (regra Efí): segue a configuração da conta que
-    // processa a cobrança (Configurações de cobranças → Cartão de crédito → 30 dias
-    // ou 2 dias úteis). Para o prazo ser escolhido POR LOJA, a plataforma mantém duas
-    // modalidades: a conta padrão (~30d, taxa menor) e uma conta/config antecipada
-    // (~2 dias úteis, taxa maior). `lojas.antecipacao_cartao` decide qual processa.
     const querAntecipado = !!(pedido as any).lojas?.antecipacao_cartao;
     const antecipadoDisponivel = !!(Deno.env.get('EFI_ANTECIPADO_CLIENT_ID') && Deno.env.get('EFI_ANTECIPADO_CLIENT_SECRET'));
     const usarAntecipado = querAntecipado && antecipadoDisponivel;
@@ -96,9 +103,6 @@ Deno.serve(async (req) => {
           envFirst('EFI_COBRANCAS_CLIENT_SECRET', 'EFI_CLIENT_SECRET'),
         );
 
-    // Split de cartão (API Cobranças): repassa 100% para a conta do lojista via payee_code
-    // (percentage 10000 = 100,00%). Só quando o payee_code é DIFERENTE do da conta que
-    // está processando — splitar "pra si mesmo" faz a Efí recusar com 402 antes do emissor.
     const payeeCode = (pedido as any).lojas?.efi_payee_code?.trim();
     const payeePlataforma = (usarAntecipado
       ? Deno.env.get('EFI_ANTECIPADO_PAYEE_CODE')
@@ -108,8 +112,6 @@ Deno.serve(async (req) => {
       ? { marketplace: { repasses: [{ payee_code: payeeCode, percentage: 10000 }] } }
       : {};
 
-    // billing_address é OBRIGATÓRIO no one-step de cartão da Efí. Usa o endereço do pedido
-    // (delivery) e cai em valores válidos por formato quando o pedido é retirada/sem endereço.
     const p = pedido as any;
     const billing_address = {
       street: String(p.logradouro || 'Nao informado').slice(0, 255),
@@ -121,11 +123,7 @@ Deno.serve(async (req) => {
       complement: p.complemento ? String(p.complemento).slice(0, 80) : undefined,
     };
 
-    // one-step: cria e paga a cobrança numa chamada só (padrão MySuperStore)
-    // Uma linha única com o total recalculado no servidor (inclui taxa/desconto/
-    // cashback). Evita cobrar a soma crua dos itens (que o browser controla e que
-    // ignorava taxa/desconto). O split de repasse acompanha o item.
-    const body = {
+    const bodyToSend = {
       items: [{
         name: `Pedido #${pedido.numero}`.slice(0, 255),
         value: valorCobrancaCentavos,
@@ -141,9 +139,7 @@ Deno.serve(async (req) => {
             name: customer.name,
             cpf: String(customer.cpf).replace(/\D/g, ''),
             email: customer.email ?? 'cliente@miseon.app',
-            // phone_number é OBRIGATÓRIO. Usa o do cartão ou, na falta, o telefone do pedido.
             phone_number: (String(customer.phone ?? '').replace(/\D/g, '') || String(p.telefone_contato ?? '').replace(/\D/g, '')),
-            // birth (nascimento) — a Efí exige no perfil estrito de antifraude. Formato AAAA-MM-DD.
             ...(customer.birth ? { birth: String(customer.birth) } : {}),
           },
         },
@@ -153,14 +149,12 @@ Deno.serve(async (req) => {
     const res = await fetch(`${EFI_COB_URL}/v1/charge/one-step`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify(bodyToSend),
     });
     const charge = await res.json();
     const data = charge?.data;
     if (!data?.charge_id) {
-      // Loga o motivo real da Efí (aparece nos logs da função) e devolve pro front.
-      console.error('Efí recusou o cartão:', JSON.stringify(charge));
-      // error_description pode ser string OU objeto { property, message }. Normaliza p/ texto.
+      reqLogger.error('Efí recusou o cartão', undefined, { response: charge });
       const ed = charge?.error_description;
       let motivo = typeof ed === 'string'
         ? ed
@@ -170,7 +164,7 @@ Deno.serve(async (req) => {
     }
 
     const aprovado = ['approved', 'paid'].includes(String(data.status));
-    await supabase
+    await supabaseAdmin
       .from('pagamentos')
       .update({
         gateway_txid: String(data.charge_id),
@@ -181,8 +175,10 @@ Deno.serve(async (req) => {
       .eq('metodo', 'CREDITO');
 
     if (aprovado) {
-      await supabase.from('pedidos').update({ status: 'ACEITO' }).eq('id', pedido_id).eq('status', 'NOVO');
+      await supabaseAdmin.from('pedidos').update({ status: 'ACEITO' }).eq('id', pedido_id).eq('status', 'NOVO');
     }
+
+    reqLogger.info('Pagamento com cartão processado com sucesso', { charge_id: data.charge_id, aprovado });
 
     return json({
       charge_id: data.charge_id,
@@ -193,7 +189,16 @@ Deno.serve(async (req) => {
       modalidade: usarAntecipado ? 'antecipado' : 'padrao',
     });
   } catch (e) {
-    console.error(e);
+    reqLogger.error('Erro na função cartao-pagar', e);
     return json({ error: String(e) }, { status: 500 });
   }
+};
+
+import { withAuth } from '../_shared/jwt-middleware.ts';
+
+const protectedHandler = withAuth((req, ctx) => withAuthAndValidation(cartaoPagarSchema, handler)(req, ctx));
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  return await protectedHandler(req);
 });

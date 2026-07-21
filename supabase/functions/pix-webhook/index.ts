@@ -100,7 +100,20 @@ function checkRateLimit(ip: string): boolean {
   return state.count <= MAX_REQ_PER_SEC;
 }
 
+import { z } from 'npm:zod';
+import { logger } from '../_shared/logger.ts';
+
+const pixWebhookSchema = z.object({
+  pix: z.array(
+    z.object({
+      txid: z.string(),
+      valor: z.string().optional()
+    }).passthrough()
+  ).optional().default([]),
+}).passthrough();
+
 Deno.serve(async (req) => {
+  const reqLogger = logger.withContext({ req_id: crypto.randomUUID() });
   const clientIp = req.headers.get('x-forwarded-for') || 'unknown';
   if (!checkRateLimit(clientIp)) {
     return Response.json({ error: 'Too Many Requests' }, { status: 429 });
@@ -115,20 +128,27 @@ Deno.serve(async (req) => {
     if (efiSecret) {
       const signature = req.headers.get('X-Efi-Signature');
       if (!signature || !(await validarHmacSha256(bodyText, signature, efiSecret))) {
-        console.error('HMAC inválido ou ausente no webhook Efí.');
+        reqLogger.error('HMAC inválido ou ausente no webhook Efí.');
         return Response.json({ error: 'Invalid signature' }, { status: 401 });
       }
     }
 
-    let payload;
+    let payloadRaw;
     try {
-      payload = JSON.parse(bodyText);
+      payloadRaw = JSON.parse(bodyText);
     } catch {
-      payload = {};
+      payloadRaw = {};
     }
 
-    const pixList: { txid?: string }[] = payload?.pix ?? [];
-    if (!pixList.length) return Response.json({ ok: true }); // ping/configuração
+    const validation = pixWebhookSchema.safeParse(payloadRaw);
+    if (!validation.success) {
+      reqLogger.error('Payload validation failed', validation.error, { issues: validation.error.issues });
+      return Response.json({ error: 'Invalid payload', issues: validation.error.issues }, { status: 400 });
+    }
+
+    const payload = validation.data;
+    const pixList = payload.pix;
+    if (!pixList || !pixList.length) return Response.json({ ok: true }); // ping/configuração
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -141,7 +161,7 @@ Deno.serve(async (req) => {
       creds = credsPlataforma();
       token = await getToken(creds);
     } catch (e) {
-      console.error('Webhook Pix: sem credenciais Efí para verificar; ignorando.', String(e));
+      reqLogger.error('Webhook Pix: sem credenciais Efí para verificar; ignorando.', e);
       return Response.json({ ok: true, verificado: false });
     }
 
@@ -204,15 +224,17 @@ Deno.serve(async (req) => {
               .update({ status: 'ACEITO' })
               .eq('id', pagoRow.pedido_id)
               .eq('status', 'NOVO');
+              
+            reqLogger.info('Pagamento PIX confirmado e ledger atualizado', { txid: pix.txid, pedido_id: pagoRow.pedido_id });
           }
         } else {
-           console.error(`Webhook Pix: pago (${pago}) < total (${totalPedido}) para txid ${pix.txid}; não confirma.`);
+           reqLogger.warn(`Webhook Pix: pago (${pago}) < total (${totalPedido}) para txid ${pix.txid}; não confirma.`, { txid: pix.txid, pago, totalPedido });
         }
       }
     }
     return Response.json({ ok: true });
   } catch (e) {
-    console.error(e);
+    reqLogger.error('Erro no processamento do webhook Pix', e);
     return Response.json({ error: String(e) }, { status: 500 });
   }
 });

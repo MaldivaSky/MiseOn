@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { CreditCard, CheckCircle, AlertCircle, Calendar, Lock, ShieldCheck, QrCode, Copy, Loader2 } from 'lucide-react';
+import { CreditCard, CheckCircle, AlertCircle, Calendar, Lock, ShieldCheck, QrCode, Copy } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { avaliarAssinatura } from '../../lib/assinatura';
-import { Button, Card, SuccessCelebration, BandeiraMark } from '../../components/ui';
+import { BandeiraMark } from '../../components/ui';
 import type { CtxLoja } from './AdminLayout';
 
 export default function Assinatura() {
   const { lojaId, lojaNome } = useOutletContext<CtxLoja>();
-  const [status, setStatus] = useState<string>('trial');
+  const [, setStatus] = useState<string>('trial');
   const [emDia, setEmDia] = useState<boolean>(true);
   const [vencimento, setVencimento] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -30,10 +30,6 @@ export default function Assinatura() {
   const [copiaCola, setCopiaCola] = useState('');
   const [copiado, setCopiado] = useState(false);
 
-  useEffect(() => {
-    carregarDados();
-  }, [lojaId]);
-
   const carregarDados = async () => {
     setCarregando(true);
     const { data } = await supabase.from('lojas').select('status_assinatura, trial_termina_em, criado_em').eq('id', lojaId).single();
@@ -45,6 +41,10 @@ export default function Assinatura() {
     }
     setCarregando(false);
   };
+
+  useEffect(() => {
+    setTimeout(carregarDados, 0);
+  }, [lojaId]);
 
   const assinarCartao = async () => {
     setErro(''); setSucesso('');
@@ -91,7 +91,7 @@ export default function Assinatura() {
           
         payment_token = result.payment_token;
       } catch (tokenErr: any) {
-        throw new Error(tokenErr?.error_description || 'Falha ao validar o cartão junto ao banco.');
+        throw new (Error as any)(tokenErr?.error_description || 'Falha ao validar o cartão junto ao banco.', { cause: tokenErr });
       }
       
       const { data, error } = await supabase.functions.invoke('saas-assinar', {

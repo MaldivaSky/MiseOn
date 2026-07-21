@@ -193,7 +193,7 @@ function FilaDeEntregas({ lojaId }: { lojaId: string }) {
     setPedidos((data as Pedido[]) ?? []);
   };
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+
   useEffect(() => {
     setTimeout(carregar, 0);
     const canal = supabase.channel('entregas-loja-fila')

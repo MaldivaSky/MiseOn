@@ -186,8 +186,14 @@ export default function PainelPedidos() {
   // Agendado "futuro" = ainda fora da janela de antecedência da loja — fica numa
   // seção separada pra não misturar com o que está de fato acontecendo agora.
   const antecedenciaMs = (loja?.agendamento_antecedencia_min ?? 30) * 60000;
-  // eslint-disable-next-line react-hooks/purity
-  const cutoffProducao = new Date(Date.now() + antecedenciaMs);
+
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setAgora(Date.now()), 60000);
+    return () => clearInterval(t);
+  }, []);
+
+  const cutoffProducao = new Date(agora + antecedenciaMs);
   const ehAgendadoFuturo = (p: Pedido) => !!p.agendado_para && new Date(p.agendado_para) > cutoffProducao;
 
   const ativos = pedidos.filter((p) => !['FINALIZADO', 'CANCELADO'].includes(p.status) && !ehAgendadoFuturo(p));

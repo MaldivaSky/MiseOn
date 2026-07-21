@@ -525,10 +525,16 @@ function RecuperacaoTab({ lojaId, lojaSlug }: { lojaId: string; lojaSlug: string
   };
   useEffect(() => { setTimeout(carregar, 0); }, [lojaId]);
 
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setAgora(Date.now()), 60000);
+    return () => clearInterval(t);
+  }, []);
+
   const linkCardapio = `${window.location.origin}/${lojaSlug}`;
   const tempoDecorrido = (iso: string) => {
-    // eslint-disable-next-line react-hooks/purity
-    const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+
+    const min = Math.floor((agora - new Date(iso).getTime()) / 60000);
     if (min < 60) return `${min}min atrás`;
     if (min < 1440) return `${Math.floor(min / 60)}h atrás`;
     return `${Math.floor(min / 1440)}d atrás`;

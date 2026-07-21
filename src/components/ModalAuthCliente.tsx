@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
-import { X, LogIn, Mail, Lock } from 'lucide-react';
+import { X, Mail, Lock } from 'lucide-react';
 
 export default function ModalAuthCliente({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [modo, setModo] = useState<'LOGIN' | 'CADASTRO' | 'MAGIC_LINK'>('LOGIN');

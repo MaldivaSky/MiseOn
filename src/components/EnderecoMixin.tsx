@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { MapPin, Search, Loader2 } from 'lucide-react';
-import type { EnderecoCliente } from '../types';
+
 import { maskCEP } from '../lib/mascaras';
 
 export interface EnderecoFormData {
@@ -70,7 +70,7 @@ export default function EnderecoMixin({ valorInicial, onMudanca, className = '' 
         setDados(novosDados);
         onMudanca(novosDados);
       }
-    } catch (e) {
+    } catch {
       setErroCep('Erro ao buscar o CEP.');
     } finally {
       setBuscando(false);

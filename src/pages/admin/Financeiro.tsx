@@ -98,7 +98,7 @@ export default function Financeiro() {
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { setCarregando(true); carregarDados(); }, [lojaId, periodo]);
+  useEffect(() => { setTimeout(() => { setCarregando(true); carregarDados(); }, 0); }, [lojaId, periodo]);
 
   // Extrato ao vivo: qualquer mudança em pedidos da loja recarrega o painel
   useEffect(() => {

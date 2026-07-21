@@ -14,7 +14,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci --no-audit --no-fund
+      - run: npm ci --no-fund
+      - name: Security Scan (npm audit)
+        run: npm audit --audit-level=critical
+      - name: Linting
+        run: npm run lint
+      - name: Unit Tests
+        run: npm run test
       - name: Typecheck + build
         run: npm run build
         env:

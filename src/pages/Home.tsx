@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingBag, Bike, Boxes, QrCode, ArrowRight, Zap, Check, Star, ChevronRight, Activity, TrendingUp, ShieldCheck, CreditCard, Landmark } from 'lucide-react';
+import { ShoppingBag, Bike, Boxes, QrCode, ArrowRight, Zap, Check, ChevronRight, Activity, TrendingUp, ShieldCheck, CreditCard, Landmark } from 'lucide-react';
 import MiseOnLogo from '../components/MiseOnLogo';
 import { EFI_TARIFAS, EFI_LINKS } from '../lib/efiInfo';
 

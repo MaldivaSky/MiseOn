@@ -62,14 +62,35 @@ async function sendFailureEmail(orderId: string, lojaNome: string, errorMessage:
   }
 }
 
+import { z } from 'npm:zod';
+import { logger } from '../_shared/logger.ts';
+
+const ifoodEventSchema = z.array(z.object({
+  code: z.string(),
+  orderId: z.string(),
+}).passthrough());
+
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
+  // Cria um logger derivado com um ID de requisição para rastreabilidade
+  const reqLogger = logger.withContext({ req_id: crypto.randomUUID() });
+
   try {
-    const events = await req.json();
-    if (!Array.isArray(events)) {
+    let rawBody;
+    try {
+      rawBody = await req.json();
+    } catch {
+      rawBody = null;
+    }
+
+    const validation = ifoodEventSchema.safeParse(rawBody);
+    if (!validation.success) {
+      reqLogger.error('Payload inválido', validation.error, { issues: validation.error.issues });
       return new Response('Payload inválido', { status: 400 });
     }
+
+    const events = validation.data;
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -79,7 +100,7 @@ serve(async (req: Request) => {
     const clientSecret = Deno.env.get('IFOOD_CLIENT_SECRET')!;
 
     if (!clientId || !clientSecret) {
-      console.error('⚠️ Credenciais do iFood ausentes!');
+      reqLogger.error('Credenciais do iFood ausentes nas variáveis de ambiente!');
       return new Response('Internal Server Error', { status: 500 });
     }
 
@@ -102,7 +123,7 @@ serve(async (req: Request) => {
             .single();
 
           if (!loja) {
-            console.warn(`Loja iFood ${order.merchant.id} não encontrada no MiseOn.`);
+            reqLogger.warn(`Loja iFood ${order.merchant.id} não encontrada no MiseOn.`, { merchant_id: order.merchant.id });
             continue;
           }
 
@@ -237,10 +258,10 @@ serve(async (req: Request) => {
             await supabase.from('pagamentos').insert(insertPagamentos);
           }
 
-          console.log(`Pedido ${order.displayId} (iFood) processado com sucesso para a loja ${lojaId}.`);
+          reqLogger.info(`Pedido ${order.displayId} (iFood) processado com sucesso para a loja ${lojaId}.`, { order_id: order.displayId, loja_id: lojaId });
 
         } catch (e: any) {
-          console.error(`Erro ao processar pedido iFood ${event.orderId}:`, e.message);
+          reqLogger.error(`Erro ao processar pedido iFood ${event.orderId}`, e, { order_id: event.orderId });
           await sendFailureEmail(event.orderId, lojaNomeFallback, e.message);
         }
       }
@@ -250,7 +271,7 @@ serve(async (req: Request) => {
     return new Response('OK', { status: 200, headers: corsHeaders });
 
   } catch (error: any) {
-    console.error('Erro ifood-webhook:', error);
+    reqLogger.error('Erro geral no ifood-webhook', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

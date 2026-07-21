@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../components/ui/Toast';
 import { tocarSom } from '../lib/som';
-import { Pedido, MensagemPedido } from '../types';
+import { Pedido } from '../types';
 
 type NotificationContext = 'PDV' | 'PAINEL' | 'ENTREGAS' | 'ROTA';
 
