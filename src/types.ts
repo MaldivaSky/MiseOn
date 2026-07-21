@@ -2,7 +2,7 @@
 
 export type TipoPedido = 'DELIVERY' | 'SALAO' | 'RETIRADA_BALCAO';
 export type StatusPedido = 'NOVO' | 'ACEITO' | 'PREPARANDO' | 'PRONTO' | 'EM_ROTA' | 'FINALIZADO' | 'CANCELADO';
-export type MetodoPgto = 'PIX' | 'CREDITO' | 'DEBITO' | 'DINHEIRO';
+export type MetodoPgto = 'PIX' | 'CREDITO' | 'DEBITO' | 'DINHEIRO' | 'IFOOD';
 export type TipoRemetente = 'CLIENTE' | 'LOJA' | 'ENTREGADOR';
 export type TipoRemuneracao = 'FIXO' | 'POR_ENTREGA' | 'DESLIGADO';
 export type StatusRota = 'PENDENTE' | 'EM_ANDAMENTO' | 'FINALIZADA';
@@ -59,6 +59,10 @@ export interface Loja {
   ifood_merchant_id?: string;
   ifood_authorization_code?: string;
   ifood_refresh_token?: string;
+  plano_tipo?: string;
+  ifood_addon_ativo?: boolean;
+  ifood_taxa_pct?: number;
+  ifood_taxa_fixa?: number;
 
   cashback_pct?: number | null; // % do pedido creditado como saldo pro cliente (0 = desligado)
   meta_preparo_min?: number; // meta de tempo de preparo da cozinha (min), default 20
@@ -249,7 +253,10 @@ export interface Pedido {
   valor_total: number;
   troco_para?: number;
   observacao?: string;
-  origem?: string; // link | balcao | mesa | whatsapp
+  origem?: string; // link | balcao | mesa | whatsapp | ifood
+  ifood_order_id?: string | null;
+  valor_bruto_ifood?: number | null;
+  taxa_ifood_retida?: number | null;
   comanda_id?: string | null;
   mesa_numero?: number | null;
   agendado_para?: string | null; // null = pedido imediato

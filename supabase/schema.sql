@@ -8,7 +8,7 @@
 -- ── ENUMS ───────────────────────────────────────────────────
 CREATE TYPE tipo_pedido    AS ENUM ('DELIVERY', 'SALAO', 'RETIRADA_BALCAO');
 CREATE TYPE status_pedido  AS ENUM ('NOVO', 'ACEITO', 'PREPARANDO', 'PRONTO', 'EM_ROTA', 'FINALIZADO', 'CANCELADO');
-CREATE TYPE metodo_pgto    AS ENUM ('PIX', 'CREDITO', 'DEBITO', 'DINHEIRO');
+CREATE TYPE metodo_pgto    AS ENUM ('PIX', 'CREDITO', 'DEBITO', 'DINHEIRO', 'IFOOD');
 CREATE TYPE status_pgto    AS ENUM ('PENDENTE', 'PAGO', 'CANCELADO', 'ESTORNADO');
 CREATE TYPE tipo_desconto  AS ENUM ('PERCENTUAL', 'FIXO');
 CREATE TYPE tipo_mov_estoque AS ENUM ('ENTRADA', 'BAIXA_VENDA', 'AJUSTE', 'PERDA');
@@ -31,6 +31,10 @@ CREATE TABLE lojas (
   aberto_manual   BOOLEAN,                          -- override do horário (null = automático)
   pix_chave       TEXT,                             -- Pix estático (MVP)
   efi_payee_code  TEXT,                             -- identificador de conta Efí (cartão online)
+  plano_tipo      TEXT DEFAULT 'Basico',            -- Basico, Profit
+  ifood_addon_ativo BOOLEAN DEFAULT false,
+  ifood_taxa_pct  NUMERIC(5,2) DEFAULT 0,           -- ex: 27.00
+  ifood_taxa_fixa NUMERIC(5,2) DEFAULT 0.99,
   ativo           BOOLEAN DEFAULT true,
   criado_em       TIMESTAMPTZ DEFAULT now()
 );
@@ -212,7 +216,10 @@ CREATE TABLE pedidos (
   troco_para    NUMERIC(10,2),                      -- pagamento em dinheiro
   observacao    TEXT,
   agendado_para TIMESTAMPTZ,
-  origem        TEXT DEFAULT 'link',                -- link | balcao | whatsapp
+  origem        TEXT DEFAULT 'link',                -- link | balcao | whatsapp | ifood
+  ifood_order_id TEXT,
+  valor_bruto_ifood NUMERIC(10,2),
+  taxa_ifood_retida NUMERIC(10,2),
   motivo_cancelamento TEXT,
   estoque_baixado BOOLEAN DEFAULT false,
   criado_em     TIMESTAMPTZ DEFAULT now(),

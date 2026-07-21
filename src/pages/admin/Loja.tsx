@@ -60,6 +60,9 @@ interface FormLoja {
   nfe_id_csc: string;
   nfe_csc: string;
   ifood_merchant_id: string;
+  ifood_addon_ativo: boolean;
+  ifood_taxa_pct: string;
+  ifood_taxa_fixa: string;
 }
 
 interface FaixaEntregaForm {
@@ -83,7 +86,7 @@ const vazio: FormLoja = {
   aceita_agendamento: false, agendamento_antecedencia_min: '30',
   lat: '', lng: '', entrega_modo: 'HIBRIDO', entrega_raio_km: '8', entrega_taxa_base: '0', entrega_taxa_km: '1.5', entrega_taxa_padrao: '0',
   nfe_ambiente: 'homologacao', nfe_habilitado: false, nfe_regime_tributario: 'Simples Nacional', nfe_inscricao_estadual: '', nfe_id_csc: '', nfe_csc: '',
-  ifood_merchant_id: ''
+  ifood_merchant_id: '', ifood_addon_ativo: false, ifood_taxa_pct: '0', ifood_taxa_fixa: '0'
 };
 
 type Aba = 'aparencia' | 'identidade' | 'logistica' | 'horarios' | 'pagamentos' | 'fiscal' | 'ifood';
@@ -144,6 +147,9 @@ export default function Loja() {
           nfe_id_csc: data.nfe_id_csc ?? '',
           nfe_csc: data.nfe_csc ?? '',
           ifood_merchant_id: data.ifood_merchant_id ?? '',
+          ifood_addon_ativo: data.ifood_addon_ativo ?? false,
+          ifood_taxa_pct: String(data.ifood_taxa_pct ?? 0),
+          ifood_taxa_fixa: String(data.ifood_taxa_fixa ?? 0),
         });
         setTemaPreview(resolverTemaLoja(data.tema_cardapio, data.cor_texto ?? vazio.cor_fundo_claro));
       }
@@ -335,6 +341,9 @@ export default function Loja() {
       entrega_taxa_base: Number(form.entrega_taxa_base || 0),
       entrega_taxa_km: Number(form.entrega_taxa_km || 0),
       entrega_taxa_padrao: Number(form.entrega_taxa_padrao || 0),
+      ifood_taxa_pct: Number(form.ifood_taxa_pct || 0),
+      ifood_taxa_fixa: Number(form.ifood_taxa_fixa || 0),
+      ifood_addon_ativo: form.ifood_addon_ativo,
     }).eq('id', lojaId);
 
     if (erroLoja) {
@@ -1133,7 +1142,8 @@ export default function Loja() {
       {aba === 'ifood' && (
         <IfoodOnboarding 
           lojaId={lojaId}
-          ifoodMerchantId={form.ifood_merchant_id}
+          form={form}
+          setValor={setValor}
           onSuccess={() => {
             supabase.from('lojas').select('ifood_merchant_id').eq('id', lojaId).single().then(({ data }) => {
               if (data) setForm(f => ({ ...f, ifood_merchant_id: data.ifood_merchant_id }));
