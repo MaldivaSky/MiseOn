@@ -32,7 +32,8 @@ export function useRealtimeNotifications({ lojaId, contexto, entregadorId, modoP
             toast(`Novo pedido #${p.numero}!`, 'info');
             tocarSom();
           } else if (contexto === 'ENTREGAS' && p.tipo_pedido === 'DELIVERY') {
-            toast(`Novo delivery #${p.numero}!`, 'info');
+            const contextoAgendado = p.agendado_para ? ' AGENDADO' : '';
+            toast(`Novo delivery${contextoAgendado} #${p.numero}!`, 'info');
             tocarSom();
           }
           // Painel já tem seu próprio som/notificação de desktop, se quisermos unificar, fazemos aqui, mas o requisito diz: "Para PainelPedidos (já existe): mantemos o atual."
@@ -43,10 +44,16 @@ export function useRealtimeNotifications({ lojaId, contexto, entregadorId, modoP
           
           if (velho.status !== 'PRONTO' && novo.status === 'PRONTO') {
             if (contexto === 'PDV') {
-              toast(`Pedido #${novo.numero} pronto para retirada/entrega!`, 'sucesso');
+              if (novo.tipo_pedido === 'SALAO') {
+                toast(`Pedido #${novo.numero} PRONTO para servir na Mesa ${novo.mesa_numero || ''}!`, 'sucesso');
+              } else if (novo.tipo_pedido === 'DELIVERY') {
+                toast(`Delivery #${novo.numero} PRONTO para entrega!`, 'sucesso');
+              } else {
+                toast(novo.agendado_para ? `Agendamento #${novo.numero} PRONTO para retirada!` : `Pedido #${novo.numero} PRONTO para retirada!`, 'sucesso');
+              }
               tocarSom();
             } else if (contexto === 'ENTREGAS' && novo.tipo_pedido === 'DELIVERY') {
-              toast(`Delivery #${novo.numero} PRONTO!`, 'sucesso');
+              toast(`Delivery #${novo.numero} PRONTO para despacho!`, 'sucesso');
               tocarSom();
             }
           }
@@ -62,7 +69,7 @@ export function useRealtimeNotifications({ lojaId, contexto, entregadorId, modoP
           const novo = payload.new as Pedido;
           const velho = payload.old as Pedido;
           if (velho.status !== 'PRONTO' && novo.status === 'PRONTO') {
-            toast(`O pedido #${novo.numero} está PRONTO!`, 'sucesso');
+            toast(`Sua entrega #${novo.numero} está pronta na loja!`, 'sucesso');
             tocarSom();
           }
         })

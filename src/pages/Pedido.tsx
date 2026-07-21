@@ -5,7 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Bike, Check, ChefHat, Clock, Compass, Download, MapPin, Package, PartyPopper, ShieldCheck, Sparkles, XCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { fmt, type Loja, type Pedido, type StatusPedido, type TipoPedido } from '../types';
+import { fmt, type Loja, type Pedido, type StatusPedido } from '../types';
 import { tocarSom } from '../lib/som';
 import { aplicarTema, obterTemaPreferido, type PreferenciaTema } from '../lib/tema';
 import { fonteFamilia, obterFundoLojaPorTema, obterTokensLoja } from '../lib/personalizacao';
@@ -38,33 +38,47 @@ const STATUS_LABEL: Record<StatusPedido, string> = {
   CANCELADO: 'Cancelado',
 };
 
-function mensagemPrincipal(status: StatusPedido, tipo: TipoPedido, temRota?: boolean) {
-  if (status === 'NOVO') return 'Recebemos seu pedido e já estamos organizando a operação.';
-  if (status === 'ACEITO') return 'Seu pedido foi aceito e entrou oficialmente na fila da cozinha.';
+function mensagemPrincipal(pedido: Pedido, temRota?: boolean) {
+  const { status, tipo_pedido, agendado_para, mesa_numero } = pedido;
+  const contextoAgendamento = agendado_para ? ' agendado' : '';
+
+  if (status === 'NOVO') return `Recebemos seu pedido${contextoAgendamento} e já estamos organizando a operação.`;
+  if (status === 'ACEITO') return `Seu pedido${contextoAgendamento} foi aceito e entrou oficialmente na fila da cozinha.`;
   if (status === 'PREPARANDO') return 'A cozinha está preparando tudo agora.';
   if (status === 'PRONTO') {
-    if (tipo === 'DELIVERY') {
+    if (tipo_pedido === 'SALAO') return `Tudo pronto! Seu pedido já será servido na Mesa ${mesa_numero || ''}.`;
+    if (tipo_pedido === 'DELIVERY') {
       return temRota
         ? 'Seu pedido já está embalado e aguardando o início da sua entrega.'
         : 'Seu pedido está pronto e aguardando o despacho da entrega.';
     }
-    return 'Seu pedido está pronto para retirada no balcão.';
+    return `Seu pedido${contextoAgendamento} está pronto para retirada no balcão.`;
   }
   if (status === 'EM_ROTA') return 'Seu entregador já iniciou a sua entrega.';
-  if (status === 'FINALIZADO') return tipo === 'DELIVERY' ? 'Pedido entregue com sucesso. Bom apetite!' : 'Pedido concluído. Obrigado pela preferência!';
+  if (status === 'FINALIZADO') {
+    if (tipo_pedido === 'SALAO') return 'Pedido servido com sucesso. Bom apetite!';
+    return tipo_pedido === 'DELIVERY' ? 'Pedido entregue com sucesso. Bom apetite!' : 'Pedido concluído. Obrigado pela preferência!';
+  }
   return 'Seu pedido foi cancelado.';
 }
 
-function mensagemToast(status: StatusPedido, tipo: TipoPedido, temRota?: boolean) {
-  if (status === 'ACEITO') return '✅ Seu pedido foi aceito pela loja!';
+function mensagemToast(pedido: Pedido, temRota?: boolean) {
+  const { status, tipo_pedido, agendado_para, mesa_numero } = pedido;
+  
+  if (status === 'ACEITO') return agendado_para ? '✅ Seu pedido agendado foi aceito!' : '✅ Seu pedido foi aceito pela loja!';
   if (status === 'PREPARANDO') return '👨‍🍳 Seu pedido está sendo preparado com muito carinho!';
   if (status === 'PRONTO') {
-    return tipo === 'DELIVERY'
-      ? (temRota ? '📦 Seu pedido está pronto e aguardando o início da sua entrega!' : '📦 Seu pedido está pronto e aguardando despacho!')
-      : '🛍️ Seu pedido está pronto para retirada!';
+    if (tipo_pedido === 'SALAO') return `🍽️ Seu pedido da Mesa ${mesa_numero || ''} está pronto para servir!`;
+    if (tipo_pedido === 'DELIVERY') {
+      return temRota ? '📦 Seu pedido está pronto e aguardando o início da sua entrega!' : '📦 Seu pedido está pronto e aguardando despacho!';
+    }
+    return agendado_para ? '🛍️ Seu agendamento está pronto para retirada!' : '🛍️ Seu pedido está pronto para retirada!';
   }
   if (status === 'EM_ROTA') return '🛵 O entregador já está a caminho com seu pedido!';
-  if (status === 'FINALIZADO') return tipo === 'DELIVERY' ? '🎉 Pedido entregue! Bom apetite!' : '🎉 Pedido finalizado! Bom apetite!';
+  if (status === 'FINALIZADO') {
+    if (tipo_pedido === 'SALAO') return '🎉 Pedido servido! Bom apetite!';
+    return tipo_pedido === 'DELIVERY' ? '🎉 Pedido entregue! Bom apetite!' : '🎉 Pedido finalizado! Bom apetite!';
+  }
   if (status === 'CANCELADO') return '❌ Seu pedido infelizmente foi cancelado.';
   return undefined;
 }
@@ -130,7 +144,12 @@ export default function AcompanharPedido() {
   useEffect(() => {
     if (!loja) return;
     const padrao = loja.tema_cardapio === 'escuro' ? 'escuro' : 'claro';
-    setTemaCliente(obterTemaPreferido(padrao));
+    
+    // Utilizando queueMicrotask para evitar renderização em cascata (aviso do React/ESLint)
+    queueMicrotask(() => {
+      setTemaCliente(obterTemaPreferido(padrao));
+    });
+
     const sincronizarTema = (event: Event) => {
       const tema = (event as CustomEvent<{ tema: PreferenciaTema }>).detail?.tema;
       if (tema === 'claro' || tema === 'escuro') setTemaCliente(tema);
@@ -162,7 +181,7 @@ export default function AcompanharPedido() {
 
   // Notifica quando o status muda (usado tanto pelo realtime quanto pelo polling de segurança)
   const notificarMudanca = (novo: Pedido) => {
-    const msg = mensagemToast(novo.status, novo.tipo_pedido, !!novo.rota_id);
+    const msg = mensagemToast(novo, !!novo.rota_id);
     if (statusAnterior.current && statusAnterior.current !== novo.status && msg) {
       tocarSom();
       if ('Notification' in window && Notification.permission === 'granted') {
@@ -176,7 +195,11 @@ export default function AcompanharPedido() {
 
   useEffect(() => {
     if (!id) return;
-    carregar();
+    
+    // Evita chamada síncrona dentro do efeito para não gerar cascading renders
+    queueMicrotask(() => {
+      carregar();
+    });
 
     // 1) Realtime com reconexão automática: se o websocket cair (celular bloqueado,
     // rede instável), o canal é recriado sozinho em alguns segundos.
@@ -311,7 +334,7 @@ export default function AcompanharPedido() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-white/70">Status atual</p>
                 <p className="mt-1 text-xl font-black">{STATUS_LABEL[pedido.status]}</p>
-                <p className="mt-2 max-w-2xl text-sm text-white/80">{mensagemPrincipal(pedido.status, pedido.tipo_pedido, !!pedido.rota_id)}</p>
+                <p className="mt-2 max-w-2xl text-sm text-white/80">{mensagemPrincipal(pedido, !!pedido.rota_id)}</p>
               </div>
               {!cancelado && (
                 <div className="min-w-[120px] rounded-2xl bg-white/10 px-4 py-3 text-center">
