@@ -1,0 +1,167 @@
+/* Estilos do Grafo de Transformação de Insumos (visual "cyber-físico"). */
+
+.mo-cg3d {
+  position: relative;
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  background: radial-gradient(120% 120% at 50% 0%, #131b2e 0%, #0a0e17 60%);
+  box-shadow: 0 24px 60px -30px rgba(0, 0, 0, 0.8);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.mo-cg3d-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.mo-cg3d-canvas canvas {
+  display: block;
+}
+
+/* Label HTML sobreposta que segue o mouse — nunca captura o ponteiro,
+   senão roubaria os eventos do raycaster do canvas. */
+.mo-cg3d-tooltip {
+  position: absolute;
+  transform: translate(14px, -50%);
+  pointer-events: none;
+  z-index: 3;
+  max-width: 280px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: #eaf1ff;
+  background: rgba(12, 18, 32, 0.92);
+  border: 1px solid rgba(120, 160, 255, 0.35);
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(6px);
+  white-space: normal;
+}
+
+/* Legenda da escala de calor (azul-frio → vermelho-quente). */
+.mo-cg3d-legenda {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #9fb2d4;
+  pointer-events: none;
+}
+
+.mo-cg3d-gradiente {
+  display: inline-block;
+  width: 120px;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, hsl(238, 85%, 55%), hsl(120, 85%, 55%), hsl(0, 85%, 55%));
+}
+
+/* Painel de detalhe da fração selecionada (clique). */
+.mo-cg3d-painel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 4;
+  width: 232px;
+  padding: 14px 16px 16px;
+  border-radius: 14px;
+  color: #eaf1ff;
+  background: rgba(12, 18, 32, 0.94);
+  border: 1px solid rgba(120, 160, 255, 0.28);
+  box-shadow: 0 18px 44px -20px rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(8px);
+}
+
+.mo-cg3d-painel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.mo-cg3d-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9fc0ff;
+  background: rgba(90, 130, 255, 0.16);
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.mo-cg3d-fechar {
+  border: none;
+  background: transparent;
+  color: #9fb2d4;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.mo-cg3d-fechar:hover {
+  color: #eaf1ff;
+}
+
+.mo-cg3d-painel h4 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.mo-cg3d-painel dl {
+  margin: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.mo-cg3d-painel dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mo-cg3d-painel dt {
+  font-size: 11.5px;
+  color: #8ea3c9;
+}
+
+.mo-cg3d-painel dd {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.mo-cg3d-erro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  border-radius: 16px;
+  color: #ffd7d7;
+  background: rgba(40, 14, 18, 0.9);
+  border: 1px solid rgba(255, 120, 120, 0.35);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.mo-cg3d-erro strong {
+  font-size: 14px;
+}
+
+.mo-cg3d-erro span {
+  font-size: 12.5px;
+  color: #ffb3b3;
+  max-width: 420px;
+}
