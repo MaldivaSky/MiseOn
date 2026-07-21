@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
-import { AlertTriangle, Plus, Pencil, Calculator, Trash2, ArrowRight, ArchiveRestore } from 'lucide-react';
+import { AlertTriangle, Plus, Pencil, Calculator, Trash2, ArrowRight, ArchiveRestore, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Insumo, fmt, InsumoRendimentoJSON } from '../../types';
+import { UNIDADES, destinosPermitidos, validarConversao } from '../../lib/unidades';
 import type { CtxLoja } from './AdminLayout';
 import EstoquePreparos from './EstoquePreparos';
 
@@ -12,7 +13,8 @@ export default function Estoque() {
   const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [inativos, setInativos] = useState<Insumo[]>([]);
   const [mostrarInativos, setMostrarInativos] = useState(false);
-  
+  const [salvando, setSalvando] = useState(false);
+
   // States para Novo Insumo Dinâmico
   const [nome, setNome] = useState('');
   const [categoriaInsumo, setCategoriaInsumo] = useState('Ingrediente');
@@ -31,22 +33,90 @@ export default function Estoque() {
      { id: '1', rendimento: '1', unidade: 'un' }
   ]);
   
+  // Valida a cadeia inteira (compra → passo 1 → passo 2 → ...): cada passo
+  // herda a unidade do anterior como origem, então uma quebra ilegal no meio
+  // contamina todo o custo a jusante.
+  const errosCadeia: string[] = [];
+  {
+    let origem = unidadeCompra;
+    for (const passo of passosRendimento) {
+      const v = validarConversao(origem, passo.unidade, 1, Number(passo.rendimento) || 0);
+      if (!v.ok && v.mensagem) errosCadeia.push(v.mensagem);
+      origem = passo.unidade;
+    }
+  }
+  const cadeiaValida = errosCadeia.length === 0;
+
+  // Trocar a unidade de compra pode tornar ilegal um destino já escolhido
+  // (ex.: compra vira "kg" com um passo que rende "kg"). Realinha para o
+  // primeiro destino permitido em vez de deixar o form num estado inválido.
+  useEffect(() => {
+    setPassosRendimento(passos => {
+      let origem = unidadeCompra;
+      let mudou = false;
+      const corrigidos = passos.map(p => {
+        const permitidos = destinosPermitidos(origem);
+        const unidade = permitidos.some(u => u.codigo === p.unidade)
+          ? p.unidade
+          : (permitidos[0]?.codigo ?? p.unidade);
+        if (unidade !== p.unidade) mudou = true;
+        origem = unidade;
+        return unidade === p.unidade ? p : { ...p, unidade };
+      });
+      return mudou ? corrigidos : passos;
+    });
+  }, [unidadeCompra]);
+
   const [estoqueMinimo, setEstoqueMinimo] = useState('');
 
   const [editando, setEditando] = useState<Insumo | null>(null);
   const [entrada, setEntrada] = useState<{ insumo: Insumo; qtd: string; custo: string } | null>(null);
 
-  const carregar = async () => {
-    const { data, error } = await supabase.from('insumos').select('*, fichas_preparos!fichas_preparos_preparo_id_fkey(*)').eq('loja_id', lojaId).order('nome');
-    if (error) console.error("Erro ao carregar insumos:", error);
-    const todos = (data as Insumo[]) ?? [];
-    setInsumos(todos.filter((i) => i.ativo));
-    setInativos(todos.filter((i) => !i.ativo));
+  // `carregar()` apenas incrementa a versao; quem busca de fato e o effect abaixo.
+  // Antes isto era `useEffect(() => { setTimeout(carregar, 0); }, [lojaId])` — o
+  // setTimeout existia so para escapar da regra set-state-in-effect, nao por
+  // necessidade de timing, e escondia o warning de dependencia.
+  const [versao, setVersao] = useState(0);
+  const carregar = useCallback(() => setVersao((v) => v + 1), []);
+
+  useEffect(() => {
+    let atual = true;
+    supabase.from('insumos').select('*, fichas_preparos!fichas_preparos_preparo_id_fkey(*)')
+      .eq('loja_id', lojaId).order('nome')
+      .then(({ data, error }) => {
+        // Descarta resposta de uma loja anterior que chegue fora de ordem.
+        if (!atual) return;
+        if (error) console.error('Erro ao carregar insumos:', error);
+        const todos = (data as Insumo[]) ?? [];
+        setInsumos(todos.filter((i) => i.ativo));
+        setInativos(todos.filter((i) => !i.ativo));
+      });
+    return () => { atual = false; };
+  }, [lojaId, versao]);
+
+  // 23505 = violacao do indice uq_insumos_loja_nome_ativo (nome repetido entre
+  // insumos ativos da mesma loja, ignorando espacos e caixa).
+  const avisarErroInsumo = (error: { code?: string; message: string }, nomeLimpo: string) => {
+    alert(error.code === '23505'
+      ? `Ja existe um insumo ativo chamado "${nomeLimpo}". Use o existente ou escolha outro nome.`
+      : `Nao foi possivel salvar: ${error.message}`);
   };
-  useEffect(() => { setTimeout(carregar, 0); }, [lojaId]);
 
   const criar = async () => {
-    if (!nome) return;
+    // btrim tambem roda no banco (trigger tg_insumos_normaliza_nome), mas o nome
+    // limpo aqui e o que vai para a checagem de duplicata e para a mensagem de erro.
+    const nomeLimpo = nome.trim();
+    // Guard de duplo-clique: sem ele, dois cliques rapidos criavam dois insumos
+    // identicos, cada um com seu proprio saldo e ficha tecnica.
+    if (!nomeLimpo || salvando) return;
+    // Defesa em profundidade: a UI já filtra os destinos ilegais, mas o save
+    // recusa de novo — um estado antigo ou colado à mão não pode furar a regra.
+    if (!cadeiaValida) {
+      alert(`Conversão inválida:\n\n${errosCadeia.join('\n')}`);
+      return;
+    }
+    setSalvando(true);
+    try {
     const qtdEstoque = Number(qtdEstoqueCompra || 0);
     const precoEmb = Number(precoCompra || 0);
     const rendEmb = passosRendimento.reduce((acc, p) => acc * (Number(p.rendimento) || 1), 1);
@@ -70,7 +140,7 @@ export default function Estoque() {
     
     const payload = {
       loja_id: lojaId,
-      nome,
+      nome: nomeLimpo,
       unidade_medida: unidadeUso,
       quantidade_atual: estoqueFinal,
       estoque_minimo: Number(estoqueMinimo || 0),
@@ -81,18 +151,23 @@ export default function Estoque() {
     };
 
     if (editando) {
-       await supabase.from('insumos').update(payload).eq('id', editando.id);
+       const { error } = await supabase.from('insumos').update(payload).eq('id', editando.id);
+       if (error) return avisarErroInsumo(error, nomeLimpo);
     } else {
-       const { data } = await supabase.from('insumos').insert(payload).select('id').single();
+       const { data, error } = await supabase.from('insumos').insert(payload).select('id').single();
+       if (error) return avisarErroInsumo(error, nomeLimpo);
        if (data && estoqueFinal > 0) {
          await supabase.from('movimentacoes_estoque').insert({
            loja_id: lojaId, insumo_id: data.id, tipo: 'ENTRADA', quantidade: estoqueFinal, motivo: 'Saldo inicial',
          });
        }
     }
-    
+
     cancelarEdicao();
     carregar();
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const iniciarEdicao = (i: Insumo) => {
@@ -144,7 +219,14 @@ export default function Estoque() {
 
   const toggleAtivo = async (i: Insumo) => {
     if (window.confirm(`Tem certeza que deseja ${i.ativo ? 'arquivar (excluir)' : 'reativar'} o insumo ${i.nome}?`)) {
-      await supabase.from('insumos').update({ ativo: !i.ativo }).eq('id', i.id);
+      const { error } = await supabase.from('insumos').update({ ativo: !i.ativo }).eq('id', i.id);
+      if (error) {
+        // Reativar um homonimo colide com o insumo ativo de mesmo nome.
+        alert(error.code === '23505'
+          ? `Nao da para reativar: ja existe um insumo ativo chamado "${i.nome}". Renomeie um dos dois.`
+          : `Nao foi possivel alterar: ${error.message}`);
+        return;
+      }
       carregar();
     }
   };
@@ -243,16 +325,9 @@ export default function Estoque() {
                     <label className="block">
                        <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400">Unidade de Compra</span>
                        <select className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none" value={unidadeCompra} onChange={e => setUnidadeCompra(e.target.value)}>
-                         <option value="pct">Pacote (pct)</option>
-                         <option value="cx">Caixa (cx)</option>
-                         <option value="kg">Quilograma (kg)</option>
-                         <option value="g">Grama (g)</option>
-                         <option value="L">Litro (L)</option>
-                         <option value="ml">Mililitro (ml)</option>
-                         <option value="un">Unidade (un)</option>
-                         <option value="fardo">Fardo</option>
-                         <option value="lata">Lata</option>
-                         <option value="gf">Garrafa (gf)</option>
+                         {UNIDADES.map(u => (
+                           <option key={u.codigo} value={u.codigo}>{u.rotulo}</option>
+                         ))}
                        </select>
                     </label>
                     <div className="grid grid-cols-2 gap-3">
@@ -278,13 +353,19 @@ export default function Estoque() {
                     <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">Ex: Compro <b>Fardo</b> ➔ Rende 6 <b>Unidades</b>. Ou Compro <b>Caixa</b> ➔ Rende 20 <b>Kg</b>.</p>
                     {passosRendimento.map((passo, index) => {
                        const unidadeAnterior = index === 0 ? unidadeCompra : passosRendimento[index - 1].unidade;
+                       // UX preventiva: só entram no dropdown os destinos que a
+                       // matriz de grandezas considera legais para esta origem.
+                       const permitidos = destinosPermitidos(unidadeAnterior);
+                       const validacao = validarConversao(
+                          unidadeAnterior, passo.unidade, 1, Number(passo.rendimento) || 0,
+                       );
                        return (
                           <div key={passo.id} className="relative p-3 bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-800/50 rounded-lg shadow-sm">
                              <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400 block mb-2">
                                 Passo {index + 1}: Essa compra de 1 {unidadeAnterior} rende...
                              </span>
                              <div className="flex gap-2 items-center">
-                                <input className="w-20 rounded-lg border border-blue-200 p-2 text-sm dark:bg-gray-950 dark:border-blue-800/50 dark:text-gray-100 focus:outline-none text-center" type="number" value={passo.rendimento} onChange={e => {
+                                <input className={`w-20 rounded-lg border p-2 text-sm dark:bg-gray-950 dark:text-gray-100 focus:outline-none text-center ${validacao.ok ? 'border-blue-200 dark:border-blue-800/50' : 'border-red-400 dark:border-red-500/60'}`} type="number" min="0" max={validacao.rendimentoCanonico} value={passo.rendimento} onChange={e => {
                                    const newPassos = [...passosRendimento];
                                    newPassos[index].rendimento = e.target.value;
                                    setPassosRendimento(newPassos);
@@ -294,14 +375,9 @@ export default function Estoque() {
                                    newPassos[index].unidade = e.target.value;
                                    setPassosRendimento(newPassos);
                                 }}>
-                                  <option value="un">Unidades (un)</option>
-                                  <option value="g">Gramas (g)</option>
-                                  <option value="ml">Mililitros (ml)</option>
-                                  <option value="fatias">Fatias</option>
-                                  <option value="porção">Porções</option>
-                                  <option value="kg">Quilogramas (kg)</option>
-                                  <option value="L">Litros (L)</option>
-                                  <option value="peça">Peças</option>
+                                  {permitidos.map(u => (
+                                    <option key={u.codigo} value={u.codigo}>{u.rotulo}</option>
+                                  ))}
                                 </select>
                                 {index > 0 && (
                                    <button onClick={() => setPassosRendimento(passosRendimento.filter(p => p.id !== passo.id))} className="p-2 text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 rounded-lg transition-colors">
@@ -309,6 +385,19 @@ export default function Estoque() {
                                    </button>
                                 )}
                              </div>
+                             {/* A trava explicada: por que este rendimento é impossível. */}
+                             {!validacao.ok && (
+                                <p className="mt-2 flex items-start gap-1.5 text-[11px] font-medium text-red-600 dark:text-red-400">
+                                   <AlertTriangle size={13} className="shrink-0 mt-px" />
+                                   <span>{validacao.mensagem}</span>
+                                </p>
+                             )}
+                             {/* Conversão dimensional: a física já sabe o rendimento. */}
+                             {validacao.ok && validacao.rendimentoCanonico != null && (
+                                <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                                   1 {unidadeAnterior} = {validacao.rendimentoCanonico.toLocaleString('pt-BR')} {passo.unidade} (fator fixo). Informe menos apenas se houver perda por limpeza.
+                                </p>
+                             )}
                           </div>
                        );
                     })}
@@ -351,8 +440,11 @@ export default function Estoque() {
            )}
         </div>
         
-        <button onClick={criar} className={`mt-5 w-full flex items-center justify-center gap-1 rounded-xl py-3.5 text-sm font-bold text-white shadow-md hover:scale-[1.01] transition-transform ${editando ? 'bg-blue-600 hover:bg-blue-700' : 'bg-[var(--cor-primaria)]'}`}>
-          {editando ? 'Atualizar Insumo' : <><Plus size={16} /> Salvar Insumo</>}
+        <button onClick={criar} disabled={salvando || !nome.trim()}
+          className={`mt-5 w-full flex items-center justify-center gap-1 rounded-xl py-3.5 text-sm font-bold text-white shadow-md hover:scale-[1.01] transition-transform disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed ${editando ? 'bg-blue-600 hover:bg-blue-700' : 'bg-[var(--cor-primaria)]'}`}>
+          {salvando
+            ? <><Loader2 size={16} className="animate-spin" /> Salvando…</>
+            : editando ? 'Atualizar Insumo' : <><Plus size={16} /> Salvar Insumo</>}
         </button>
       </div>
 
