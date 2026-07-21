@@ -1,30 +1,11 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Custeio PEPS por lotes — o custo deixa de ser "preço da última compra".
---
--- ANTES: fn_lancar_custo_estoque usava preco_embalagem/qtd_embalagem, ou seja,
--- o preço da ÚLTIMA compra aplicado retroativamente a todo o estoque. Comprou
--- caro hoje? O CMV de ontem muda junto. Isso não é custeio, é estimativa.
---
--- DEPOIS: cada ENTRADA vira um LOTE com seu próprio custo. Cada baixa consome
--- os lotes do mais antigo ao mais novo (PEPS) e grava o custo REAL da saída em
--- movimentacoes_estoque.custo_total. O lançamento contábil vira uma simples
--- soma desses custos.
---
--- POR QUE PEPS E NÃO CUSTO MÉDIO: insumo de cozinha é perecível. O tomate que
--- sai primeiro é fisicamente o mais velho. PEPS é o que de fato acontece na
--- bancada, então o custo segue o fluxo físico em vez de borrar tudo numa média.
---
--- BÔNUS — bug corrigido de quebra: fn_baixar_estoque dá baixa em ficha técnica
--- E em opções/adicionais, mas fn_lancar_custo_estoque só somava ficha técnica.
--- Todo adicional vendido tinha custo zero no CMV. Somando por movimentação,
--- adicionais entram automaticamente.
 -- ═══════════════════════════════════════════════════════════════════════════
 
-CREATE TABLE lotes_estoque (
+CREATE TABLE IF NOT EXISTS lotes_estoque (
   id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   loja_id            UUID NOT NULL REFERENCES lojas(id) ON DELETE CASCADE,
   insumo_id          UUID NOT NULL REFERENCES insumos(id) ON DELETE CASCADE,
-  -- Quantidades na unidade_medida do insumo (mesma base de movimentacoes).
   quantidade_inicial NUMERIC(14,4) NOT NULL CHECK (quantidade_inicial > 0),
   quantidade_restante NUMERIC(14,4) NOT NULL CHECK (quantidade_restante >= 0),
   custo_unitario     NUMERIC(14,6) NOT NULL CHECK (custo_unitario >= 0),
@@ -33,22 +14,15 @@ CREATE TABLE lotes_estoque (
   CONSTRAINT restante_nao_excede_inicial CHECK (quantidade_restante <= quantidade_inicial)
 );
 
--- Índice que serve exatamente a consulta do PEPS: lotes com saldo, mais
--- antigos primeiro, por insumo.
-CREATE INDEX idx_lotes_peps ON lotes_estoque (insumo_id, criado_em)
+CREATE INDEX IF NOT EXISTS idx_lotes_peps ON lotes_estoque (insumo_id, criado_em)
   WHERE quantidade_restante > 0;
 
 ALTER TABLE lotes_estoque ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS lotes_loja ON lotes_estoque;
 CREATE POLICY lotes_loja ON lotes_estoque FOR ALL
   USING (loja_id IN (SELECT loja_id FROM usuarios_loja WHERE user_id = auth.uid()))
   WITH CHECK (loja_id IN (SELECT loja_id FROM usuarios_loja WHERE user_id = auth.uid()));
 
--- ── O consumidor PEPS ─────────────────────────────────────────────────────
--- Drena os lotes do mais antigo ao mais novo e devolve o custo real da saída.
---
--- NUNCA lança exceção por falta de lote: custeio não pode derrubar uma venda.
--- Se os lotes acabarem antes (drift entre saldo e lotes), usa o último custo
--- unitário conhecido para o restante e avisa via WARNING.
 CREATE OR REPLACE FUNCTION fn_consumir_lotes_peps(p_insumo_id UUID, p_qtd NUMERIC)
 RETURNS NUMERIC
 LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_temp' AS $$
@@ -79,7 +53,6 @@ BEGIN
     v_restante := v_restante - v_tirar;
   END LOOP;
 
-  -- Sobrou quantidade sem lote: estima pelo último custo e segue em frente.
   IF v_restante > 0.00005 THEN
     IF v_ultimo = 0 THEN
       SELECT COALESCE(preco_embalagem / NULLIF(qtd_embalagem,0), 0) INTO v_ultimo
@@ -93,10 +66,6 @@ BEGIN
   RETURN ROUND(v_custo, 4);
 END; $$;
 
--- ── Entrada cria lote ─────────────────────────────────────────────────────
--- Só para tipo = 'ENTRADA'. Chavear pelo SINAL da quantidade seria frágil:
--- a base tem linhas 'SAIDA' gravadas com quantidade positiva, que virariam
--- lotes fantasma.
 CREATE OR REPLACE FUNCTION fn_mov_criar_lote() RETURNS TRIGGER
 LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_temp' AS $$
 DECLARE
@@ -104,7 +73,6 @@ DECLARE
 BEGIN
   IF NEW.tipo <> 'ENTRADA' OR NEW.quantidade <= 0 THEN RETURN NEW; END IF;
 
-  -- Custo do lote: o informado na entrada; senão, o custo de embalagem atual.
   IF NEW.custo_total IS NOT NULL AND NEW.custo_total > 0 THEN
     v_unit := NEW.custo_total / NEW.quantidade;
   ELSE
@@ -119,11 +87,11 @@ BEGIN
   RETURN NEW;
 END; $$;
 
+DROP TRIGGER IF EXISTS trg_mov_criar_lote ON movimentacoes_estoque;
 CREATE TRIGGER trg_mov_criar_lote
   AFTER INSERT ON movimentacoes_estoque
   FOR EACH ROW EXECUTE FUNCTION fn_mov_criar_lote();
 
--- ── Baixa consome lotes e carimba o custo real na própria movimentação ────
 CREATE OR REPLACE FUNCTION fn_mov_custear_baixa() RETURNS TRIGGER
 LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_temp' AS $$
 BEGIN
@@ -133,34 +101,20 @@ BEGIN
   RETURN NEW;
 END; $$;
 
+DROP TRIGGER IF EXISTS trg_mov_custear_baixa ON movimentacoes_estoque;
 CREATE TRIGGER trg_mov_custear_baixa
   BEFORE INSERT ON movimentacoes_estoque
   FOR EACH ROW EXECUTE FUNCTION fn_mov_custear_baixa();
 
--- ── Lotes de abertura ─────────────────────────────────────────────────────
--- Das 14 ENTRADAs históricas, só 5 têm custo_total — reconstruir o passado
--- daria lotes com custo fictício. Em vez disso, abre UM lote por insumo com o
--- saldo atual, precificado pelo custo que o sistema já usava hoje
--- (preco_embalagem/qtd_embalagem). A transição não gera salto de CMV; daqui
--- para frente os lotes reais se acumulam com custo real.
 INSERT INTO lotes_estoque (loja_id, insumo_id, quantidade_inicial,
                            quantidade_restante, custo_unitario, criado_em)
 SELECT i.loja_id, i.id, i.quantidade_atual, i.quantidade_atual,
        COALESCE(i.preco_embalagem / NULLIF(i.qtd_embalagem,0), 0),
-       now() - interval '1 second'   -- anterior a qualquer lote novo
+       now() - interval '1 second'
 FROM insumos i
-WHERE i.quantidade_atual > 0;
+WHERE i.quantidade_atual > 0
+  AND NOT EXISTS (SELECT 1 FROM lotes_estoque l WHERE l.insumo_id = i.id);
 
--- ── O lançamento contábil vira POR MOVIMENTAÇÃO ───────────────────────────
--- BUG CORRIGIDO: o trigger é FOR EACH ROW (uma vez por movimentação), mas a
--- função antiga calculava o custo do PEDIDO INTEIRO a cada disparo — um pedido
--- com 3 insumos geraria 3 lançamentos idênticos, triplicando o CMV. Nunca se
--- manifestou porque o HAVING > 0 descartava tudo (a maioria dos insumos tem
--- preco_embalagem = 0, então o custo dava zero e nenhum lançamento saía).
---
--- Agora cada movimentação lança o SEU próprio custo, já carimbado pelo PEPS.
--- Somatório por pedido continua correto, sem duplicar, e os adicionais entram
--- porque fn_baixar_estoque também grava movimentação para eles.
 CREATE OR REPLACE FUNCTION public.fn_lancar_custo_estoque() RETURNS TRIGGER
 LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_temp' AS $$
 DECLARE
