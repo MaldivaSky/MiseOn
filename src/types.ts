@@ -254,6 +254,11 @@ export interface Pedido {
   ordem_entrega?: number | null;
   itens_pedido?: ItemPedido[];
   pagamentos?: { metodo: MetodoPgto; status: string; valor_pago: number }[];
+  nfe_status?: 'NAO_EMITIDA' | 'PROCESSANDO' | 'AUTORIZADA' | 'REJEITADA' | 'CANCELADA' | 'ERRO';
+  nfe_chave?: string | null;
+  nfe_numero?: string | null;
+  nfe_url?: string | null;
+  nfe_erros?: any;
 }
 
 export interface Cliente {
@@ -626,4 +631,15 @@ export interface CaixaModalProps {
   abrirTurno: () => Promise<void>;
   registrarMov: (tipo: 'SANGRIA' | 'REFORCO') => Promise<void>;
   fecharTurno: () => Promise<void>;
+}
+
+export interface Movimentacao {
+  id: string;
+  loja_id: string;
+  insumo_id: string;
+  tipo: string;
+  quantidade: number;
+  motivo?: string;
+  pedido_id?: string;
+  criado_em: string;
 }

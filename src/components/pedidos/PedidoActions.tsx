@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Printer, Bike, Check, X as XIcon, Store, ChefHat, Receipt, UtensilsCrossed, Flame, Lock } from 'lucide-react';
+import { Printer, Bike, Check, X as XIcon, Store, ChefHat, Receipt, UtensilsCrossed, Flame, Lock, FileText, Loader2 } from 'lucide-react';
 import type { PedidoActionsProps } from '../../types';
+import { supabase } from '../../lib/supabase';
 
 export function PedidoActions({
   pedido: p, papel, naCozinha, precisaConferir, todosConferidos, semAvancoSalao,
@@ -8,7 +9,34 @@ export function PedidoActions({
   onAvancar, onEnviarCozinha, onCancelar, onImprimir, executar,
 }: PedidoActionsProps) {
   const [menu, setMenu] = useState(false);
+  const [emitindoNfe, setEmitindoNfe] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const handleEmitirNfe = async () => {
+    setMenu(false);
+    if (p.nfe_url) {
+      window.open(p.nfe_url, '_blank');
+      return;
+    }
+    
+    setEmitindoNfe(true);
+    try {
+      const { error, data } = await supabase.functions.invoke('fiscal-emitir-nfce', {
+        body: { pedido_id: p.id }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      } else {
+        alert('NFC-e enviada, aguardando Sefaz.');
+      }
+    } catch (err: any) {
+      alert('Erro ao emitir NFC-e: ' + (err.message || String(err)));
+    }
+    setEmitindoNfe(false);
+  };
 
   useEffect(() => {
     if (!menu) return;
@@ -92,6 +120,15 @@ export function PedidoActions({
             )}
             <button onClick={() => { setMenu(false); onImprimir('nota'); }} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5">
               <Receipt size={16} className="text-emerald-500" /> Nota do Cliente
+            </button>
+            <div className="my-1 border-t border-gray-100 dark:border-white/5"></div>
+            <button 
+              onClick={handleEmitirNfe} 
+              disabled={emitindoNfe}
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5 disabled:opacity-50"
+            >
+              {emitindoNfe ? <Loader2 size={16} className="text-blue-500 animate-spin" /> : <FileText size={16} className="text-blue-500" />}
+              {p.nfe_url ? 'Imprimir DANFE (NFC-e)' : 'Emitir NFC-e'}
             </button>
           </div>
         )}

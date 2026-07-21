@@ -1,8 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { PartyPopper, ChefHat, Receipt } from 'lucide-react';
 import { fmt } from '../../types';
 import type { OrderSuccessModalProps } from '../../types';
+import { supabase } from '../../lib/supabase';
+import { Loader2, FileText } from 'lucide-react';
 
 export function OrderSuccessModal({ venda, imprimirVenda, limparVenda }: OrderSuccessModalProps) {
   useEffect(() => {
@@ -17,7 +19,30 @@ export function OrderSuccessModal({ venda, imprimirVenda, limparVenda }: OrderSu
     }
   }, [venda]);
 
+  const [emitindo, setEmitindo] = useState(false);
+  const [nfeUrl, setNfeUrl] = useState<string | null>(null);
+  const [nfeErro, setNfeErro] = useState('');
+
   if (!venda) return null;
+
+  const emitirNfce = async () => {
+    setEmitindo(true);
+    setNfeErro('');
+    try {
+      const { data, error } = await supabase.functions.invoke('fiscal-emitir-nfce', {
+        body: { pedido_id: venda.pedidoId }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      
+      if (data?.url) setNfeUrl(data.url);
+      else setNfeErro('NFC-e autorizada, mas URL não retornou.');
+    } catch (e: any) {
+      console.error(e);
+      setNfeErro('Erro ao emitir: ' + (e.message || String(e)));
+    }
+    setEmitindo(false);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
@@ -45,7 +70,31 @@ export function OrderSuccessModal({ venda, imprimirVenda, limparVenda }: OrderSu
             <Receipt size={14} /> Nota cliente
           </button>
         </div>
-        <button onClick={limparVenda} className="mt-3 w-full rounded-2xl bg-[var(--cor-primaria)] py-4 text-base font-black text-white shadow-lg">
+
+        <div className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800">
+          {!nfeUrl ? (
+            <button 
+              onClick={emitirNfce} 
+              disabled={emitindo}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--cor-primaria)] bg-[var(--cor-primaria)]/10 py-3 text-sm font-bold text-[var(--cor-primaria)] transition hover:bg-[var(--cor-primaria)]/20 disabled:opacity-50"
+            >
+              {emitindo ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+              {emitindo ? 'Emitindo NFC-e...' : 'Emitir Cupom Fiscal (NFC-e)'}
+            </button>
+          ) : (
+            <a 
+              href={nfeUrl} 
+              target="_blank" 
+              rel="noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
+            >
+              <FileText size={16} /> Imprimir DANFE (Fiscal)
+            </a>
+          )}
+          {nfeErro && <p className="mt-2 text-xs font-semibold text-red-500">{nfeErro}</p>}
+        </div>
+
+        <button onClick={limparVenda} className="mt-4 w-full rounded-2xl bg-[var(--cor-primaria)] py-4 text-base font-black text-white shadow-lg">
           Nova venda
         </button>
       </div>
