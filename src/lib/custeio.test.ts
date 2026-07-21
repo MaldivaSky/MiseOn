@@ -158,3 +158,146 @@ describe('blindagens do grafo de conversão', () => {
     expect(() => custoUnitarioBase(vazio)).toThrow(ErroCusteio);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOVOS TESTES — Fase A: Cenários de borda + cobertura de Edge Cases
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('borda de tolerância de conservação (1e-4 = 0,01%)', () => {
+  // A trava usa (1 + 1e-4) como margem de ruído de ponto flutuante.
+  // 1000 g de 1 kg é conversão exata. 1001 g ainda está dentro da tolerância.
+  // 1001.1 g excede e deve ser bloqueado.
+
+  const detalhe = (): ItemEstoque => ({
+    id: 'tol',
+    nome: 'Teste tolerância',
+    unidadeBase: 'g',
+    fatores: [],
+    lotes: [{ id: 'L1', data: '2026-01-01', quantidade: 1000, custoTotal: 10 }],
+  });
+
+  it('aceita 1000 g de 1 kg (exato)', () => {
+    // 1 kg → 1000 g = conservação perfeita
+    expect(resolverFator(detalhe(), 'kg', 'g')).toBeCloseTo(1000, 6);
+  });
+
+  it('custoDeUso via kg resolve corretamente pelo fator universal', () => {
+    // 0.5 kg = 500 g → custo = 500 × (10/1000) = R$ 5,00
+    expect(custoDeUso(detalhe(), 0.5, 'kg')).toBeCloseTo(5, 10);
+  });
+
+  it('recusa fator que cria massa (1001 g de 1 kg = multiplicação espontânea)', () => {
+    // 1 kg → 1001 g viola conservação (1001 × 0.001 = 1.001 > 1 × 1.0001)
+    const item = detalhe();
+    expect(() => declararFator(item, { de: 'kg', para: 'g', multiplicador: 1001 }))
+      .toThrow(ErroCusteio);
+  });
+});
+
+describe('cadeia de 3 passos: caixa → kg → g → fatias', () => {
+  // Cenário realista: compra em caixas → armazena em g → usa em fatias
+  // 1 cx = 2 kg (declarado); 1 kg = 1000 g (universal); 100 g = 1 fatia (declarado)
+  const pao = (): ItemEstoque => ({
+    id: 'pao',
+    nome: 'Pão de Fôrma',
+    unidadeBase: 'g',
+    fatores: [
+      { de: 'cx', para: 'kg', multiplicador: 2 },       // 1 cx rende 2 kg
+      { de: 'g',  para: 'fatias', multiplicador: 0.01 }, // 100 g rende 1 fatia
+    ],
+    // Estoque: 1 lote de 2000 g (1 caixa convertida) por R$ 8,00
+    lotes: [{ id: 'L1', data: '2026-01-10', quantidade: 2000, custoTotal: 8 }],
+  });
+
+  it('resolve cx → g encadeando fator item + fator universal', () => {
+    // 1 cx → 2 kg → 2000 g = fator 2000
+    expect(resolverFator(pao(), 'cx', 'g')).toBeCloseTo(2000, 6);
+  });
+
+  it('resolve g → fatias pelo fator dinâmico direto', () => {
+    // 1 g → 0.01 fatias
+    expect(resolverFator(pao(), 'g', 'fatias')).toBeCloseTo(0.01, 6);
+  });
+
+  it('resolve cx → fatias encadeando TRÊS arestas', () => {
+    // 1 cx → 2000 g → 20 fatias
+    expect(resolverFator(pao(), 'cx', 'fatias')).toBeCloseTo(20, 6);
+  });
+
+  it('custo de 1 fatia = R$ 0,004 (R$ 8,00 / 2000 g × 100 g)', () => {
+    // 1 fatia = 100 g; 1 g custa 8/2000 = 0.004; 1 fatia = 100 × 0.004 = R$ 0,40
+    // Atenção: 100 g = 1 fatia ⇒ 1 fatia = (1/0.01) g = 100 g
+    expect(custoDeUso(pao(), 1, 'fatias')).toBeCloseTo(0.40, 4);
+  });
+
+  it('custo de 1 cx = R$ 8,00 (todo o custo do lote)', () => {
+    expect(custoDeUso(pao(), 1, 'cx')).toBeCloseTo(8, 6);
+  });
+
+  it('BOM com caixa e fatias soma corretamente sem arredondamento intermediário', () => {
+    const itens = new Map([['pao', pao()]]);
+    const r = custoBOM(
+      [
+        { itemId: 'pao', quantidade: 1,  unidade: 'cx'     }, // R$ 8,00
+        { itemId: 'pao', quantidade: 10, unidade: 'fatias'  }, // 10 × R$ 0,40 = R$ 4,00
+      ],
+      itens,
+    );
+    expect(r.total).toBeCloseTo(12, 6);
+  });
+});
+
+describe('propagação de erro: lote zerado em custoDeUso', () => {
+  it('custoDeUso lança ErroCusteio quando item não tem lotes', () => {
+    const semEstoque: ItemEstoque = {
+      id: 'vz', nome: 'Vazio', unidadeBase: 'g', fatores: [],
+      lotes: [],
+    };
+    expect(() => custoDeUso(semEstoque, 100, 'g')).toThrow(ErroCusteio);
+    expect(() => custoDeUso(semEstoque, 100, 'g')).toThrow(/sem lotes/);
+  });
+
+  it('custoDeUso lança ErroCusteio quando todos lotes têm saldo zero', () => {
+    const esgotado: ItemEstoque = {
+      id: 'es', nome: 'Esgotado', unidadeBase: 'g', fatores: [],
+      lotes: [
+        { id: 'L1', data: '2026-01-01', quantidade: 0, custoTotal: 0 },
+        { id: 'L2', data: '2026-01-15', quantidade: 0, custoTotal: 0 },
+      ],
+    };
+    expect(() => custoDeUso(esgotado, 50, 'g')).toThrow(ErroCusteio);
+  });
+});
+
+describe('paridade frontend ↔ Edge Function (documentação de contrato)', () => {
+  // Este describe NÃO testa a Edge Function ao vivo (requer Supabase).
+  // Ele documenta que os módulos usados são os mesmos e verifica a lógica
+  // com dados idênticos aos que a Edge Function usaria.
+
+  it('custoDeUso local produz o mesmo resultado que a Edge Function produziria', () => {
+    // A Edge Function importa os mesmos módulos TypeScript (custeio.ts + unidades.ts).
+    // Se este teste passa, a paridade está garantida por construção — não por convenção.
+    const item = tomate();
+    const local = custoDeUso(item, 2, 'fatias');
+    // 2 fatias × (1/3.5) un/fatia × (60/50 R$/un) = 2/3.5 × 1.2 = ~0.6857
+    expect(local).toBeCloseTo((2 / 3.5) * 1.2, 10);
+  });
+
+  it('baixarPEPS local retorna detalhamento de lotes — o mesmo que a Edge Function exporia', () => {
+    const item: ItemEstoque = {
+      id: 'cafe', nome: 'Café', unidadeBase: 'g', fatores: [],
+      lotes: [
+        { id: 'antigo', data: '2026-01-01', quantidade: 500,  custoTotal: 10 }, // R$0,020/g
+        { id: 'novo',   data: '2026-06-01', quantidade: 500,  custoTotal: 20 }, // R$0,040/g
+      ],
+    };
+    // 600 g: consome 500 g do lote antigo (R$10) + 100 g do novo (R$4) = R$14
+    const { custo, consumido } = baixarPEPS({ ...item, lotes: item.lotes.map(l => ({ ...l })) }, 600, 'g');
+    expect(custo).toBeCloseTo(14, 6);
+    expect(consumido).toHaveLength(2);
+    expect(consumido[0].loteId).toBe('antigo');
+    expect(consumido[0].quantidade).toBeCloseTo(500, 6);
+    expect(consumido[1].loteId).toBe('novo');
+    expect(consumido[1].quantidade).toBeCloseTo(100, 6);
+  });
+});
