@@ -29,6 +29,39 @@ async function getOrderDetails(orderId: string, token: string) {
   return res.json();
 }
 
+// Envia email de notificação de falha grave usando Resend
+async function sendFailureEmail(orderId: string, lojaNome: string, errorMessage: string) {
+  const resendKey = Deno.env.get('RESEND_API_KEY');
+  const alertEmail = Deno.env.get('ALERT_EMAIL') || 'admin@miseon.com.br';
+  
+  if (!resendKey) return;
+  
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'MiseOn Alerts <alerts@miseon.com.br>',
+        to: alertEmail,
+        subject: `⚠️ ALERTA: Falha Crítica no Webhook iFood - Loja: ${lojaNome}`,
+        html: `
+          <h2>Falha na integração do Pedido iFood</h2>
+          <p><strong>Loja:</strong> ${lojaNome}</p>
+          <p><strong>ID do Pedido:</strong> ${orderId}</p>
+          <p><strong>Erro:</strong> ${errorMessage}</p>
+          <hr/>
+          <p>Verifique os logs no painel do Supabase Edge Functions para mais detalhes.</p>
+        `
+      })
+    });
+  } catch (err) {
+    console.error('Falha ao enviar email de notificação:', err);
+  }
+}
+
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -57,13 +90,14 @@ serve(async (req: Request) => {
       const { accessToken } = await getIfoodToken(clientId, clientSecret);
 
       for (const event of newOrderEvents) {
+        let lojaNomeFallback = 'Desconhecida';
         try {
           const order = await getOrderDetails(event.orderId, accessToken);
           
-          // 1. Descobrir de qual loja do MiseOn é este pedido
+          // 1. Descobrir de qual loja do MiseOn é este pedido e suas taxas
           const { data: loja } = await supabase
             .from('lojas')
-            .select('id, nome')
+            .select('id, nome, ifood_taxa_pct, ifood_taxa_fixa')
             .eq('ifood_merchant_id', order.merchant.id)
             .single();
 
@@ -73,10 +107,18 @@ serve(async (req: Request) => {
           }
 
           const lojaId = loja.id;
+          lojaNomeFallback = loja.nome;
 
-          // 2. Extrair dados do cliente
-          const telefoneLimpo = order.customer?.phone?.number || '';
+          // 2. Extrair dados do cliente com regras de LGPD (Fallback IFOOD_XYZ)
+          let telefoneLimpo = (order.customer?.phone?.number || '').replace(/\\D/g, '');
           let clienteId = null;
+
+          const validPhoneRegex = /^[1-9]{2}9?[0-9]{8}$/;
+          
+          if (!telefoneLimpo || !validPhoneRegex.test(telefoneLimpo)) {
+             // Fallback LGPD / Telefone Incorreto
+             telefoneLimpo = `IFOOD_${order.customer?.id || order.displayId || event.orderId}`;
+          }
 
           if (telefoneLimpo) {
             const { data: clienteExistente } = await supabase
@@ -93,15 +135,22 @@ serve(async (req: Request) => {
                 .from('clientes')
                 .insert({
                   loja_id: lojaId,
-                  nome: order.customer.name,
+                  nome: order.customer?.name || 'Cliente iFood',
                   telefone: telefoneLimpo,
-                  documento: order.customer.documentNumber || null,
                 })
                 .select('id')
                 .single();
               if (novoCli) clienteId = novoCli.id;
             }
           }
+
+          // Regra de Negócio: Cálculo de Repasse e Taxas
+          const valorBrutoIfood = order.total.orderAmount || 0;
+          const taxaPct = Number(loja.ifood_taxa_pct || 0) / 100;
+          const taxaFixa = Number(loja.ifood_taxa_fixa || 0);
+          
+          // A taxa retida é (Bruto * % Taxa) + Taxa Fixa
+          const taxaIfoodRetida = (valorBrutoIfood * taxaPct) + taxaFixa;
 
           // 3. Montar Pedido
           const isDelivery = order.orderType === 'DELIVERY';
@@ -111,14 +160,18 @@ serve(async (req: Request) => {
               loja_id: lojaId,
               cliente_id: clienteId,
               status: 'NOVO',
-              origem: 'IFOOD',
-              tipo_pedido: isDelivery ? 'DELIVERY' : 'RETIRADA',
-              subtotal: order.payments.prepaid || order.payments.pending || 0, // Ajuste bruto
+              origem: 'ifood',
+              tipo_pedido: isDelivery ? 'DELIVERY' : 'RETIRADA_BALCAO',
+              subtotal: order.payments?.prepaid || order.payments?.pending || 0,
               taxa_entrega: order.total.deliveryFee || 0,
               desconto: order.total.discounts || 0,
-              total: order.total.orderAmount || 0,
+              valor_total: valorBrutoIfood,
               observacao: order.observations || null,
-              numero: order.displayId, // ex: "9312"
+              numero: Number(order.displayId) || 0,
+              identificador_cliente: order.customer?.name || 'iFood',
+              ifood_order_id: event.orderId,
+              valor_bruto_ifood: valorBrutoIfood,
+              taxa_ifood_retida: taxaIfoodRetida
             })
             .select('id')
             .single();
@@ -127,7 +180,6 @@ serve(async (req: Request) => {
           const pedidoId = novoPedido.id;
 
           // 4. Mapear e Inserir Itens
-          // Busca todos os produtos da loja para fazer o "De-Para" pelo pdv_code (ifood externalCode)
           const { data: produtosLoja } = await supabase
             .from('produtos')
             .select('id, pdv_code, preco, nome')
@@ -135,68 +187,61 @@ serve(async (req: Request) => {
 
           const insertItens = [];
           for (const item of order.items) {
-            // Tenta encontrar o produto pelo externalCode mapeado no nosso banco
             const produtoMatch = produtosLoja?.find((p: any) => p.pdv_code === item.externalCode);
             
             insertItens.push({
               pedido_id: pedidoId,
-              produto_id: produtoMatch?.id || null, // Se não achar, salva nulo (mas ainda salva o nome abaixo se possível? O DB exige produto_id? Se exigir, vai falhar, e o lojista precisa mapear)
+              produto_id: produtoMatch?.id || null, 
               quantidade: item.quantity,
               preco_unitario: item.unitPrice,
               observacao: item.observations || null,
-              opcoes_selecionadas: item.options?.map((opt: any) => ({
-                id: opt.externalCode,
-                nome: opt.name,
-                preco: opt.price,
-                quantidade: opt.quantity
-              })) || []
+              nome_produto: item.name
             });
           }
 
-          // A tabela itens_pedido normalmente exige produto_id. Se o merchant não mapeou, o insert pode falhar.
-          // Como o iFood é estrito, vamos assumir que o lojista FEZ o mapeamento. 
-          // (Filtrar itens não mapeados ou criar produto fantasma seria uma solução avançada)
           if (insertItens.length > 0) {
-             await supabase.from('itens_pedido').insert(insertItens.filter(i => i.produto_id !== null));
+             // Precisamos iterar para inserir os itens (porque tem tabela de opções separada se fosse o caso)
+             // Para o MVP iFood simplificado da MiseOn, só inserimos na itens_pedido
+             for (const it of insertItens) {
+                await supabase.from('itens_pedido').insert(it);
+             }
           }
 
           // 5. Pagamentos
           const insertPagamentos = [];
-          if (order.payments?.methods) {
+          // Regra Fundamental: "Nunca descartar silêncio como pagamento não confirmado"
+          // O iFood assume o risco, então se não mandou método, consideramos PAGO via iFood.
+          if (order.payments?.methods && order.payments.methods.length > 0) {
             for (const method of order.payments.methods) {
-              const pagoOnline = method.prepaid; // iFood pagou
+              const pagoOnline = method.prepaid; 
               insertPagamentos.push({
                 pedido_id: pedidoId,
-                metodo: method.method === 'PIX' ? 'PIX' : (method.method === 'CASH' ? 'DINHEIRO' : 'CREDITO'), // simplificação
+                metodo: method.method === 'PIX' ? 'PIX' : (method.method === 'CASH' ? 'DINHEIRO' : 'IFOOD'),
                 valor_pago: method.value,
                 status: pagoOnline ? 'PAGO' : 'PENDENTE',
                 data_pagamento: pagoOnline ? new Date().toISOString() : null
               });
             }
-            if (insertPagamentos.length > 0) {
-              await supabase.from('pagamentos').insert(insertPagamentos);
-            }
+          } else {
+             // Silêncio = Pagamento Confirmado via iFood (Regra de Negócio)
+             insertPagamentos.push({
+                pedido_id: pedidoId,
+                metodo: 'IFOOD',
+                valor_pago: valorBrutoIfood,
+                status: 'PAGO',
+                data_pagamento: new Date().toISOString()
+             });
           }
-
-          // 6. Endereço de Entrega
-          if (isDelivery && order.delivery?.deliveryAddress) {
-            const addr = order.delivery.deliveryAddress;
-            await supabase.from('enderecos_entrega').insert({
-              pedido_id: pedidoId,
-              rua: addr.streetName || '',
-              numero: addr.streetNumber || '',
-              complemento: addr.complement || null,
-              bairro: addr.neighborhood || '',
-              cidade: addr.city || '',
-              estado: addr.state || '',
-              cep: addr.postalCode || ''
-            });
+          
+          if (insertPagamentos.length > 0) {
+            await supabase.from('pagamentos').insert(insertPagamentos);
           }
 
           console.log(`Pedido ${order.displayId} (iFood) processado com sucesso para a loja ${lojaId}.`);
 
         } catch (e: any) {
           console.error(`Erro ao processar pedido iFood ${event.orderId}:`, e.message);
+          await sendFailureEmail(event.orderId, lojaNomeFallback, e.message);
         }
       }
     }
