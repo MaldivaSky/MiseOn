@@ -1,0 +1,176 @@
+/* VisualizadorCaminho — estilos premium para o diagrama de conversão */
+
+/* ── Contêiner raiz ──────────────────────────────────────────────────────── */
+.vcp-raiz {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+  padding: 20px 16px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.4) transparent;
+}
+
+.vcp-raiz::-webkit-scrollbar { height: 4px; }
+.vcp-raiz::-webkit-scrollbar-track { background: transparent; }
+.vcp-raiz::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.4);
+  border-radius: 4px;
+}
+
+/* ── Estado de erro ──────────────────────────────────────────────────────── */
+.vcp-erro {
+  flex-direction: row;
+  gap: 10px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #1c0a0a 0%, #2d1515 100%);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  font-size: 0.875rem;
+  font-family: 'Inter', sans-serif;
+}
+.vcp-icone-erro { font-size: 1.1rem; }
+
+/* ── Nós ─────────────────────────────────────────────────────────────────── */
+.vcp-no {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 100px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  position: relative;
+  flex-shrink: 0;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.vcp-no:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.vcp-no-origem {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.1) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+.vcp-no-intermediario {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+.vcp-no-destino {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.1) 100%);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.vcp-tipo-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.7);
+  font-family: 'Inter', sans-serif;
+}
+
+.vcp-unidade {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.vcp-custo {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(148, 163, 184, 0.85);
+  font-family: 'Inter', sans-serif;
+  white-space: nowrap;
+}
+
+/* ── Segmento (aresta + nó destino) ─────────────────────────────────────── */
+.vcp-segmento {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+/* ── Aresta ──────────────────────────────────────────────────────────────── */
+.vcp-aresta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 80px;
+  padding: 0 8px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.vcp-mult {
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  white-space: nowrap;
+}
+.vcp-aresta-fisica .vcp-mult  { color: #60a5fa; }
+.vcp-aresta-humana .vcp-mult  { color: #f97316; }
+
+.vcp-linha-aresta {
+  width: 100%;
+  height: 2px;
+  position: relative;
+}
+.vcp-aresta-fisica .vcp-linha-aresta {
+  background: linear-gradient(90deg, rgba(96, 165, 250, 0.4) 0%, rgba(96, 165, 250, 0.8) 100%);
+}
+.vcp-aresta-humana .vcp-linha-aresta {
+  background: linear-gradient(90deg, rgba(249, 115, 22, 0.4) 0%, rgba(249, 115, 22, 0.8) 100%);
+}
+
+/* Seta na ponta da linha */
+.vcp-linha-aresta::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+}
+.vcp-aresta-fisica .vcp-linha-aresta::after { border-left: 8px solid rgba(96, 165, 250, 0.8); }
+.vcp-aresta-humana .vcp-linha-aresta::after { border-left: 8px solid rgba(249, 115, 22, 0.8); }
+
+.vcp-tipo-badge {
+  font-size: 0.6rem;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  padding: 2px 6px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.vcp-tipo-badge-fisica {
+  background: rgba(96, 165, 250, 0.12);
+  color: #93c5fd;
+  border: 1px solid rgba(96, 165, 250, 0.25);
+}
+.vcp-tipo-badge-humana {
+  background: rgba(249, 115, 22, 0.12);
+  color: #fdba74;
+  border: 1px solid rgba(249, 115, 22, 0.25);
+}
+
+/* ── Responsividade ──────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .vcp-no { min-width: 80px; padding: 10px 12px; }
+  .vcp-aresta { min-width: 56px; }
+  .vcp-unidade { font-size: 0.9rem; }
+}

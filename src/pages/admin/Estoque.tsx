@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import { AlertTriangle, Plus, Pencil, Calculator, Trash2, ArrowRight, ArchiveRestore, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -6,10 +6,15 @@ import { Insumo, fmt, InsumoRendimentoJSON } from '../../types';
 import { UNIDADES, destinosPermitidos, validarConversao } from '../../lib/unidades';
 import type { CtxLoja } from './AdminLayout';
 import EstoquePreparos from './EstoquePreparos';
+import { SimuladorCusto } from '../../components/custeio';
+import type { ItemEstoque, FatorItem } from '../../lib/custeio';
+
+// three.js pesa ~600 KB: só entra no bundle de quem abrir a aba 3D.
+const EstoqueCusto3D = lazy(() => import('../../lib/estoque3d/EstoqueCusto3D'));
 
 export default function Estoque() {
   const { lojaId } = useOutletContext<CtxLoja>();
-  const [tab, setTab] = useState<'insumos' | 'preparos'>('insumos');
+  const [tab, setTab] = useState<'insumos' | 'preparos' | 'custo3d'>('insumos');
   const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [inativos, setInativos] = useState<Insumo[]>([]);
   const [mostrarInativos, setMostrarInativos] = useState(false);
@@ -67,9 +72,38 @@ export default function Estoque() {
     });
   }, [unidadeCompra]);
 
+  const [editando, setEditando] = useState<Insumo | null>(null);
   const [estoqueMinimo, setEstoqueMinimo] = useState('');
 
-  const [editando, setEditando] = useState<Insumo | null>(null);
+  const itemVirtual: ItemEstoque = useMemo(() => {
+    const fatores: FatorItem[] = [];
+    let origem = unidadeCompra;
+    for (const p of passosRendimento) {
+      const mult = Number(p.rendimento) || 1;
+      if (mult > 0 && p.unidade !== origem) {
+        fatores.push({ de: origem, para: p.unidade, multiplicador: mult });
+        origem = p.unidade;
+      }
+    }
+    const unidadeBase = passosRendimento[passosRendimento.length - 1]?.unidade || unidadeCompra;
+    const precoEmb = Number(precoCompra || 0);
+    const rendEmb = passosRendimento.reduce((acc, p) => acc * (Number(p.rendimento) || 1), 1);
+    const qtdBase = Number(qtdEstoqueCompra || 1) * rendEmb;
+    const custoTot = precoEmb > 0 ? precoEmb * Number(qtdEstoqueCompra || 1) : 0;
+
+    return {
+      id: editando?.id || 'novo',
+      nome: nome || 'Insumo',
+      unidadeBase,
+      fatores,
+      lotes: [{
+        id: 'lote-form',
+        data: new Date().toISOString(),
+        quantidade: qtdBase > 0 ? qtdBase : 1,
+        custoTotal: custoTot,
+      }],
+    };
+  }, [unidadeCompra, passosRendimento, precoCompra, qtdEstoqueCompra, editando?.id, nome]);
   const [entrada, setEntrada] = useState<{ insumo: Insumo; qtd: string; custo: string } | null>(null);
 
   // `carregar()` apenas incrementa a versao; quem busca de fato e o effect abaixo.
@@ -245,10 +279,15 @@ export default function Estoque() {
          <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl shadow-inner">
            <button onClick={() => setTab('insumos')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'insumos' ? 'bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Matérias-Primas</button>
            <button onClick={() => setTab('preparos')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'preparos' ? 'bg-white dark:bg-gray-900 shadow-sm text-orange-600 dark:text-orange-500' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Receitas & Preparos</button>
+           <button onClick={() => setTab('custo3d')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'custo3d' ? 'bg-white dark:bg-gray-900 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Custo 3D</button>
          </div>
       </div>
 
-      {tab === 'preparos' ? (
+      {tab === 'custo3d' ? (
+        <Suspense fallback={<div className="h-[520px] rounded-2xl bg-gray-100 dark:bg-gray-800/40 animate-pulse" />}>
+          <EstoqueCusto3D lojaId={lojaId} />
+        </Suspense>
+      ) : tab === 'preparos' ? (
         <EstoquePreparos lojaId={lojaId} insumosTotais={[...insumos, ...inativos]} onUpdate={carregar} />
       ) : (
         <>
@@ -438,6 +477,19 @@ export default function Estoque() {
                  )}
               </div>
            )}
+
+           {/* Simulador de Custo e Visualizador de Caminho ao vivo */}
+           <div className="mt-4 space-y-4">
+              <SimuladorCusto
+                 item={itemVirtual}
+                 unidadeOrigem={unidadeCompra}
+                 custoEstimado={
+                    Number(precoCompra) > 0 && passosRendimento.reduce((acc, p) => acc * (Number(p.rendimento) || 1), 1) > 0
+                       ? Number(precoCompra) / passosRendimento.reduce((acc, p) => acc * (Number(p.rendimento) || 1), 1)
+                       : undefined
+                 }
+              />
+           </div>
         </div>
         
         <button onClick={criar} disabled={salvando || !nome.trim()}
