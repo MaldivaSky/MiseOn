@@ -15,15 +15,29 @@ export function PedidoHeader({ pedido: p }: PedidoHeaderProps) {
           <div style={{ background: '#fff', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
             <img src="/brand/icon.png" alt="MiseOn" style={{ width: 22, height: 22, objectFit: 'contain' }} />
           </div>
-          <span style={{
-            fontFamily: "'Sora', sans-serif",
-            fontWeight: 800,
-            fontSize: 18,
-            color: '#EAF1FB',
-            letterSpacing: '.02em',
-          }}>
-            #{p.numero}
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{
+                fontFamily: "'Sora', sans-serif",
+                fontWeight: 800,
+                fontSize: 18,
+                color: '#EAF1FB',
+                letterSpacing: '.02em',
+              }}>
+                #{p.numero}
+              </span>
+              {p.origem === 'ifood' && (
+                <span className="rounded bg-red-600 px-1.5 py-0.5 font-['JetBrains_Mono'] text-[10px] font-bold text-white shadow-sm">
+                  iFood
+                </span>
+              )}
+            </div>
+            {p.origem === 'ifood' && p.ifood_order_id && (
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#94a3b8' }}>
+                ID: {p.ifood_order_id.split('-')[0]}
+              </span>
+            )}
+          </div>
         </div>
         <span style={{
           fontFamily: "'JetBrains Mono', monospace",
