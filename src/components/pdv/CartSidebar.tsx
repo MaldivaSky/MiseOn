@@ -1,6 +1,7 @@
 import { ShoppingCart, Trash2, Plus, Minus, Loader2 } from 'lucide-react';
 import { fmt, precoItem } from '../../types';
 import type { CartSidebarProps } from '../../types';
+import { CurrencyInput } from '../ui/CurrencyInput';
 
 export function CartSidebar({
   carrinho, limparVenda, mudarQtd, removerItem,
@@ -45,8 +46,13 @@ export function CartSidebar({
         <div className="mb-2 grid grid-cols-2 gap-2">
           <input value={nomeCliente} onChange={(e) => setNomeCliente(e.target.value)} placeholder="Cliente (opcional)"
             className="rounded-xl border border-gray-200 p-2 text-xs dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" />
-          <input value={desconto} onChange={(e) => setDesconto(e.target.value.replace(/[^\d.,]/g, '').replace(',', '.'))} placeholder="Desconto R$"
-            className="rounded-xl border border-gray-200 p-2 text-xs dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" />
+          <CurrencyInput 
+            value={desconto} 
+            onChange={setDesconto} 
+            placeholder="Desconto R$"
+            max={subtotal}
+            className="rounded-xl border border-gray-200 p-2 text-xs dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" 
+          />
         </div>
         <div className="mb-1 flex justify-between text-xs text-gray-500"><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
         {descontoNum > 0 && <div className="mb-1 flex justify-between text-xs text-green-600"><span>Desconto</span><span>-{fmt(descontoNum)}</span></div>}
