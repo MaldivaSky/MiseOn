@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pagamento Confirmado - MiseOn</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; color: #1f2937; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+    .email-wrapper { width: 100%; background-color: #f3f4f6; padding: 40px 0; }
+    .email-container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); }
+    .email-header { background-color: #070C18; padding: 32px 40px; text-align: center; }
+    .brand-logo { color: #FC5B24; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin: 0; }
+    .brand-tagline { color: #9ca3af; font-size: 13px; margin-top: 4px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; }
+    .email-body { padding: 40px; text-align: center; }
+    
+    .status-icon-container { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; background-color: #ecfdf5; border-radius: 50%; margin-bottom: 24px; border: 4px solid #d1fae5; }
+    .status-icon { color: #10b981; font-size: 32px; font-weight: bold; line-height: 1; }
+    
+    .greeting { font-size: 22px; font-weight: 700; margin-bottom: 12px; color: #111827; }
+    .message { font-size: 15px; line-height: 1.6; color: #4b5563; margin-bottom: 32px; max-width: 480px; margin-left: auto; margin-right: auto; }
+    
+    .details-card { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px; text-align: left; }
+    .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px dashed #cbd5e1; }
+    .detail-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .detail-row:first-child { padding-top: 0; }
+    
+    .detail-label { color: #64748b; font-size: 14px; font-weight: 500; }
+    .detail-value { color: #0f172a; font-size: 15px; font-weight: 600; text-align: right; }
+    .detail-highlight { color: #004198; font-size: 18px; }
+    
+    .support-section { margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; }
+    .support-text { font-size: 14px; color: #6b7280; }
+    .support-link { color: #0A5CC4; text-decoration: none; font-weight: 500; }
+    
+    .email-footer { text-align: center; padding: 32px 20px; color: #9ca3af; font-size: 12px; line-height: 1.5; }
+    .footer-links { margin-top: 12px; }
+    .footer-links a { color: #6b7280; text-decoration: underline; margin: 0 8px; }
+  </style>
+</head>
+<body>
+  <div class="email-wrapper">
+    <div class="email-container">
+      <div class="email-header">
+        <h1 class="brand-logo">MiseOn</h1>
+        <div class="brand-tagline">Sistema Inteligente para sua Cozinha</div>
+      </div>
+      
+      <div class="email-body">
+        <div class="status-icon-container">
+          <div class="status-icon">✓</div>
+        </div>
+        
+        <h2 class="greeting">Pagamento Confirmado!</h2>
+        <p class="message">Temos uma ótima notícia: o pagamento referente ao pedido <strong>#{{pedidoId}}</strong> foi recebido e processado com sucesso. Tudo certo por aqui!</p>
+        
+        <div class="details-card">
+          <div class="detail-row">
+            <div class="detail-label">Valor Pago</div>
+            <div class="detail-value detail-highlight">R$ {{valor}}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">Método</div>
+            <div class="detail-value">{{metodo}} {{#if ultimosDigitos}}<span style="color:#64748b; font-weight:400; font-size:13px;">(final {{ultimosDigitos}})</span>{{/if}}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">ID da Transação</div>
+            <div class="detail-value" style="font-family: monospace; font-size: 13px; font-weight: 400; color: #475569;">{{transacaoId}}</div>
+          </div>
+        </div>
+        
+        <div class="support-section">
+          <p class="support-text">Precisando de suporte com seu pedido?<br>Acesse nossa <a href="https://miseon.com.br/suporte" class="support-link">Central de Atendimento</a>.</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="email-footer">
+      <p>MiseOn Tecnologia e Gestão LTDA<br>Este é um e-mail transacional essencial para a gestão da sua conta.</p>
+      <div class="footer-links">
+        <a href="https://miseon.com.br/privacidade">Privacidade</a> | 
+        <a href="https://miseon.com.br/termos">Termos</a> | 
+        <a href="https://miseon.com.br/preferencias">Preferências de E-mail</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

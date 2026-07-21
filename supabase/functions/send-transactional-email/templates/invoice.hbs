@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sua Nota Fiscal - MiseOn</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; color: #1f2937; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+    .email-wrapper { width: 100%; background-color: #f3f4f6; padding: 40px 0; }
+    .email-container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); }
+    .email-header { background-color: #070C18; padding: 32px 40px; text-align: center; }
+    .brand-logo { color: #FC5B24; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin: 0; }
+    .brand-tagline { color: #9ca3af; font-size: 13px; margin-top: 4px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; }
+    .email-body { padding: 40px; }
+    .greeting { font-size: 20px; font-weight: 600; margin-bottom: 24px; color: #111827; }
+    .message { font-size: 15px; line-height: 1.6; color: #4b5563; margin-bottom: 32px; }
+    
+    .invoice-card { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 32px; }
+    .invoice-header-info { padding: 16px 20px; background-color: #f1f5f9; border-bottom: 1px solid #e2e8f0; display: table; width: 100%; box-sizing: border-box; }
+    .invoice-title { font-size: 13px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .invoice-number { font-size: 16px; color: #0f172a; font-weight: 700; margin-top: 4px; }
+    
+    .items-table { width: 100%; border-collapse: collapse; }
+    .items-table th { padding: 12px 20px; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; text-align: left; border-bottom: 1px solid #e2e8f0; }
+    .items-table td { padding: 16px 20px; font-size: 14px; color: #334155; border-bottom: 1px solid #e2e8f0; }
+    .items-table .item-name { font-weight: 500; color: #0f172a; }
+    .total-row td { font-weight: 700; font-size: 16px; color: #004198; background-color: #f8fafc; border-bottom: none; }
+    
+    .action-container { text-align: center; margin-top: 32px; }
+    .btn-primary { display: inline-block; background-color: #FC5B24; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; transition: background-color 0.2s; }
+    
+    .support-section { margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; }
+    .support-text { font-size: 14px; color: #6b7280; }
+    .support-link { color: #0A5CC4; text-decoration: none; font-weight: 500; }
+    
+    .email-footer { text-align: center; padding: 32px 20px; color: #9ca3af; font-size: 12px; line-height: 1.5; }
+    .footer-links { margin-top: 12px; }
+    .footer-links a { color: #6b7280; text-decoration: underline; margin: 0 8px; }
+  </style>
+</head>
+<body>
+  <div class="email-wrapper">
+    <div class="email-container">
+      <div class="email-header">
+        <h1 class="brand-logo">MiseOn</h1>
+        <div class="brand-tagline">Sistema Inteligente para sua Cozinha</div>
+      </div>
+      
+      <div class="email-body">
+        <h2 class="greeting">Olá,</h2>
+        <p class="message">Esperamos que este e-mail o encontre bem. A nota fiscal referente ao seu pedido recente já foi emitida e está disponível para consulta e download.</p>
+        
+        <div class="invoice-card">
+          <div class="invoice-header-info">
+            <div class="invoice-title">Número da Nota Fiscal</div>
+            <div class="invoice-number">#{{numero}}</div>
+          </div>
+          
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th style="width: 50%;">Descrição do Item</th>
+                <th style="width: 20%; text-align: center;">Qtd</th>
+                <th style="width: 30%; text-align: right;">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{#each itens}}
+              <tr>
+                <td class="item-name">{{nome}}</td>
+                <td style="text-align: center;">{{quantidade}}</td>
+                <td style="text-align: right;">R$ {{preco}}</td>
+              </tr>
+              {{/each}}
+              <tr class="total-row">
+                <td colspan="2" style="text-align: right; padding-right: 20px;">Total Pago:</td>
+                <td style="text-align: right;">R$ {{valorTotal}}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        {{#if linkPdf}}
+        <div class="action-container">
+          <a href="{{linkPdf}}" class="btn-primary" target="_blank">Baixar Nota Fiscal em PDF</a>
+        </div>
+        {{/if}}
+        
+        <div class="support-section">
+          <p class="support-text">Dúvidas sobre sua fatura? Nossa equipe de atendimento está pronta para ajudar.<br>Acesse nossa <a href="https://miseon.com.br/suporte" class="support-link">Central de Suporte</a>.</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="email-footer">
+      <p>MiseOn Tecnologia e Gestão LTDA<br>Este é um e-mail transacional essencial para a gestão da sua conta.</p>
+      <div class="footer-links">
+        <a href="https://miseon.com.br/privacidade">Privacidade</a> | 
+        <a href="https://miseon.com.br/termos">Termos</a> | 
+        <a href="https://miseon.com.br/preferencias">Preferências de E-mail</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
