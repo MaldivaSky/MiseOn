@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, User, MapPin, Phone, History, LogOut, Loader2, Save, Heart, Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { X, User, MapPin, Phone, History, LogOut, Loader2, Save, Heart, Plus, Trash2, CheckCircle2, Mail } from 'lucide-react';
 import type { EnderecoCliente, Pedido, FavoritoCliente } from '../types';
 import EnderecoMixin, { EnderecoFormData } from './EnderecoMixin';
 import { fmt } from '../types';
+import { PreferenceCenter } from './PreferenceCenter';
 
-type Aba = 'DADOS' | 'ENDERECOS' | 'PEDIDOS' | 'FAVORITOS';
+type Aba = 'DADOS' | 'ENDERECOS' | 'PEDIDOS' | 'FAVORITOS' | 'COMUNICACAO';
 
 const mensagemErroSupabase = (fallback: string, error?: { message?: string } | null) =>
   error?.message ? `${fallback} ${error.message}` : fallback;
@@ -233,7 +234,7 @@ export default function ModalMinhaConta({
         
         {/* Abas */}
         <div className="flex w-full overflow-x-auto border-b px-2 dark:border-gray-800 hide-scrollbar">
-          {(['DADOS', 'ENDERECOS', 'PEDIDOS', 'FAVORITOS'] as Aba[]).map((aba) => (
+          {(['DADOS', 'ENDERECOS', 'PEDIDOS', 'FAVORITOS', 'COMUNICACAO'] as Aba[]).map((aba) => (
             <button
               key={aba}
               onClick={() => setAbaAtiva(aba)}
@@ -247,7 +248,8 @@ export default function ModalMinhaConta({
               {aba === 'ENDERECOS' && <MapPin size={16} />}
               {aba === 'PEDIDOS' && <History size={16} />}
               {aba === 'FAVORITOS' && <Heart size={16} />}
-              {aba === 'DADOS' ? 'Meus Dados' : aba === 'ENDERECOS' ? 'Endereços' : aba === 'PEDIDOS' ? 'Pedidos' : 'Favoritos'}
+              {aba === 'COMUNICACAO' && <Mail size={16} />}
+              {aba === 'DADOS' ? 'Meus Dados' : aba === 'ENDERECOS' ? 'Endereços' : aba === 'PEDIDOS' ? 'Pedidos' : aba === 'FAVORITOS' ? 'Favoritos' : 'Comunicação'}
             </button>
           ))}
         </div>
@@ -451,6 +453,12 @@ export default function ModalMinhaConta({
                       </div>
                     ))
                   )}
+                </div>
+              )}
+
+              {abaAtiva === 'COMUNICACAO' && (
+                <div className="pt-2">
+                  <PreferenceCenter />
                 </div>
               )}
             </>
