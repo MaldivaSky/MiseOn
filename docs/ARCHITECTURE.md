@@ -82,12 +82,40 @@ sequenceDiagram
 
 ---
 
-## 4. Tecnologias Críticas e Padrões
+## 4. Ledger Financeiro e Garantia Transacional (Fase 3)
+
+Para lidar com finanças e comissões (iFood, etc.), o MiseOn implementa um sistema de **contabilidade de dupla entrada** diretamente no banco de dados.
+
+**Arquitetura do Ledger:**
+- Não calculamos o saldo de caixa ou o DRE somando o valor dos `pedidos`. 
+- Ao invés disso, utilizamos a tabela `lancamentos_financeiros`. Cada entrada possui uma `conta_debitada`, uma `conta_creditada` e um `valor`.
+- **Triggers Atômicas:** Quando um pedido atinge o status `FINALIZADO`, a trigger `fn_trg_status_pedido` executa `fn_lancar_receita_pedido`. Se o pedido é do iFood, a trigger automaticamente divide a receita líquida e a taxa retida em lançamentos separados.
+- **Idempotência:** A coluna `receita_lancada` na tabela de pedidos garante que bugs na aplicação jamais resultem em receita duplicada no caixa.
+- **DRE:** A *Demonstração de Resultado do Exercício* é materializada via a view `vw_dre_mensal`, calculando Lucro Bruto cruzando Receita, CMV e Estornos diretamente das naturezas contábeis.
+
+---
+
+## 5. Observabilidade em Tempo Real e Resiliência (Fase 3)
+
+O sistema conta com um módulo de observabilidade ativa embarcado no cliente (`useLedgerAlerts`). 
+
+O administrador da loja recebe alertas instantâneos via Toast caso o banco de dados reporte anomalias graves, ouvindo os canais do `Supabase Realtime`:
+1. **Estorno Suspeito:** Um registro de estorno é criado muito tempo após a venda.
+2. **Estoque Comprometido:** Um pedido foi Cancelado, mas o estoque já havia sido baixado (alerta para checagem física).
+3. **Falhas Críticas de Webhook:** As Edge Functions enviam um broadcast no canal `webhook-erros` caso recebam requisições com assinatura HMAC inválida ou payloads corrompidos.
+
+---
+
+## 6. Tecnologias Críticas e Padrões
 
 Neste projeto adotamos tecnologias modernas e ferramentas otimizadas:
 
-- **Frontend Core**: Vite + React 19 + TypeScript. Optamos por *Strict Mode* total para garantir que não haja vazamentos de tipagem em *runtime*.
+- **Frontend Core**: Vite + React 19 + TypeScript. Optamos por *Strict Mode* total para garantir que não haja vazamentos de tipagem em *runtime*. 
 - **Estilização**: TailwindCSS v4 + Componentes Radix UI adaptados (para Acessibilidade e Teclado). A arquitetura visual é modular (arquivos `<component>.tsx`).
 - **Gerenciamento de Estado**: Embora usemos React Query (implícito) para cacheadas, usamos `Zustand` para estado global que não depende de servidor (ex: Carrinho de Compras, Modal de Configurações, Permissões de Usuário na sessão atual).
+- **Code-Splitting Avançado:** (Fase 3) A aplicação usa configuração customizada de chunks (`manualChunks` no Vite) e `React.lazy()` extensivo. Isso divide a aplicação em pedaços lógicos, carregando sob demanda e isolando libs pesadas (Recharts, Leaflet, Konva), despencando o LCP inicial.
 - **Tempo Real e Sincronização**: *Não gerenciamos WebSockets crus (Socket.io)*. Assinamos diretamente os canais do `Supabase Realtime`, permitindo que o Painel do Lojista (PDV e Pedidos) reaja instantaneamente a mudanças no banco (ex: um INSERT na tabela pedidos vira uma notificação visual em ms).
-- **DevOps e Qualidade**: O repositório roda com proteção **Husky** + **Lint-Staged** no pre-commit. Nenhum código quebra regras do *ESLint (Flat Config)* ou violações do *TypeScript* chega à `main`. Testes de fluxos críticos de UI/Integração rodam em CI via **Cypress** com simulações (*mock* total do banco).
+- **QA e Performance:** 
+  - Testes unitários/integração via **Vitest**, que se conectam ao Supabase via `service-role` testando garantias de Dupla Entrada, Estornos e concorrências de pedidos diretamente no banco.
+  - Testes de Estresse via **K6**, simulando +200 requisições simultâneas de Webhook Pix e validando os SLAs operacionais e a ausência de *Race Conditions*.
+- **DevOps e Qualidade**: O repositório roda com proteção **Husky** + **Lint-Staged** no pre-commit. Nenhum código quebra regras do *ESLint (Flat Config)* ou violações do *TypeScript* chega à `main`.

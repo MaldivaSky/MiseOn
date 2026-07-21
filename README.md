@@ -42,7 +42,9 @@ O cliente pede pela vitrine (link próprio da loja), o dono recebe em tempo real
 | 🛵 **Entregador** | Login com papel próprio, fila de entregas em tempo real, rota no Google Maps com 1 toque, aviso de cobrança na entrega, baixa de entrega |
 | 📟 **Painel (PWA)** | Pedidos em tempo real (websocket), som de campainha, notificação, fluxo de status (novo → aceito → preparando → pronto → em rota → finalizado), comanda térmica 80mm |
 | 📦 **Estoque** | Ledger auditável, baixa automática no aceite, estorno no cancelamento, **Calculadora Dinâmica de Rendimento**, e **Central de Compras Massiva** com conversão reversa inteligente |
-| 📊 **Inteligência** | Custo Insumos (CMV), **Motor de Rateio de Despesas Fixas**, Lucro Líquido Real e margem por produto na Ficha Técnica (`vw_custo_produto`) |
+| 📈 **Financeiro (Ledger)** | Contabilidade de **dupla entrada** atômica via Triggers no Postgres. Lançamentos automáticos de receita e estorno, sem *race conditions*, separando fluxo próprio de integrações (ex: taxa iFood destacada). |
+| 📊 **Inteligência** | **DRE Mensal em Tempo Real** (`vw_dre_mensal`), Extrato de Caixa (`vw_caixa_extrato`), Motor de Rateio de Despesas Fixas, Lucro Líquido Real e margem por produto na Ficha Técnica (`vw_custo_produto`). |
+| 👁️ **Observabilidade** | Monitoramento em tempo real (Supabase Realtime) no Painel Administrativo. Detecta e notifica sobre estornos suspeitos, falhas de estoque (cancelamentos após aceite) e falhas de assinatura em Webhooks (HMAC). |
 | 🤖 **Chat IA** *(fase 2)* | Atendimento websocket na própria vitrine com Gemini function calling — sem custo de API do WhatsApp |
 
 ## 🏗️ Arquitetura
@@ -67,7 +69,13 @@ O cliente pede pela vitrine (link próprio da loja), o dono recebe em tempo real
               └─────────────────────────────────────┘
 ```
 
-**Decisões de projeto:** snapshot de preço/nome em `itens_pedido` (integridade histórica), pagamentos separados do pedido (Pix + dinheiro no mesmo pedido), estoque como **ledger** (`movimentacoes_estoque`) com cache em `insumos.quantidade_atual`, RLS por tenant em todas as tabelas via `fn_meu_acesso()`.
+**Decisões de projeto:** 
+- Snapshot de preço/nome em `itens_pedido` (integridade histórica).
+- Pagamentos separados do pedido (Pix + dinheiro no mesmo pedido).
+- Estoque como **ledger** (`movimentacoes_estoque`) com cache em `insumos.quantidade_atual`.
+- **Financeiro como Ledger de Dupla Entrada**: Triggers cuidam do balanço contábil, eliminando a chance de falhas na aplicação gerarem divergências de caixa.
+- RLS por tenant em todas as tabelas via `fn_meu_acesso()`.
+- **Code-Splitting Agressivo**: O frontend emprega rotas lazy e configuração manual de chunks (separando bibliotecas pesadas) para manter o LCP baixo e otimizar o carregamento.
 
 ## 🚀 Começando
 
@@ -147,8 +155,12 @@ docker compose -f docker-compose.dev.yml up   # dev com hot-reload em :5173
 
 Pipeline em `.github/workflows/ci.yml`:
 
-1. **CI** (todo push/PR): typecheck + build + validação da imagem Docker
+1. **CI** (todo push/PR): typecheck + build + validação da imagem Docker + testes.
 2. **CD** (push na `main`): deploy no Vercel + deploy das Edge Functions no Supabase
+
+Também inclui suites de testes robustas:
+- **Testes de Integração (`__tests__/integration`)**: Cobrem as lógicas transacionais críticas, como idempotência de triggers e cálculo do ledger. (Executado via `Vitest`).
+- **Testes de Carga (`k6/`)**: Validam o SLA em picos (ex: 200 webhooks Pix/segundo e concorrência severa de pedidos novos), atestando a performance da arquitetura.
 
 Secrets necessários no GitHub: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`.
 
@@ -197,9 +209,10 @@ Antes de colocar a mão na massa, certifique-se de ler nossa [Documentação de 
 - [x] **Fase 1 — MVP**: vitrine, carrinho, cupons, pedidos realtime, comanda, Pix Efí, estoque com ficha técnica
 - [x] CRUD completo de produtos/ficha técnica no painel · relatório de vendas e lucro líquido (Motor de Custos)
 - [x] **Central de Compras**: módulo dedicado para lojista gerenciar recompra massiva.
-- [ ] **Fase 2**: chat IA na vitrine (Gemini function calling), Web Push, recuperador de vendas, fidelidade/cashback, painel do entregador
 - [x] Cartão de crédito na plataforma (Efí one-step + tokenização) · tela do entregador com rota no mapa
-- [ ] **Fase 3**: NFC-e, onboarding self-service de novas lojas
+- [x] **Fase 3 — Ledger Financeiro & Code Splitting**: Contabilidade de dupla entrada rigorosa (Triggers), DRE, Observabilidade Realtime, Lazy Routes, Testes de Carga (K6) e Integração (Vitest).
+- [ ] **Fase 2**: chat IA na vitrine (Gemini function calling), Web Push, recuperador de vendas, fidelidade/cashback, painel do entregador
+- [ ] **Fase 4**: NFC-e, onboarding self-service de novas lojas
 
 ## ❤️ Autor
 
