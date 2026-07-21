@@ -18,6 +18,7 @@ import { aplicarTema, obterTemaPreferido, type PreferenciaTema } from '../lib/te
 import CheckoutDrawer from '../components/CheckoutDrawer';
 import PagamentoStatus, { type PixInfo } from '../components/PagamentoStatus';
 import ThemeToggle from '../components/ThemeToggle';
+import ChatInterface from '../components/chat/ChatInterface';
 
 const guardarUltimoPedido = (slug: string | undefined, pedidoId: string, numero: number) => {
   if (!slug) return;
@@ -618,6 +619,9 @@ export default function Cardapio() {
           </SuccessCelebration>
         </Modal>
       )}
+
+      {/* Interface de Chat do Cliente */}
+      <ChatInterface loja={loja} user={user} />
     </div>
   );
 }

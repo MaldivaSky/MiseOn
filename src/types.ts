@@ -496,6 +496,36 @@ export interface CaixaMovimentacao {
 
 // ── Configurações ─────────────────────────────────────────────
 
+export interface CheckoutStatus {
+  totalPedidosMes: number;
+  faturamentoMes: number;
+  taxaSetupMensal: number;
+  mensalidadeAtual: number;
+}
+
+// ── Chat Interno ──────────────────────────────────────────────
+export interface ChatConversation {
+  id: string;
+  loja_id: string;
+  cliente_id?: string | null;
+  session_id?: string | null;
+  criado_em: string;
+  // Join virtual
+  mensagens_nao_lidas?: number;
+  ultima_mensagem?: string;
+  data_ultima_mensagem?: string;
+  cliente_nome?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversation_id: string;
+  remetente_tipo: 'CLIENTE' | 'LOJA' | 'SISTEMA';
+  conteudo: string;
+  lida: boolean;
+  criado_em: string;
+}
+
 export interface ConfiguracoesCusto {
   loja_id: string;
   custo_aluguel: number;

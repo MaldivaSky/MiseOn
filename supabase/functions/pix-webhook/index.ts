@@ -97,6 +97,15 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'Too Many Requests' }, { status: 429 });
   }
 
+  // Validação de Token de Segurança (Proteção anti-DoS)
+  // O webhook da Efí DEVE ser configurado com ?token=SUA_CHAVE
+  const webhookToken = new URL(req.url).searchParams.get('token') || req.headers.get('x-webhook-token');
+  const expectedSecret = Deno.env.get('EFI_WEBHOOK_SECRET');
+  if (expectedSecret && webhookToken !== expectedSecret) {
+    console.error('Webhook Pix: Tentativa bloqueada por token inválido ou ausente.');
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const payload = await req.json().catch(() => ({}));
     const pixList: { txid?: string }[] = payload?.pix ?? [];

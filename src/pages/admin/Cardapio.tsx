@@ -296,31 +296,19 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, rateioFixo, lojaIn
     setErro('');
     try {
       const catNome = categorias.find(c => c.id === categoriaId)?.nome;
-      const prompt = `Você é um copywriter especialista em gastronomia e food delivery.\n` +
-        `Escreva uma descrição extremamente apetitosa, focada em vender e fazer o cliente "salivar", para um produto chamado "${nome}". ` +
-        (catNome ? `O produto é da categoria: ${catNome}. ` : '') +
-        `A descrição deve ser curta (no máximo 3 linhas), direta, sem emojis exagerados, focando em texturas, sabores e desejo. Não use aspas na resposta.`;
 
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) throw new Error('API Key do Gemini não configurada (.env.local).');
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7 }
-        }),
+      const { data, error } = await supabase.functions.invoke('ai-gerar-descricao', {
+        body: { nome_produto: nome, nome_categoria: catNome }
       });
 
-      const aiData = await response.json();
-      if (aiData.error) throw new Error(aiData.error.message || 'Erro no Gemini.');
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       
-      const texto = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      const texto = data?.texto;
       if (texto) setDescricao(texto);
       else throw new Error('Não foi possível gerar a descrição.');
     } catch (e: any) {
-      setErro('Erro na IA: ' + (e?.message || 'Falha ao conectar com OpenAI/Gemini.'));
+      setErro('Erro na IA: ' + (e?.message || 'Falha ao conectar com o serviço de IA.'));
     }
     setGerandoIA(false);
   };

@@ -31,6 +31,7 @@ import Dashboard from './pages/admin/Dashboard';
 import PDV from './pages/admin/PDV';
 import KDS from './pages/admin/KDS';
 import Mesas from './pages/admin/Mesas';
+import ChatAdmin from './pages/admin/ChatAdmin';
 
 // Entregador App
 import EntregadorLayout from './pages/entregador/EntregadorLayout';
@@ -78,6 +79,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="assinatura" element={<Assinatura />} />
               <Route path="ajuda" element={<Ajuda />} />
               <Route path="conta" element={<MinhaConta />} />
+              <Route path="chat" element={<ChatAdmin />} />
             </Route>
             <Route path="/superadmin/login" element={<SuperAdminLogin />} />
             <Route path="/superadmin" element={<SuperAdminLayout />}>

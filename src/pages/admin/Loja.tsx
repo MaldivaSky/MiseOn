@@ -1113,7 +1113,7 @@ export default function Loja() {
       {aba === 'fiscal' && (
         <FiscalOnboarding 
           lojaId={lojaId}
-          cnpjLoja={form.cnpj}
+          documentoLoja={form.cnpj}
           nfeHabilitado={form.nfe_habilitado}
           nfeAmbiente={form.nfe_ambiente}
           nfeRegime={form.nfe_regime_tributario}

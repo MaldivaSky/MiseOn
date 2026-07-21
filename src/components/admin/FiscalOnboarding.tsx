@@ -1,11 +1,10 @@
 import { useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Check, ShieldCheck, UploadCloud, Receipt, Loader2, Info } from 'lucide-react';
-import { maskCPFouCNPJ } from '../../lib/mascaras';
 
 interface FiscalOnboardingProps {
   lojaId: string;
-  cnpjLoja: string;
+  documentoLoja: string;
   nfeHabilitado: boolean;
   nfeAmbiente: 'homologacao' | 'producao';
   nfeRegime: string;
@@ -16,7 +15,7 @@ interface FiscalOnboardingProps {
 }
 
 export function FiscalOnboarding({
-  lojaId, cnpjLoja, nfeHabilitado, nfeAmbiente, nfeRegime, nfeIe, nfeIdCsc, nfeCsc, onSuccess
+  documentoLoja, nfeHabilitado, nfeAmbiente, nfeRegime, nfeIe, nfeIdCsc, nfeCsc, onSuccess
 }: FiscalOnboardingProps) {
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
@@ -55,8 +54,8 @@ export function FiscalOnboarding({
   };
 
   const habilitar = async () => {
-    if (!cnpjLoja) {
-      setErro('Você precisa configurar o CNPJ da loja na aba "Identidade" antes de habilitar a emissão fiscal.');
+    if (!documentoLoja) {
+      setErro('Você precisa configurar o CPF ou CNPJ da loja na aba "Identidade" antes de habilitar a emissão fiscal.');
       return;
     }
     if (!ie || !idCsc || !csc) {
@@ -74,7 +73,7 @@ export function FiscalOnboarding({
     try {
       const { data, error } = await supabase.functions.invoke('fiscal-onboarding-empresa', {
         body: {
-          cnpj: cnpjLoja,
+          cnpj: documentoLoja, // A Focus NFe aceita CPF ou CNPJ neste campo
           inscricao_estadual: ie,
           razao_social: razaoSocial || 'Não informada',
           regime_tributario: regime,
