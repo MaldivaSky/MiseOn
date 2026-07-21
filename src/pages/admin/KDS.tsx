@@ -4,6 +4,8 @@ import { ChefHat, Bike, Store, Maximize, Check, Package, UtensilsCrossed, Trophy
 import { supabase } from '../../lib/supabase';
 import { type Pedido, type StatusPedido } from '../../types';
 import { tocarSom } from '../../lib/som';
+import { traduzirErro, type ErroTraduzido } from '../../lib/erros';
+import { ErroAmigavel } from '../../components/ui/ErroAmigavel';
 import type { CtxLoja } from './AdminLayout';
 
 /* ─────────────────────────────────────────────────────────────
@@ -52,6 +54,7 @@ export default function KDS() {
   const [operadorAtivo, setOperadorAtivo] = useState<string | null>(() => localStorage.getItem(`miseon_kds_operador_${lojaId}`));
   const [metricas, setMetricas] = useState<Metricas | null>(null);
   const [celebrar, setCelebrar] = useState(false);
+  const [erroAcao, setErroAcao] = useState<ErroTraduzido | null>(null);
 
   useEffect(() => {
     supabase.from('lojas').select('agendamento_antecedencia_min').eq('id', lojaId).single()
@@ -123,9 +126,16 @@ export default function KDS() {
 
   const avancar = async (p: Pedido) => {
     const prox: StatusPedido = p.status === 'ACEITO' ? 'PREPARANDO' : 'PRONTO';
-    await supabase.rpc('fn_avancar_status_pedido', {
+    const { error } = await supabase.rpc('fn_avancar_status_pedido', {
       p_pedido_id: p.id, p_novo_status: prox, p_operador_user_id: operadorAtivo,
     });
+    // Antes isto quebrava em silêncio (promise rejeitada sem catch): a cozinha
+    // tocava no card e nada acontecia. Agora o motivo aparece em linguagem humana.
+    if (error) {
+      setErroAcao(traduzirErro(error));
+      return;
+    }
+    setErroAcao(null);
     carregar();
     carregarMetricas();
   };
@@ -255,6 +265,13 @@ export default function KDS() {
           </button>
         </div>
       </div>
+
+      {/* ── Erro de ação (ex.: pedido ainda não enviado pelo balcão) ── */}
+      {erroAcao && (
+        <div className="mb-3 max-w-2xl">
+          <ErroAmigavel erro={erroAcao} onFechar={() => setErroAcao(null)} />
+        </div>
+      )}
 
       {/* ── Seletor de operador (quem está na cozinha agora) ── */}
       {operadores.length > 0 && (

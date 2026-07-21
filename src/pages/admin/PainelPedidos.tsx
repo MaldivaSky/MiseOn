@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { CalendarClock, Lock } from 'lucide-react';
+import { CalendarClock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Loja, Pedido, StatusPedido, fmt, Via } from '../../types';
 import { imprimir } from '../../lib/print';
 import { tocarSom } from '../../lib/som';
 import type { CtxLoja } from './AdminLayout';
 import { MiseOnLoader } from '../../components/MiseOnLoader';
+import { traduzirErro, type ErroTraduzido } from '../../lib/erros';
+import { ErroAmigavel } from '../../components/ui/ErroAmigavel';
 import { FLUXO } from '../../components/pedidos/constants';
 import { PedidoHeader } from '../../components/pedidos/PedidoHeader';
 import { PedidoItens } from '../../components/pedidos/PedidoItens';
@@ -25,7 +27,7 @@ function CardPedido({
   onAvancar: (status: StatusPedido) => Promise<void>;
   onCancelar: () => void;
   onImprimir: (via: Via) => void;
-  onErro: (msg: string) => void;
+  onErro: (e: unknown) => void;
 }) {
   const semAvancoSalao = p.tipo_pedido === 'SALAO' && p.status === 'PRONTO';
   const naCozinha = p.estacao_atual === 'COZINHA';
@@ -51,7 +53,7 @@ function CardPedido({
     try {
       await fn();
     } catch (e: any) {
-      onErro(e?.message ?? 'Não foi possível completar a ação.');
+      onErro(e);
     }
     setProcessando(false);
   };
@@ -76,8 +78,12 @@ function CardPedido({
 }
 
 /* ── Filtros rápidos por status/bastão ── */
+// O filtro "iFood" NÃO é fixo: entra na lista só quando faz sentido para a
+// loja (integração vinculada ou pedidos iFood existentes no painel) — ver
+// `filtros` no componente. Mostrar filtro de um canal inexistente é ruído.
 const FILTROS: { id: string; label: string; pred: (p: Pedido) => boolean }[] = [
   { id: 'TODOS',      label: 'Todos',       pred: () => true },
+  { id: 'IFOOD',      label: 'iFood',       pred: (p) => p.origem === 'ifood' },
   { id: 'ABERTOS',    label: 'Abertos',     pred: (p) => ['NOVO', 'ACEITO'].includes(p.status) && p.estacao_atual !== 'COZINHA' },
   { id: 'NA_COZINHA', label: 'Na cozinha',  pred: (p) => p.estacao_atual === 'COZINHA' },
   { id: 'CONFERIR',   label: 'Conferir',    pred: (p) => p.status === 'PRONTO' && p.estacao_atual === 'BALCAO' && p.tipo_pedido !== 'SALAO' },
@@ -92,7 +98,7 @@ export default function PainelPedidos() {
   const [carregando, setCarregando] = useState(true);
   const [loja, setLoja] = useState<Loja | null>(null);
   const [filtro, setFiltro] = useState('TODOS');
-  const [erroAcao, setErroAcao] = useState('');
+  const [erroAcao, setErroAcao] = useState<ErroTraduzido | null>(null);
   const [limiteRender, setLimiteRender] = useState(20);
   const observerRef = useRef<HTMLDivElement>(null);
 
@@ -120,7 +126,7 @@ export default function PainelPedidos() {
 
   useEffect(() => {
     if (!erroAcao) return;
-    const t = setTimeout(() => setErroAcao(''), 6000);
+    const t = setTimeout(() => setErroAcao(null), 12000);
     return () => clearTimeout(t);
   }, [erroAcao]);
 
@@ -161,16 +167,17 @@ export default function PainelPedidos() {
   }, [lojaId]);
 
   // Toda mudança de status passa pela RPC fn_avancar_status_pedido — o banco
-  // valida a transição (trigger) e devolve o erro em PT, que mostramos aqui.
+  // valida a transição (trigger) e devolve o erro em PT, traduzido para o
+  // usuário leigo pelo ErroAmigavel (lib/erros).
   const avancarStatus = async (p: Pedido, status: StatusPedido) => {
     const { error } = await supabase.rpc('fn_avancar_status_pedido', { p_pedido_id: p.id, p_novo_status: status });
-    if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''));
+    if (error) throw error;
     carregar();
   };
 
   const enviarParaCozinha = async (p: Pedido) => {
     const { error } = await supabase.rpc('fn_enviar_pedido_cozinha', { p_pedido_id: p.id });
-    if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''));
+    if (error) throw error;
     carregar();
   };
 
@@ -179,7 +186,7 @@ export default function PainelPedidos() {
     try {
       await avancarStatus(p, 'CANCELADO');
     } catch (e: any) {
-      setErroAcao(e?.message ?? 'Não foi possível cancelar.');
+      setErroAcao(traduzirErro(e));
     }
   };
 
@@ -204,7 +211,12 @@ export default function PainelPedidos() {
 
   const contagem = (f: (typeof FILTROS)[number]) => pedidos.filter(f.pred).length;
 
-  const filtroAtivo = FILTROS.find((f) => f.id === filtro) ?? FILTROS[0];
+  // Filtro iFood condicional: só existe se a loja tem a integração vinculada
+  // ou se há pedidos iFood no painel (ex.: loja desvinculou depois de vender).
+  const temIfood = !!loja?.ifood_merchant_id || pedidos.some((p) => p.origem === 'ifood');
+  const filtros = temIfood ? FILTROS : FILTROS.filter((f) => f.id !== 'IFOOD');
+
+  const filtroAtivo = filtros.find((f) => f.id === filtro) ?? filtros[0];
   const visiveis = [...ativos, ...encerrados].filter(filtroAtivo.pred);
   const visiveisLimitados = visiveis.slice(0, limiteRender);
 
@@ -221,14 +233,14 @@ export default function PainelPedidos() {
         </p>
 
         {erroAcao && (
-          <div className="mt-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm font-semibold text-red-600 dark:border-red-900/40 dark:bg-red-900/10 dark:text-red-400">
-            <Lock size={15} className="shrink-0" /> {erroAcao}
+          <div className="mt-3 max-w-2xl">
+            <ErroAmigavel erro={erroAcao} onFechar={() => setErroAcao(null)} />
           </div>
         )}
 
         {/* ── Filtro por status ── */}
         <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-          {FILTROS.map((f) => {
+          {filtros.map((f) => {
             const qtd = contagem(f);
             const ativo = filtro === f.id;
             return (
@@ -294,7 +306,7 @@ export default function PainelPedidos() {
                 const map: Record<Via, any> = { cozinha: 'COMANDA_COZINHA', romaneio: 'VIA_ENTREGADOR', nota: 'RECIBO_CLIENTE' };
                 imprimir({ template: map[v], lojaNome: loja?.nome || 'MiseOn', loja, pedido: p, itens: p.itens_pedido });
               }}
-              onErro={setErroAcao}
+              onErro={(e) => setErroAcao(traduzirErro(e))}
             />
           ))}
           {visiveis.length === 0 && (

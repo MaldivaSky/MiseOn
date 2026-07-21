@@ -46,6 +46,7 @@ const Assinatura    = lazy(() => import('./pages/admin/Assinatura'));
 const Ajuda         = lazy(() => import('./pages/admin/Ajuda'));
 const MinhaConta    = lazy(() => import('./pages/admin/MinhaConta'));
 const ChatAdmin     = lazy(() => import('./pages/admin/ChatAdmin'));
+const Ifood         = lazy(() => import('./pages/admin/Ifood'));
 
 // ── Lazy: ENTREGADOR (app isolado) ────────────────────────────────────────────
 const EntregadorLayout   = lazy(() => import('./pages/entregador/EntregadorLayout'));
@@ -102,6 +103,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 <Route path="ajuda"     element={<Ajuda />} />
                 <Route path="conta"     element={<MinhaConta />} />
                 <Route path="chat"      element={<ChatAdmin />} />
+                <Route path="ifood"     element={<Ifood />} />
               </Route>
 
               {/* ── Superadmin ── */}

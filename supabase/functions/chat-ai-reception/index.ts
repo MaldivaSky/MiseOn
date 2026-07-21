@@ -42,19 +42,19 @@ serve(async (req) => {
     const groqKey = Deno.env.get('GROQ_API_KEY');
     if (!groqKey) throw new Error('Chave do Groq não configurada.');
 
-    // 1. Busca a conversa, verificando IA ativa, e dados da loja
+    // 1. Busca a conversa e dados da loja
     const { data: convData, error: convError } = await supabase
       .from('chat_conversations')
       .select(`
         id, 
         loja_id, 
         ia_ativa,
-        lojas ( nome, segmento, aberto_manual, chat_ia_ativo )
+        lojas ( nome, aberto_manual, chat_ia_ativo )
       `)
       .eq('id', conversation_id)
       .single();
 
-    if (convError || !convData) throw new Error('Conversa não encontrada.');
+    if (convError || !convData) throw new Error('Conversa não encontrada: ' + convError?.message);
     
     const lojaInfo = convData.lojas as any;
     if (!lojaInfo?.chat_ia_ativo) {
@@ -176,7 +176,7 @@ DIRETRIZES:
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.1-70b-versatile',
+        model: 'llama-3.3-70b-versatile',
         messages: aiMessages,
         temperature: 0.3, // Temperatura baixa para não inventar preços
         max_tokens: 300

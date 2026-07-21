@@ -6,29 +6,37 @@ export function useChat(lojaId: string | null, clienteId?: string | null) {
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const sessionIdRef = useRef<string | null>(null);
-
-  // Recupera ou cria um session_id anônimo no localStorage
-  useEffect(() => {
+  
+  // Recupera ou cria um session_id anônimo de forma síncrona se no navegador
+  const [sessionId] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       let stored = localStorage.getItem('miseon_chat_session');
       if (!stored) {
         stored = 'sess_' + Math.random().toString(36).substring(2, 15);
         localStorage.setItem('miseon_chat_session', stored);
       }
-      sessionIdRef.current = stored;
+      return stored;
     }
-  }, []);
+    return null;
+  });
+  
+  const sessionIdRef = useRef<string | null>(sessionId);
 
   const loadConversations = useCallback(async () => {
     if (!lojaId) return;
     
     // Se não tiver clienteId, carrega por sessionId
-    let query = supabase.from('chat_conversations').select('*').eq('loja_id', lojaId);
-    if (clienteId) {
+    let query = supabase.from('chat_conversations')
+      .select('*')
+      .eq('loja_id', lojaId)
+      .order('criado_em', { ascending: false });
+      
+    if (clienteId && sessionId) {
+      query = query.or(`cliente_id.eq.${clienteId},session_id.eq.${sessionId}`);
+    } else if (clienteId) {
       query = query.eq('cliente_id', clienteId);
-    } else if (sessionIdRef.current) {
-      query = query.eq('session_id', sessionIdRef.current);
+    } else if (sessionId) {
+      query = query.eq('session_id', sessionId);
     } else {
       return;
     }
@@ -40,7 +48,7 @@ export function useChat(lojaId: string | null, clienteId?: string | null) {
         setActiveConversationId(data[0].id);
       }
     }
-  }, [lojaId, clienteId, activeConversationId]);
+  }, [lojaId, clienteId, activeConversationId, sessionId]);
 
   const loadMessages = useCallback(async (conversationId: string) => {
     const { data, error } = await supabase
@@ -93,16 +101,42 @@ export function useChat(lojaId: string | null, clienteId?: string | null) {
     if (!lojaId) return null;
     
     let convId = activeConversationId;
+    if (!convId && conversations.length > 0) {
+      convId = conversations[0].id;
+      setActiveConversationId(convId);
+    }
     
     // Se não tiver conversa ativa, cria uma nova
     if (!convId) {
-      const { data: convData, error: convError } = await supabase.from('chat_conversations').insert({
+      let insertPayload = {
         loja_id: lojaId,
         cliente_id: clienteId || null,
         session_id: clienteId ? null : sessionIdRef.current
-      }).select().single();
+      };
       
-      if (convError || !convData) return null;
+      let { data: convData, error: convError } = await supabase
+        .from('chat_conversations')
+        .insert(insertPayload)
+        .select()
+        .single();
+        
+      // Fallback para administradores testando a própria vitrine (o ID não existe na tabela clientes)
+      if (convError && convError.code === '23503' && clienteId) {
+        insertPayload = {
+          loja_id: lojaId,
+          cliente_id: null,
+          session_id: sessionIdRef.current
+        };
+        const retry = await supabase.from('chat_conversations').insert(insertPayload).select().single();
+        convData = retry.data;
+        convError = retry.error;
+      }
+      
+      if (convError || !convData) {
+        console.error('Erro ao criar conversa no banco:', convError);
+        alert('Erro ao iniciar chat. Tente novamente mais tarde.');
+        return null;
+      }
       
       convId = convData.id;
       setConversations(prev => [...prev, convData as ChatConversation]);
@@ -115,7 +149,11 @@ export function useChat(lojaId: string | null, clienteId?: string | null) {
       conteudo: content
     }).select().single();
     
-    if (error || !data) return null;
+    if (error || !data) {
+      console.error('Erro ao enviar mensagem:', error);
+      alert('Falha ao enviar mensagem.');
+      return null;
+    }
     
     // Otimistic UI
     setMessages(prev => {

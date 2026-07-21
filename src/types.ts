@@ -220,6 +220,7 @@ export interface ItemCarrinho {
 
 export interface ItemPedido {
   id: string;
+  produto_id?: string | null; // null em itens iFood sem de-para (pdv_code não encontrado)
   nome_produto: string;
   preco_unitario: number;
   quantidade: number;

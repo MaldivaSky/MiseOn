@@ -4,16 +4,17 @@ import { useToast } from '../components/ui/Toast';
 import { tocarSom } from '../lib/som';
 import { Pedido } from '../types';
 
-type NotificationContext = 'PDV' | 'PAINEL' | 'ENTREGAS' | 'ROTA';
+type NotificationContext = 'PDV' | 'PAINEL' | 'ENTREGAS' | 'ROTA' | 'CLIENTE';
 
 interface UseRealtimeNotificationsProps {
   lojaId?: string;
+  pedidoId?: string; // Usado no CLIENTE
   contexto: NotificationContext;
   entregadorId?: string; // Usado na ROTA
   modoPdv?: 'BALCAO' | 'MESA'; // Usado no PDV
 }
 
-export function useRealtimeNotifications({ lojaId, contexto, entregadorId, modoPdv }: UseRealtimeNotificationsProps) {
+export function useRealtimeNotifications({ lojaId, pedidoId, contexto, entregadorId, modoPdv }: UseRealtimeNotificationsProps) {
   const toast = useToast();
 
   useEffect(() => {
@@ -22,6 +23,21 @@ export function useRealtimeNotifications({ lojaId, contexto, entregadorId, modoP
 
     // Canais e filtros
     const canais: ReturnType<typeof supabase.channel>[] = [];
+
+    // Contexto Cliente: Assina alterações de um pedido específico
+    if (contexto === 'CLIENTE' && pedidoId) {
+      const canalCliente = supabase.channel(`realtime-cliente-${pedidoId}`)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pedidos', filter: `id=eq.${pedidoId}` }, () => {
+          // A notificação em si já é tratada dentro do Pedido.tsx via notificarMudanca(payload.new),
+          // mas se futuramente quisermos migrar o toast para cá, podemos. Por enquanto,
+          // o Pedido.tsx já faz isso de forma perfeita. Deixaremos o hook pronto.
+        })
+        .subscribe();
+      canais.push(canalCliente);
+      return () => {
+        canais.forEach(c => supabase.removeChannel(c));
+      };
+    }
 
     if (lojaId) {
       const canalLoja = supabase.channel(`realtime-loja-${lojaId}-${contexto}`)

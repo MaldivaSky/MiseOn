@@ -3,7 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Bike, Check, ChefHat, Clock, Compass, Download, MapPin, Package, PartyPopper, ShieldCheck, Sparkles, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { Bike, Check, ChefHat, Clock, Compass, Download, MapPin, Package, PartyPopper, ShieldCheck, Sparkles, XCircle, MessageSquareWarning, CheckCircle2, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { fmt, type Loja, type Pedido, type StatusPedido } from '../types';
 import { tocarSom } from '../lib/som';
@@ -101,10 +102,30 @@ export default function AcompanharPedido() {
   const [pedido, setPedido] = useState<Pedido | null>(null);
   const [loja, setLoja] = useState<Partial<Loja> | null>(null);
   const [posicao, setPosicao] = useState<{ lat: number; lng: number } | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const statusAnterior = useRef<StatusPedido | null>(null);
   const [temaCliente, setTemaCliente] = useState<PreferenciaTema>(() => obterTemaPreferido());
+  const [confirmando, setConfirmando] = useState(false);
+
+  const handleConfirmarRecebimento = async () => {
+    if (!id || confirmando) return;
+    setConfirmando(true);
+    try {
+      const { error } = await supabase.rpc('fn_cliente_confirmar_recebimento', { p_pedido_id: id });
+      if (error) throw error;
+      toast.success('Recebimento confirmado! Muito obrigado.');
+      // O realtime fará o reload sozinho
+    } catch (err: any) {
+      toast.error('Erro ao confirmar recebimento: ' + err.message);
+    } finally {
+      setConfirmando(false);
+    }
+  };
+
+  const handleAbrirChat = () => {
+    // Dispara evento para o ChatInterface abrir
+    window.dispatchEvent(new CustomEvent('miseon:abrir_chat_problema', { detail: { pedidoId: id } }));
+  };
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -187,8 +208,7 @@ export default function AcompanharPedido() {
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(msg, { body: `Pedido #${novo.numero}` });
       }
-      setAviso(msg);
-      setTimeout(() => setAviso(null), 6000);
+      toast.success(msg);
     }
     statusAnterior.current = novo.status;
   };
@@ -296,12 +316,6 @@ export default function AcompanharPedido() {
 
   return (
     <div className="loja-marca min-h-screen pb-12">
-      {aviso && (
-        <div className="fade fixed left-1/2 top-3 z-50 w-[92%] max-w-md -translate-x-1/2 rounded-2xl bg-gray-900 px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">
-          {aviso}
-        </div>
-      )}
-
       <header className="relative overflow-hidden px-4 pb-6 pt-6 text-white" style={{ background: `linear-gradient(135deg, ${loja?.cor_primaria || 'var(--cor-primaria)'}, ${loja?.cor_secundaria || 'var(--cor-secundaria)'})` }}>
         <div className="mx-auto max-w-4xl">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -374,6 +388,49 @@ export default function AcompanharPedido() {
           </div>
         </div>
       </div>
+
+      {/* Ações do Cliente (Self-Service) */}
+      {!cancelado && pedido.status !== 'FINALIZADO' && (pedido.status === 'PRONTO' || pedido.status === 'EM_ROTA') && (
+        <div className="mx-auto mt-4 max-w-4xl px-4">
+          <div className="rounded-3xl border p-5 shadow-sm bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-900/20 border-green-200 dark:border-green-900/50">
+            <h3 className="font-bold text-green-900 dark:text-green-300 text-lg mb-1">
+              Já está com o seu pedido?
+            </h3>
+            <p className="text-sm text-green-700 dark:text-green-400/80 mb-4">
+              Para nos ajudar, confirme que você já retirou ou recebeu sua encomenda.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <button 
+                onClick={handleConfirmarRecebimento}
+                disabled={confirmando}
+                className="flex items-center gap-2 rounded-2xl bg-green-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-green-600/20 transition hover:bg-green-700 disabled:opacity-50"
+              >
+                {confirmando ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+                Confirmar Recebimento
+              </button>
+              <button 
+                onClick={handleAbrirChat}
+                className="flex items-center gap-2 rounded-2xl border-2 border-red-200 bg-white dark:bg-gray-900 px-5 py-3 text-sm font-bold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-950/30 dark:border-red-900/30"
+              >
+                <MessageSquareWarning size={18} />
+                Tive um problema
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pedido.status === 'FINALIZADO' && (
+        <div className="mx-auto mt-4 max-w-4xl px-4">
+          <div className="flex items-center gap-3 rounded-3xl border p-4 shadow-sm bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/30">
+            <CheckCircle2 size={24} className="text-emerald-500 shrink-0" />
+            <div>
+              <p className="font-bold text-emerald-900 dark:text-emerald-300">Pedido Entregue</p>
+              <p className="text-sm text-emerald-700 dark:text-emerald-400/80">O recebimento foi confirmado. Agradecemos a preferência!</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mx-auto mt-4 grid max-w-4xl gap-4 px-4 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="rounded-3xl border p-5 shadow-sm" style={{ background: 'var(--cor-card)', borderColor: 'var(--cor-borda)' }}>

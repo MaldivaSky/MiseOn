@@ -20,6 +20,7 @@ import { ModalOpcoes } from '../../components/pdv/ModalOpcoes';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { useToast } from '../../components/ui/Toast';
 import { tocarSom } from '../../lib/som';
+import { traduzirErro } from '../../lib/erros';
 import { createPedidoPedido } from '../../lib/pedidos';
 
 /* ─────────────────────────────────────────────────────────────
@@ -234,7 +235,8 @@ export default function PDV() {
       }
     } catch (e) {
       console.error(e);
-      setErro('Erro ao registrar a venda: ' + String((e as Error)?.message ?? e));
+      const t = traduzirErro(e);
+      setErro(`${t.titulo} — ${t.acao}`);
     } finally {
       setProcessando(false);
     }
@@ -279,19 +281,27 @@ export default function PDV() {
   const confirmarPixRecebido = async () => {
     if (!pixInfo) return;
     setProcessando(true);
-    await supabase.from('pagamentos').update({ status: 'PAGO', data_pagamento: new Date().toISOString() })
-      .eq('pedido_id', pixInfo.pedidoId).eq('metodo', 'PIX');
-    await supabase.from('pedidos').update({ status: 'ACEITO' }).eq('id', pixInfo.pedidoId);
-    if (venda && !venda.temCozinha) {
-      await supabase.rpc('fn_avancar_status_pedido', { p_pedido_id: pixInfo.pedidoId, p_novo_status: 'PRONTO' });
-      await supabase.rpc('fn_avancar_status_pedido', { p_pedido_id: pixInfo.pedidoId, p_novo_status: 'FINALIZADO' });
+    try {
+      await supabase.from('pagamentos').update({ status: 'PAGO', data_pagamento: new Date().toISOString() })
+        .eq('pedido_id', pixInfo.pedidoId).eq('metodo', 'PIX');
+      await supabase.from('pedidos').update({ status: 'ACEITO' }).eq('id', pixInfo.pedidoId);
+      if (venda && !venda.temCozinha) {
+        const r1 = await supabase.rpc('fn_avancar_status_pedido', { p_pedido_id: pixInfo.pedidoId, p_novo_status: 'PRONTO' });
+        if (r1.error) throw r1.error;
+        const r2 = await supabase.rpc('fn_avancar_status_pedido', { p_pedido_id: pixInfo.pedidoId, p_novo_status: 'FINALIZADO' });
+        if (r2.error) throw r2.error;
+      }
+      setEtapa('SUCESSO');
+      toast(`Venda concluída! Pedido #${venda?.numero ?? ''}`, 'sucesso');
+      tocarSom();
+      carregarCaixa();
+    } catch (e) {
+      console.error(e);
+      const t = traduzirErro(e);
+      setErro(`${t.titulo} — ${t.acao}`);
+    } finally {
+      setProcessando(false);
     }
-    setEtapa('SUCESSO');
-    toast(`Venda concluída! Pedido #${venda?.numero ?? ''}`, 'sucesso');
-    tocarSom();
-    setEtapa('SUCESSO');
-    setProcessando(false);
-    carregarCaixa();
   };
 
   // Pix pago via webhook → confirma sozinho na tela
