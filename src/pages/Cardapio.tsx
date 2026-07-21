@@ -79,7 +79,7 @@ function lojaAberta(loja: Loja | null, horarios: HorarioFuncionamento[]): boolea
 }
 
 const ROTULO_METODO: Record<MetodoPgto, string> = {
-  PIX: 'Pix', CREDITO: 'Crédito', DEBITO: 'Débito', DINHEIRO: 'Dinheiro',
+  PIX: 'Pix', CREDITO: 'Crédito', DEBITO: 'Débito', DINHEIRO: 'Dinheiro', IFOOD: 'iFood',
 };
 
 export default function Cardapio() {
@@ -188,8 +188,10 @@ export default function Cardapio() {
   useEffect(() => {
     if (!loja) return;
     const padrao = loja.tema_cardapio === 'escuro' ? 'escuro' : 'claro';
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTemaCliente(obterTemaPreferido(padrao));
+    const temaInicial = obterTemaPreferido(padrao);
+    
+    // Evita a chamada síncrona dentro do effect (previne o aviso de "cascading renders")
+    setTimeout(() => setTemaCliente(temaInicial), 0);
     const sincronizarTema = (event: Event) => {
       const tema = (event as CustomEvent<{ tema: PreferenciaTema }>).detail?.tema;
       if (tema === 'claro' || tema === 'escuro') setTemaCliente(tema);

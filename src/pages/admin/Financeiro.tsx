@@ -45,6 +45,7 @@ const METODO_INFO: Record<MetodoPgto, { label: string; icon: typeof QrCode }> = 
   CREDITO: { label: 'Crédito', icon: CreditCard },
   DEBITO: { label: 'Débito', icon: CreditCard },
   DINHEIRO: { label: 'Dinheiro', icon: Banknote },
+  IFOOD: { label: 'iFood', icon: Store },
 };
 
 const STATUS_BADGE: Record<string, string> = {
@@ -96,6 +97,7 @@ export default function Financeiro() {
     setCarregando(false);
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { setCarregando(true); carregarDados(); }, [lojaId, periodo]);
 
   // Extrato ao vivo: qualquer mudança em pedidos da loja recarrega o painel
@@ -107,6 +109,7 @@ export default function Financeiro() {
         () => carregarDados())
       .subscribe();
     return () => { supabase.removeChannel(canal); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lojaId, periodo]);
 
   // ── KPIs calculados a partir dos pedidos do período ──

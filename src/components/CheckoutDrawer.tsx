@@ -19,7 +19,7 @@ const entrarComGoogle = (url: string) =>
   supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: url } });
 
 const ROTULO_PGTO: Record<MetodoPgto, string> = {
-  PIX: 'Pix', CREDITO: 'Crédito', DEBITO: 'Débito', DINHEIRO: 'Dinheiro',
+  PIX: 'Pix', CREDITO: 'Crédito', DEBITO: 'Débito', DINHEIRO: 'Dinheiro', IFOOD: 'iFood'
 };
 
 const mensagemErroSupabase = (fallback: string, error?: { message?: string } | null) =>
@@ -66,7 +66,6 @@ export default function CheckoutDrawer({
   const [horaAgendada, setHoraAgendada] = useState('');
 
   // Cashback (saldo do cliente logado nesta loja)
-  const [clienteId, setClienteId] = useState<string | null>(null);
   const [saldoCashback, setSaldoCashback] = useState(0);
   const [usarCashback, setUsarCashback] = useState(false);
 
@@ -88,7 +87,6 @@ export default function CheckoutDrawer({
       if (c) {
         setNome(c.nome ?? '');
         setTelefone(c.telefone ?? '');
-        setClienteId(c.id);
         supabase.from('cashback_saldos').select('saldo').eq('cliente_id', c.id).maybeSingle()
           .then(({ data: sc }) => setSaldoCashback(Number(sc?.saldo ?? 0)));
         supabase.from('enderecos_cliente').select('*')
