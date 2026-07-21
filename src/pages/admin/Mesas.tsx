@@ -30,6 +30,7 @@ const STATUS_EM_PREPARO: Pedido['status'][] = ['NOVO', 'ACEITO', 'PREPARANDO'];
 interface MesaComComanda extends Mesa {
   comanda?: Comanda;
   totalParcial: number;
+  totalPago: number;
   qtdItens: number;
   temItemEmPreparo: boolean;
 }
@@ -62,6 +63,9 @@ export default function Mesas() {
   const [erroFechamento, setErroFechamento] = useState('');
   const [processandoFechamento, setProcessandoFechamento] = useState(false);
 
+  const [mostrarTransferencia, setMostrarTransferencia] = useState(false);
+  const [transferindoPara, setTransferindoPara] = useState('');
+
   const carregar = async () => {
     const [{ data: mesasData }, { data: lj }, { data: comandas }] = await Promise.all([
       supabase.from('mesas').select('*').eq('loja_id', lojaId).eq('ativo', true).order('numero'),
@@ -73,16 +77,17 @@ export default function Mesas() {
     const comandaPorMesa = new Map((comandas as Comanda[] ?? []).map((c) => [c.mesa_id, c]));
     const comandaIds = (comandas ?? []).map((c: any) => c.id);
 
-    const pedidosPorComanda = new Map<string, { total: number; qtd: number; emPreparo: boolean }>();
+    const pedidosPorComanda = new Map<string, { total: number; pago: number; qtd: number; emPreparo: boolean }>();
     if (comandaIds.length > 0) {
       const { data: pedidos } = await supabase
         .from('pedidos')
-        .select('comanda_id, status, valor_total, itens_pedido(quantidade)')
+        .select('id, comanda_id, status, valor_total, itens_pedido(quantidade), pagamentos(valor_pago)')
         .in('comanda_id', comandaIds)
         .neq('status', 'CANCELADO');
       for (const p of (pedidos as any[]) ?? []) {
-        const atual = pedidosPorComanda.get(p.comanda_id) ?? { total: 0, qtd: 0, emPreparo: false };
+        const atual = pedidosPorComanda.get(p.comanda_id) ?? { total: 0, pago: 0, qtd: 0, emPreparo: false };
         atual.total += Number(p.valor_total);
+        atual.pago += (p.pagamentos ?? []).reduce((s: number, pg: any) => s + Number(pg.valor_pago), 0);
         atual.qtd += (p.itens_pedido ?? []).reduce((s: number, i: any) => s + i.quantidade, 0);
         if (STATUS_EM_PREPARO.includes(p.status)) atual.emPreparo = true;
         pedidosPorComanda.set(p.comanda_id, atual);
@@ -96,6 +101,7 @@ export default function Mesas() {
         ...m,
         comanda,
         totalParcial: agregado?.total ?? 0,
+        totalPago: agregado?.pago ?? 0,
         qtdItens: agregado?.qtd ?? 0,
         temItemEmPreparo: agregado?.emPreparo ?? false,
       };
@@ -183,7 +189,7 @@ export default function Mesas() {
     setCarregandoDetalhe(true);
     const { data } = await supabase
       .from('pedidos')
-      .select('id, numero, status, valor_total, criado_em, itens_pedido(id, nome_produto, quantidade, preco_unitario, observacao, itens_pedido_opcoes(nome_opcao, preco_adicional))')
+      .select('id, numero, status, valor_total, criado_em, itens_pedido(id, nome_produto, quantidade, preco_unitario, observacao, itens_pedido_opcoes(nome_opcao, preco_adicional)), pagamentos(valor_pago)')
       .eq('comanda_id', mesa.comanda.id)
       .neq('status', 'CANCELADO')
       .order('criado_em');
@@ -194,38 +200,43 @@ export default function Mesas() {
   const subtotalComanda = useMemo(() => pedidosComanda.reduce((s, p) => s + Number(p.valor_total), 0), [pedidosComanda]);
   const valorServico = subtotalComanda * (Number(taxaEditavel || 0) / 100);
   const totalComanda = subtotalComanda + valorServico;
+  const valorJaPago = pedidosComanda.reduce((s, p) => s + ((p.pagamentos as any) ?? []).reduce((s2: number, pg: any) => s2 + Number(pg.valor_pago), 0), 0);
+  const saldoDevedor = Math.max(0, totalComanda - valorJaPago);
   const bloqueadoPorPreparo = pedidosComanda.some((p) => STATUS_EM_PREPARO.includes(p.status));
-  const recebidoNum = Number(valorRecebido || 0);
-  const trocoFechamento = fechando === 'DINHEIRO' ? Math.max(0, recebidoNum - totalComanda) : 0;
+  
+  const recebidoNum = Number(valorRecebido || (fechando !== 'DINHEIRO' ? saldoDevedor : 0));
+  const trocoFechamento = fechando === 'DINHEIRO' ? Math.max(0, recebidoNum - saldoDevedor) : 0;
 
   const confirmarFechamento = async (metodo: MetodoPgto) => {
     if (!mesaDetalhe?.comanda || pedidosComanda.length === 0) return;
-    if (bloqueadoPorPreparo) { setErroFechamento('Ainda tem item sendo preparado — aguarde ficar pronto antes de fechar.'); return; }
-    if (metodo === 'DINHEIRO' && recebidoNum < totalComanda) { setErroFechamento('Valor recebido menor que o total.'); return; }
+    if (bloqueadoPorPreparo) { setErroFechamento('Ainda tem item sendo preparado — aguarde ficar pronto.'); return; }
+    if (recebidoNum <= 0) { setErroFechamento('Informe o valor pago.'); return; }
+    
     setProcessandoFechamento(true); setErroFechamento('');
     try {
       const comanda = mesaDetalhe.comanda;
-      const pedidoFechamento = [...pedidosComanda].sort((a, b) => b.criado_em.localeCompare(a.criado_em))[0];
+      const pedidoBase = [...pedidosComanda].sort((a, b) => b.criado_em.localeCompare(a.criado_em))[0];
+      const isPagamentoParcial = recebidoNum < saldoDevedor;
+      const valorAPagar = isPagamentoParcial ? recebidoNum : saldoDevedor;
 
-      if (valorServico > 0) {
-        await supabase.from('pedidos').update({ valor_total: Number(pedidoFechamento.valor_total) + valorServico }).eq('id', pedidoFechamento.id);
+      // Cria o registro do pagamento atrelado ao último pedido (apenas para constar na comanda)
+      await supabase.from('pagamentos').insert({
+        pedido_id: pedidoBase.id, metodo, valor_pago: valorAPagar, status: 'PAGO', data_pagamento: new Date().toISOString(),
+      });
+
+      if (!isPagamentoParcial) {
+        // Fechamento Total
+        if (valorServico > 0) {
+          // Acrescenta a taxa no último pedido
+          await supabase.from('pedidos').update({ valor_total: Number(pedidoBase.valor_total) + valorServico }).eq('id', pedidoBase.id);
+        }
+        await supabase.from('pedidos').update({ status: 'FINALIZADO' }).eq('comanda_id', comanda.id).not('status', 'in', '(CANCELADO,FINALIZADO)');
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('comandas').update({
+          status: 'FECHADA', fechada_em: new Date().toISOString(), fechada_por: user?.id ?? null,
+          metodo_pagamento: metodo, valor_servico: valorServico, taxa_servico_pct: Number(taxaEditavel || 0),
+        }).eq('id', comanda.id);
       }
-
-      for (const p of pedidosComanda) {
-        const valorFinal = p.id === pedidoFechamento.id ? Number(p.valor_total) + valorServico : Number(p.valor_total);
-        await supabase.from('pagamentos').insert({
-          pedido_id: p.id, metodo, valor_pago: valorFinal, status: 'PAGO', data_pagamento: new Date().toISOString(),
-        });
-      }
-
-      await supabase.from('pedidos').update({ status: 'FINALIZADO' })
-        .eq('comanda_id', comanda.id).not('status', 'in', '(CANCELADO,FINALIZADO)');
-
-      const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from('comandas').update({
-        status: 'FECHADA', fechada_em: new Date().toISOString(), fechada_por: user?.id ?? null,
-        metodo_pagamento: metodo, valor_servico: valorServico, taxa_servico_pct: Number(taxaEditavel || 0),
-      }).eq('id', comanda.id);
 
       imprimir({
         template: 'CONTA_MESA',
@@ -243,14 +254,18 @@ export default function Mesas() {
           valorServico,
           total: totalComanda,
           metodoPagamento: METODOS.find((x) => x.m === metodo)?.label.split(' (')[0],
+          valorPagoParcial: isPagamentoParcial ? valorAPagar : undefined,
         },
       });
 
-      setMesaDetalhe(null);
+      if (!isPagamentoParcial) {
+        setMesaDetalhe(null);
+      }
+      setFechando(null); setValorRecebido('');
       carregar();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setErroFechamento('Erro ao fechar a conta: ' + String((e as Error)?.message ?? e));
+      setErroFechamento('Erro ao fechar a conta: ' + (e.message ?? String(e)));
     }
     setProcessandoFechamento(false);
   };
@@ -274,6 +289,28 @@ export default function Mesas() {
         total: totalComanda,
       },
     });
+  };
+
+  const transferirMesa = async () => {
+    if (!mesaDetalhe?.comanda) return;
+    const numDestino = Number(transferindoPara);
+    const mesaDest = mesas.find((m) => m.numero === numDestino);
+    
+    if (!mesaDest) return setErroFechamento('Mesa de destino não cadastrada.');
+    if (mesaDest.comanda) return setErroFechamento('A mesa de destino já está ocupada.');
+    
+    setProcessandoFechamento(true);
+    try {
+      await supabase.from('comandas').update({ mesa_id: mesaDest.id }).eq('id', mesaDetalhe.comanda.id);
+      await supabase.from('pedidos').update({ mesa_numero: numDestino }).eq('comanda_id', mesaDetalhe.comanda.id);
+      setMostrarTransferencia(false);
+      setTransferindoPara('');
+      setMesaDetalhe(null);
+      carregar();
+    } catch (e: any) {
+      setErroFechamento('Erro ao transferir: ' + e.message);
+    }
+    setProcessandoFechamento(false);
   };
 
   const inputCls = 'w-full rounded-xl border border-gray-300 p-2.5 text-sm outline-none focus:border-[var(--cor-primaria)] dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100';
@@ -317,8 +354,8 @@ export default function Mesas() {
                   {m.capacidade && <p className="mt-1 flex items-center gap-1 text-[11px] text-gray-400"><Users size={11} /> {m.capacidade} lugares</p>}
                   {ocupada ? (
                     <div className="mt-3 border-t border-orange-200 pt-2 dark:border-orange-900/40">
-                      <p className="text-lg font-black text-orange-600 dark:text-orange-400">{fmt(m.totalParcial)}</p>
-                      <p className="flex items-center gap-1 text-[11px] text-gray-500"><Clock size={10} /> {min}min · {m.qtdItens} item(ns){m.temItemEmPreparo ? ' · preparando' : ''}</p>
+                      <p className="text-lg font-black text-orange-600 dark:text-orange-400">{fmt(m.totalParcial - m.totalPago)}</p>
+                      <p className="flex items-center gap-1 text-[11px] text-gray-500"><Clock size={10} /> {min}min · {m.qtdItens} item(ns){m.temItemEmPreparo ? ' · prep.' : ''}{m.totalPago > 0 ? ' · (Pago par.)' : ''}</p>
                     </div>
                   ) : (
                     <p className="mt-3 text-[11px] text-gray-400">Toque para abrir a conta</p>
@@ -382,8 +419,29 @@ export default function Mesas() {
           <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-3xl bg-white shadow-2xl dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
               <h3 className="text-lg font-black dark:text-gray-100">Mesa {mesaDetalhe.numero}</h3>
-              <button onClick={() => setMesaDetalhe(null)} className="text-gray-400"><X size={20} /></button>
+              <div className="flex items-center gap-3">
+                {mesaDetalhe.comanda && (
+                  <button onClick={() => setMostrarTransferencia(!mostrarTransferencia)} className="text-xs font-bold text-[var(--cor-primaria)]">Mover</button>
+                )}
+                <button onClick={() => { setMesaDetalhe(null); setMostrarTransferencia(false); }} className="text-gray-400"><X size={20} /></button>
+              </div>
             </div>
+
+            {mostrarTransferencia && mesaDetalhe.comanda && (
+              <div className="bg-gray-50 dark:bg-gray-800/50 p-5 border-b border-gray-100 dark:border-gray-800">
+                <p className="text-sm font-bold dark:text-gray-200 mb-2">Transferir para qual mesa?</p>
+                <div className="flex gap-2">
+                  <select value={transferindoPara} onChange={(e) => setTransferindoPara(e.target.value)} className={`${inputCls} flex-1`}>
+                    <option value="">Selecione uma mesa livre</option>
+                    {livres.map(m => <option key={m.id} value={m.numero}>Mesa {m.numero}</option>)}
+                  </select>
+                  <button onClick={transferirMesa} disabled={!transferindoPara || processandoFechamento} className="rounded-xl bg-[var(--cor-primaria)] px-4 text-sm font-bold text-white disabled:opacity-50">
+                    Mover
+                  </button>
+                </div>
+                {erroFechamento && <p className="mt-2 text-xs text-red-500 font-semibold">{erroFechamento}</p>}
+              </div>
+            )}
 
             {!mesaDetalhe.comanda ? (
               <div className="p-8 text-center">
@@ -429,21 +487,29 @@ export default function Mesas() {
                   <div className="space-y-1 text-sm text-gray-500">
                     <div className="flex justify-between"><span>Subtotal</span><span>{fmt(subtotalComanda)}</span></div>
                     {valorServico > 0 && <div className="flex justify-between"><span>Taxa de serviço</span><span>{fmt(valorServico)}</span></div>}
-                    <div className="flex justify-between text-lg font-black dark:text-gray-100"><span>Total</span><span className="text-[var(--cor-primaria)]">{fmt(totalComanda)}</span></div>
+                    {valorJaPago > 0 && <div className="flex justify-between font-medium text-emerald-600 dark:text-emerald-400"><span>Já pago</span><span>- {fmt(valorJaPago)}</span></div>}
+                    <div className="flex justify-between text-lg font-black dark:text-gray-100">
+                      <span>Restante</span>
+                      <span className={saldoDevedor === 0 ? 'text-emerald-600' : 'text-[var(--cor-primaria)]'}>{fmt(saldoDevedor)}</span>
+                    </div>
                   </div>
 
-                  <button onClick={imprimirPreviaConta} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 py-2 text-xs font-bold text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5">
-                    <Printer size={13} /> Imprimir conta (antes de cobrar)
-                  </button>
+                  {saldoDevedor > 0 && (
+                    <button onClick={imprimirPreviaConta} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 py-2 text-xs font-bold text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5">
+                      <Printer size={13} /> Imprimir conta parcial
+                    </button>
+                  )}
 
                   {!fechando ? (
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                      {METODOS.map((op) => (
-                        <button key={op.m} onClick={() => { setFechando(op.m); setErroFechamento(''); }} disabled={bloqueadoPorPreparo}
+                      {saldoDevedor > 0 ? METODOS.map((op) => (
+                        <button key={op.m} onClick={() => { setFechando(op.m); setErroFechamento(''); setValorRecebido(''); }} disabled={bloqueadoPorPreparo}
                           className="flex flex-col items-center gap-1.5 rounded-2xl border-2 border-gray-200 p-3 text-xs font-bold text-gray-600 transition hover:border-[var(--cor-primaria)] hover:text-[var(--cor-primaria)] disabled:opacity-40 dark:border-gray-700 dark:text-gray-300">
                           <op.icon size={18} />{op.label}
                         </button>
-                      ))}
+                      )) : (
+                        <div className="col-span-2 text-center text-sm font-bold text-emerald-600">A conta já foi 100% paga. <button onClick={() => confirmarFechamento('DINHEIRO')} className="underline">Fechar comanda agora.</button></div>
+                      )}
                     </div>
                   ) : (
                     <div className="mt-4 rounded-2xl bg-gray-50 p-4 dark:bg-gray-800/50">
@@ -453,19 +519,26 @@ export default function Mesas() {
                       </div>
                       {fechando === 'DINHEIRO' && (
                         <>
-                          <label className="text-xs font-bold text-gray-600 dark:text-gray-300">Quanto o cliente entregou?</label>
-                          <input value={valorRecebido} onChange={(e) => setValorRecebido(e.target.value.replace(/[^\d.,]/g, '').replace(',', '.'))} placeholder={fmt(totalComanda)} inputMode="decimal" autoFocus
+                          <label className="text-xs font-bold text-gray-600 dark:text-gray-300">Valor a pagar agora (pode ser parcial)</label>
+                          <input value={valorRecebido} onChange={(e) => setValorRecebido(e.target.value.replace(/[^\d.,]/g, '').replace(',', '.'))} placeholder={fmt(saldoDevedor)} inputMode="decimal" autoFocus
                             className="mt-1 w-full rounded-xl border border-gray-300 p-3 text-center text-xl font-black outline-none focus:border-[var(--cor-primaria)] dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" />
-                          {recebidoNum >= totalComanda && recebidoNum > 0 && (
+                          {recebidoNum >= saldoDevedor && recebidoNum > 0 && (
                             <p className="mt-2 text-center text-sm font-bold text-gray-600 dark:text-gray-300">Troco: <span className="text-lg font-black text-emerald-600">{fmt(trocoFechamento)}</span></p>
                           )}
                         </>
+                      )}
+                      {fechando !== 'DINHEIRO' && (
+                        <div className="mb-3">
+                          <label className="text-xs font-bold text-gray-600 dark:text-gray-300">Valor a passar na maquininha/pix</label>
+                          <input value={valorRecebido} onChange={(e) => setValorRecebido(e.target.value.replace(/[^\d.,]/g, '').replace(',', '.'))} placeholder={fmt(saldoDevedor)} inputMode="decimal"
+                            className="mt-1 w-full rounded-xl border border-gray-300 p-3 text-center text-xl font-black outline-none focus:border-[var(--cor-primaria)] dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" />
+                        </div>
                       )}
                       {fechando === 'PIX' && (
                         <div className="text-center">
                           {loja?.pix_chave ? (
                             <>
-                              <p className="text-xs text-gray-500">Peça para o cliente pagar {fmt(totalComanda)} nesta chave:</p>
+                              <p className="text-xs text-gray-500">Peça para o cliente pagar {fmt(recebidoNum || saldoDevedor)} nesta chave:</p>
                               <p className="mt-1 flex items-center justify-center gap-1.5 rounded-xl bg-white px-3 py-2 font-mono text-sm font-bold dark:bg-gray-950 dark:text-gray-100">
                                 {loja.pix_chave} <Copy size={13} className="cursor-pointer text-gray-400" onClick={() => navigator.clipboard.writeText(loja.pix_chave!)} />
                               </p>
@@ -477,15 +550,15 @@ export default function Mesas() {
                         </div>
                       )}
                       {(fechando === 'CREDITO' || fechando === 'DEBITO') && (
-                        <p className="text-center text-xs text-gray-500">Passe {fmt(totalComanda)} na maquininha e confirme abaixo.</p>
+                        <p className="text-center text-xs text-gray-500">Passe {fmt(recebidoNum || saldoDevedor)} na maquininha e confirme abaixo.</p>
                       )}
 
                       {erroFechamento && <p className="mt-2 text-center text-xs font-semibold text-red-500">{erroFechamento}</p>}
 
-                      <button onClick={() => confirmarFechamento(fechando)} disabled={processandoFechamento || (fechando === 'DINHEIRO' && recebidoNum < totalComanda)}
-                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3.5 text-sm font-black text-white disabled:opacity-40">
+                      <button onClick={() => confirmarFechamento(fechando)} disabled={processandoFechamento || recebidoNum <= 0}
+                        className={`mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black text-white disabled:opacity-40 ${recebidoNum < saldoDevedor ? 'bg-amber-600' : 'bg-emerald-600'}`}>
                         {processandoFechamento ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                        {processandoFechamento ? 'Fechando…' : 'Confirmar e fechar conta'}
+                        {processandoFechamento ? 'Processando…' : recebidoNum < saldoDevedor ? 'Confirmar pagamento parcial' : 'Confirmar e fechar conta'}
                       </button>
                     </div>
                   )}
