@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Loader2, CheckCircle2, Store, Lock, Percent, Zap, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, Store, Percent, AlertCircle } from 'lucide-react';
 import { useToast } from '../../components/ui/Toast';
 
 interface IfoodOnboardingProps {
@@ -18,10 +18,6 @@ export function IfoodOnboarding({ lojaId, form, setValor, onSuccess }: IfoodOnbo
 
   const ifoodMerchantId = form.ifood_merchant_id;
   
-  // Paywall check: Se não tem addon e é Básico, mostra paywall. 
-  // Na vida real, a loja precisa ter assinado o Add-on via Stripe ou Mercado Pago.
-  const isPremiumOrHasAddon = form.plano_tipo === 'Profit' || form.ifood_addon_ativo;
-
   const vincular = async () => {
     if (!userCode.trim() || userCode.length < 6) {
       setErro('Digite um código de autorização válido.');
@@ -66,61 +62,6 @@ export function IfoodOnboarding({ lojaId, form, setValor, onSuccess }: IfoodOnbo
       setProcessando(false);
     }
   };
-  
-  const simularAssinaturaAddon = async () => {
-    // Simulação temporária para UX - Na real chamaria um checkout do Stripe
-    setProcessando(true);
-    try {
-      await supabase.from('lojas').update({ ifood_addon_ativo: true }).eq('id', lojaId);
-      setValor('ifood_addon_ativo', true);
-      toast('Add-on ativado com sucesso!', 'sucesso');
-    } catch(e) {
-      console.error(e);
-    } finally {
-      setProcessando(false);
-    }
-  }
-
-  if (!isPremiumOrHasAddon) {
-    return (
-      <div className="mx-auto max-w-xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-black text-gray-800 dark:text-gray-100">Integração iFood</h2>
-            <p className="mt-1 text-sm text-gray-500">Receba pedidos do iFood direto no PDV.</p>
-          </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-500 dark:bg-red-900/20">
-            <Lock size={24} />
-          </div>
-        </div>
-
-        <div className="rounded-3xl border-2 border-red-500/20 bg-gradient-to-br from-red-50 to-orange-50 p-8 text-center dark:from-red-900/20 dark:to-orange-900/10">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400">
-            <Store size={32} />
-          </div>
-          <h3 className="mt-4 text-2xl font-black text-red-800 dark:text-red-400">Add-on Integração iFood</h3>
-          <p className="mt-2 text-sm font-medium text-red-700/80 dark:text-red-400/80 px-4">
-            Assinantes do plano Básico precisam assinar o Add-on de Integração para habilitar o fluxo completo do iFood direto no MiseOn.
-          </p>
-          
-          <div className="mt-6 mb-6 inline-block rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-900 border border-red-100 dark:border-red-900/30">
-            <p className="text-3xl font-black text-gray-900 dark:text-white">R$ 49<span className="text-sm text-gray-400 font-medium">/mês</span></p>
-          </div>
-          
-          <ul className="text-left text-sm font-semibold text-gray-700 dark:text-gray-300 space-y-3 mx-auto max-w-sm mb-8">
-            <li className="flex items-center gap-2"><CheckCircle2 size={16} className="text-red-500" /> Sincronização automática de pedidos</li>
-            <li className="flex items-center gap-2"><CheckCircle2 size={16} className="text-red-500" /> Markup automático de Cardápio</li>
-            <li className="flex items-center gap-2"><CheckCircle2 size={16} className="text-red-500" /> Gestão de falhas de Webhook</li>
-          </ul>
-
-          <button onClick={simularAssinaturaAddon} disabled={processando} className="w-full flex items-center justify-center gap-2 rounded-xl bg-red-600 p-4 text-base font-black text-white shadow-lg shadow-red-600/20 transition hover:bg-red-700 disabled:opacity-50">
-            {processando ? <Loader2 size={20} className="animate-spin" /> : <Zap size={20} />}
-            Desbloquear Agora
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="mx-auto max-w-xl">
