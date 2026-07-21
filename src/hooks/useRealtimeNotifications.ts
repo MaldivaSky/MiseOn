@@ -77,10 +77,26 @@ export function useRealtimeNotifications({ lojaId, contexto, entregadorId, modoP
       canais.push(canalEntregador);
     }
 
-    // Para mensagens: vamos escutar inserções e tentar notificar
-    // (Em um caso real de produção teríamos trigger ou edge function p/ mandar notificações focadas,
-    // mas faremos via realtime aqui escutando a tabela mensagens_pedido)
-    // Para simplificar, como não temos loja_id em mensagens_pedido, não filtraremos aqui se não houver backend enviando pra um canal.
+    // Notificações Inteligentes do Assistente IA e Chat
+    if (lojaId && (contexto === 'PAINEL' || contexto === 'PDV')) {
+      const canalAlertas = supabase.channel(`admin-alerts-${lojaId}`)
+        .on('broadcast', { event: 'chat_ia_answered' }, (payload) => {
+          const msg = payload.payload.message || 'O Assistente IA atendeu um cliente!';
+          toast(msg, 'info');
+          tocarSom();
+          
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Assistente MiseOn', {
+              body: msg,
+              icon: '/icon-192.png' // Ícone padrão do PWA
+            });
+          } else if ('Notification' in window && Notification.permission !== 'denied') {
+            Notification.requestPermission();
+          }
+        })
+        .subscribe();
+      canais.push(canalAlertas);
+    }
 
     return () => {
       canais.forEach(c => supabase.removeChannel(c));

@@ -104,34 +104,60 @@ serve(async (req) => {
       }
     }
 
-    // 4. Busca o cardápio (Contexto)
+    // 4. Busca as taxas de entrega
+    const { data: taxas } = await supabase
+      .from('taxas_entrega')
+      .select('bairro, valor')
+      .eq('loja_id', convData.loja_id)
+      .eq('ativo', true);
+
+    let taxasContexto = 'Não há taxas de entrega cadastradas (consulte o balcão).';
+    if (taxas && taxas.length > 0) {
+      taxasContexto = taxas.map((t: any) => `- ${t.bairro}: R$ ${t.valor}`).join('\n');
+    }
+
+    // 5. Busca o cardápio e Ficha Técnica (Contexto sem custos)
     const { data: produtos } = await supabase
       .from('produtos')
-      .select('nome, preco, disponivel, descricao')
+      .select(`
+        id, nome, preco, disponivel, descricao,
+        fichas_tecnicas ( insumos ( nome ) )
+      `)
       .eq('loja_id', convData.loja_id)
       .order('nome');
 
     let cardapioContexto = 'CARDÁPIO VAZIO / INDISPONÍVEL';
     if (produtos && produtos.length > 0) {
-      cardapioContexto = produtos.map((p: any) => 
-        `- ${p.nome}: R$ ${p.preco} (${p.disponivel ? 'EM ESTOQUE' : 'ESGOTADO'})`
-      ).join('\n');
+      cardapioContexto = produtos.map((p: any) => {
+        // Extrai apenas os nomes dos ingredientes (sem custos)
+        const ingredientesArray = (p.fichas_tecnicas || [])
+          .map((ft: any) => ft.insumos?.nome)
+          .filter(Boolean);
+        const ingrTexto = ingredientesArray.length > 0 ? ` (Ingredientes/Alergênicos: ${ingredientesArray.join(', ')})` : '';
+        const descTexto = p.descricao ? ` - Descrição: ${p.descricao}` : '';
+        return `- ${p.nome}: R$ ${p.preco} (${p.disponivel ? 'EM ESTOQUE' : 'ESGOTADO'})${descTexto}${ingrTexto}`;
+      }).join('\n');
     }
 
-    // 5. Prepara o prompt para o Groq (Llama 3)
+    // 6. Prepara o prompt para o Groq (Llama 3)
     const systemPrompt = `Você é a IA de atendimento inicial da loja "${lojaInfo.nome}" (${lojaInfo.segmento || 'alimentação'}).
 STATUS DA LOJA: ${lojaAberta ? 'ABERTA' : 'FECHADA'}.
 
-CARDÁPIO ATUAL:
+CARDÁPIO ATUAL E INGREDIENTES:
 ${cardapioContexto}
 
+TAXAS DE ENTREGA:
+${taxasContexto}
+
 DIRETRIZES:
-1. Seja educado, humano e curto (máx 2 parágrafos).
-2. Se o cliente perguntar o que tem, recomende itens EM ESTOQUE baseados no cardápio acima. Fale o preço corretamente.
-3. Se o cliente pedir algo ESGOTADO, avise educadamente que acabou.
-4. Se a loja estiver FECHADA, avise que a loja está fechada e não pode processar pedidos agora.
-5. Se o cliente quiser falar com humano, avise que um atendente já foi notificado.
-6. Nunca invente produtos ou preços que não estão no cardápio.`;
+1. Seja educado, humano, rápido e responda em no máximo 2 parágrafos curtos.
+2. Responda dúvidas sobre ingredientes consultando o cardápio acima para orientar sobre alérgicos ou restrições.
+3. Se o cliente perguntar o que tem, recomende itens EM ESTOQUE baseados no cardápio acima. Fale o preço corretamente.
+4. Se o cliente pedir algo ESGOTADO, avise educadamente que acabou.
+5. Informe taxas de entrega APENAS com base na lista de taxas acima.
+6. Se a loja estiver FECHADA, avise que a loja está fechada e não pode processar pedidos agora.
+7. Se o cliente quiser falar com humano, avise que um atendente já foi notificado.
+8. Nunca invente produtos, ingredientes, bairros ou preços que não estão no contexto.`;
 
     const chatHistory = messages.map((m: any) => ({
       role: m.remetente_tipo === 'CLIENTE' ? 'user' : 'assistant',
@@ -173,6 +199,19 @@ DIRETRIZES:
       });
 
     if (insertError) throw new Error('Erro ao salvar resposta no banco.');
+
+    // Notificação inteligente para o painel via Realtime Broadcast
+    const channel = supabase.channel(`admin-alerts-${convData.loja_id}`);
+    await channel.send({
+      type: 'broadcast',
+      event: 'chat_ia_answered',
+      payload: { 
+        conversation_id, 
+        loja_id: convData.loja_id, 
+        message: 'O Assistente IA atendeu um cliente.'
+      }
+    });
+    supabase.removeChannel(channel);
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
