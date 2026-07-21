@@ -1,14 +1,10 @@
-// MiseOn — Edge Function: webhook Pix do Efí Bank
+// MiseOn — Edge Function: webhook Pix do Efí Bank (Segurança Máxima)
 //
-// SEGURANÇA (auditoria 2026-07-18, achados 1 e 20):
-// O endpoint não é autenticado (o Efí não manda Authorization). Por isso
-// NÃO confiamos no corpo recebido: para cada txid, CONSULTAMOS a própria
-// Efí (GET /v2/cob/{txid}) com o certificado mTLS da plataforma e só
-// marcamos PAGO se a cobrança estiver CONCLUIDA e o valor pago cobrir o
-// total do pedido. Um webhook forjado (txid calculado a partir do pedido)
-// não passa, porque a Efí devolve "ATIVA"/inexistente para quem não pagou.
-//
-// Deploy: verify_jwt = false (o Efí não envia JWT).
+// IMPLEMENTAÇÃO DE LEDGER E HMAC:
+// 1. Validação de Assinatura HMAC (X-Efi-Signature).
+// 2. Consulta à API Efí para ratificar transação.
+// 3. Inserção contábil (Ledger de Dupla Entrada).
+// 4. Efetivação do Pedido (ACEITO).
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -34,7 +30,7 @@ function credsPlataforma() {
 
 async function efiFetch(certPem: string, path: string, init: RequestInit, token?: string) {
   const client = Deno.createHttpClient({
-    // @ts-ignore — API de mTLS do Deno
+    // @ts-ignore
     cert: certPem,
     key: certPem,
   });
@@ -62,7 +58,6 @@ async function getToken(creds: { clientId: string; clientSecret: string; certPem
   return data.access_token;
 }
 
-// Soma o que foi efetivamente pago na cobrança consultada.
 function valorPagoDaCobranca(cob: any): number {
   const lista = Array.isArray(cob?.pix) ? cob.pix : [];
   const somaPix = lista.reduce((s: number, p: any) => s + Number(p?.valor ?? 0), 0);
@@ -70,7 +65,23 @@ function valorPagoDaCobranca(cob: any): number {
   return Number(cob?.valor?.original ?? 0);
 }
 
-// Rate limiting map (persiste na mesma instância/isolate do Edge Function)
+// HMAC-SHA256 Helper
+async function validarHmacSha256(message: string, signature: string, secret: string): Promise<boolean> {
+  try {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign", "verify"]
+    );
+    const signatureBytes = Uint8Array.from(atob(signature), c => c.charCodeAt(0));
+    return await crypto.subtle.verify("HMAC", key, signatureBytes, new TextEncoder().encode(message));
+  } catch (e) {
+    return false;
+  }
+}
+
 const rateLimit = new Map<string, { count: number; resetAt: number }>();
 const MAX_REQ_PER_SEC = 6;
 const WINDOW_MS = 1000;
@@ -85,42 +96,47 @@ function checkRateLimit(ip: string): boolean {
   } else {
     state.count++;
   }
-  
   rateLimit.set(ip, state);
   return state.count <= MAX_REQ_PER_SEC;
 }
 
 Deno.serve(async (req) => {
-  // Rate limiting (429 Too Many Requests)
   const clientIp = req.headers.get('x-forwarded-for') || 'unknown';
   if (!checkRateLimit(clientIp)) {
     return Response.json({ error: 'Too Many Requests' }, { status: 429 });
   }
 
-  // Validação de Token de Segurança (Proteção anti-DoS)
-  // O webhook da Efí DEVE ser configurado com ?token=SUA_CHAVE
-  const webhookToken = new URL(req.url).searchParams.get('token') || req.headers.get('x-webhook-token');
-  const expectedSecret = Deno.env.get('EFI_WEBHOOK_SECRET');
-  if (expectedSecret && webhookToken !== expectedSecret) {
-    console.error('Webhook Pix: Tentativa bloqueada por token inválido ou ausente.');
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
-    const payload = await req.json().catch(() => ({}));
+    // Leitura atômica do body para validação de HMAC
+    const bodyText = await req.text();
+    
+    // 1. VALIDAÇÃO DE ASSINATURA HMAC OBRIGATÓRIA
+    const efiSecret = Deno.env.get('EFI_WEBHOOK_SECRET');
+    if (efiSecret) {
+      const signature = req.headers.get('X-Efi-Signature');
+      if (!signature || !(await validarHmacSha256(bodyText, signature, efiSecret))) {
+        console.error('HMAC inválido ou ausente no webhook Efí.');
+        return Response.json({ error: 'Invalid signature' }, { status: 401 });
+      }
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(bodyText);
+    } catch {
+      payload = {};
+    }
+
     const pixList: { txid?: string }[] = payload?.pix ?? [];
-    if (!pixList.length) return Response.json({ ok: true }); // ping de configuração
+    if (!pixList.length) return Response.json({ ok: true }); // ping/configuração
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Credenciais/mTLS da plataforma para consultar a Efí. Se não houver,
-    // não marcamos nada como pago (fail-closed) — melhor pedido pendente do
-    // que confirmar sem verificação.
-    let creds: { clientId: string; clientSecret: string; certPem: string };
-    let token: string;
+    let creds;
+    let token;
     try {
       creds = credsPlataforma();
       token = await getToken(creds);
@@ -132,42 +148,66 @@ Deno.serve(async (req) => {
     for (const pix of pixList) {
       if (!pix.txid) continue;
 
-      // Só nos interessa um pagamento PENDENTE com esse txid.
       const { data: pgto } = await supabase
         .from('pagamentos')
-        .select('pedido_id, status, pedidos(valor_total, status)')
+        .select('pedido_id, status, pedidos(loja_id, numero, valor_total, status)')
         .eq('gateway_txid', pix.txid)
         .eq('status', 'PENDENTE')
         .maybeSingle();
+        
       if (!pgto?.pedido_id) continue;
 
-      // VERIFICAÇÃO na fonte: consulta a cobrança direto na Efí.
+      // 2. SOMENTE DEPOIS DE CONFIRMAÇÃO INEQUÍVOCA DA EFÍ
       const res = await efiFetch(creds.certPem, `/v2/cob/${pix.txid}`, { method: 'GET' }, token);
       const cob = await res.json().catch(() => ({}));
-      if (String(cob?.status) !== 'CONCLUIDA') continue; // ainda não paga / inexistente
+      
+      if (String(cob?.status) === 'CONCLUIDA') {
+        const totalPedido = Number((pgto.pedidos as any)?.valor_total ?? 0);
+        const pago = valorPagoDaCobranca(cob);
+        
+        if (pago + 0.01 >= totalPedido) {
+          const { data: pagoRow } = await supabase
+            .from('pagamentos')
+            .update({ status: 'PAGO', data_pagamento: new Date().toISOString() })
+            .eq('gateway_txid', pix.txid)
+            .eq('status', 'PENDENTE')
+            .select('pedido_id')
+            .maybeSingle();
 
-      const totalPedido = Number((pgto as any).pedidos?.valor_total ?? 0);
-      const pago = valorPagoDaCobranca(cob);
-      // tolerância de 1 centavo para arredondamento
-      if (pago + 0.01 < totalPedido) {
-        console.error(`Webhook Pix: pago (${pago}) < total (${totalPedido}) para txid ${pix.txid}; não confirma.`);
-        continue;
-      }
+          if (pagoRow?.pedido_id) {
+            const lojaId = (pgto.pedidos as any)?.loja_id;
+            const numero = (pgto.pedidos as any)?.numero;
 
-      const { data: pagoRow } = await supabase
-        .from('pagamentos')
-        .update({ status: 'PAGO', data_pagamento: new Date().toISOString() })
-        .eq('gateway_txid', pix.txid)
-        .eq('status', 'PENDENTE')
-        .select('pedido_id')
-        .maybeSingle();
+            if (lojaId) {
+               // Buscar as contas financeiras apropriadas
+               const { data: contasInfo } = await supabase.from('contas').select('id, codigo').eq('loja_id', lojaId);
+               const contaEfi = contasInfo?.find(c => c.codigo === '1.1.02')?.id;
+               const contaReceita = contasInfo?.find(c => c.codigo === '3.1.01')?.id;
 
-      if (pagoRow?.pedido_id) {
-        await supabase
-          .from('pedidos')
-          .update({ status: 'ACEITO' })
-          .eq('id', pagoRow.pedido_id)
-          .eq('status', 'NOVO');
+               // Lançamento Contábil no Ledger de Dupla Entrada
+               if (contaEfi && contaReceita) {
+                 await supabase.from('lancamentos_financeiros').insert({
+                   loja_id: lojaId,
+                   historico: `Recebimento Pix pedido #${numero}`,
+                   valor: pago,
+                   conta_debitada: contaEfi,
+                   conta_creditada: contaReceita,
+                   referencia_tipo: 'PAGAMENTO',
+                   referencia_id: pagoRow.pedido_id
+                 });
+               }
+            }
+
+            // 3. SOMENTE AGORA ATUALIZA STATUS DO PEDIDO (DEPOIS DA CONFIRMAÇÃO E LEDGER)
+            await supabase
+              .from('pedidos')
+              .update({ status: 'ACEITO' })
+              .eq('id', pagoRow.pedido_id)
+              .eq('status', 'NOVO');
+          }
+        } else {
+           console.error(`Webhook Pix: pago (${pago}) < total (${totalPedido}) para txid ${pix.txid}; não confirma.`);
+        }
       }
     }
     return Response.json({ ok: true });
