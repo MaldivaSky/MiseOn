@@ -8,9 +8,10 @@ import EstoquePreparos from './EstoquePreparos';
 
 export default function Estoque() {
   const { lojaId } = useOutletContext<CtxLoja>();
-  const [tab, setTab] = useState<'insumos' | 'preparos'>('insumos');
+  const [tab, setTab] = useState<'insumos' | 'preparos' | 'movimentacoes'>('insumos');
   const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [inativos, setInativos] = useState<Insumo[]>([]);
+  const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([]);
   const [mostrarInativos, setMostrarInativos] = useState(false);
   
   // States para Novo Insumo Dinâmico

@@ -59,5 +59,8 @@ export async function createPedidoPedido(dados: CreatePedidoParams) {
     }
   }
 
+  // Desconta os insumos da Ficha Técnica e Adicionais, gerando movimentação de estoque
+  await supabase.rpc('fn_baixar_estoque', { p_pedido_id: ped.id });
+
   return ped;
 }
