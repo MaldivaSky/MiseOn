@@ -7,7 +7,7 @@ import type { CtxLoja } from './AdminLayout';
 
 export default function ChatAdmin() {
   const ctx = useOutletContext<CtxLoja>();
-  const { conversations, messages, activeConversationId, setActiveConversationId, sendMessage, markAsRead } = useChat(ctx.lojaId);
+  const { conversations, messages, activeConversationId, setActiveConversationId, sendMessage, markAsRead } = useChat(ctx.lojaId, null, true);
   const [draft, setDraft] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [chatIaAtivo, setChatIaAtivo] = useState(false);

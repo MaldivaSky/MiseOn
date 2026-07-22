@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import type { ChatConversation, ChatMessage } from '../types';
 
-export function useChat(lojaId: string | null, clienteId?: string | null) {
+export function useChat(lojaId: string | null, clienteId?: string | null, modoAdmin = false) {
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -25,13 +25,18 @@ export function useChat(lojaId: string | null, clienteId?: string | null) {
   const loadConversations = useCallback(async () => {
     if (!lojaId) return;
     
-    // Se não tiver clienteId, carrega por sessionId
+    // Se não tiver clienteId, carrega por sessionId.
+    // Modo admin: carrega TODAS as conversas da loja (RLS fn_meu_acesso
+    // já garante que só o dono da loja lê) — sem isso o ChatAdmin só
+    // enxerga conversas iniciadas no próprio navegador do admin.
     let query = supabase.from('chat_conversations')
       .select('*')
       .eq('loja_id', lojaId)
       .order('criado_em', { ascending: false });
-      
-    if (clienteId && sessionId) {
+
+    if (modoAdmin) {
+      // sem filtro adicional: caixa de entrada unificada da loja
+    } else if (clienteId && sessionId) {
       query = query.or(`cliente_id.eq.${clienteId},session_id.eq.${sessionId}`);
     } else if (clienteId) {
       query = query.eq('cliente_id', clienteId);
@@ -48,7 +53,7 @@ export function useChat(lojaId: string | null, clienteId?: string | null) {
         setActiveConversationId(data[0].id);
       }
     }
-  }, [lojaId, clienteId, activeConversationId, sessionId]);
+  }, [lojaId, clienteId, activeConversationId, sessionId, modoAdmin]);
 
   const loadMessages = useCallback(async (conversationId: string) => {
     const { data, error } = await supabase
