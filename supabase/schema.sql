@@ -281,40 +281,15 @@ CREATE TABLE entregas (
 -- FUNÇÕES / TRIGGERS
 -- ============================================================
 
--- Número sequencial diário por loja (Proteção Race Condition)
-CREATE TABLE IF NOT EXISTS pedido_sequencia (
-  loja_id UUID NOT NULL REFERENCES lojas(id) ON DELETE CASCADE,
-  data DATE NOT NULL,
-  ultimo_numero INTEGER DEFAULT 0,
-  PRIMARY KEY (loja_id, data)
-);
-
-CREATE OR REPLACE FUNCTION fn_numero_pedido() RETURNS TRIGGER AS $$
-BEGIN
-  LOOP
-    UPDATE pedido_sequencia
-    SET ultimo_numero = ultimo_numero + 1
-    WHERE loja_id = NEW.loja_id AND data = CURRENT_DATE
-    RETURNING ultimo_numero INTO NEW.numero;
-
-    IF FOUND THEN
-      RETURN NEW;
-    END IF;
-
-    BEGIN
-      INSERT INTO pedido_sequencia (loja_id, data, ultimo_numero)
-      VALUES (NEW.loja_id, CURRENT_DATE, 1)
-      RETURNING ultimo_numero INTO NEW.numero;
-      RETURN NEW;
-    EXCEPTION WHEN unique_violation THEN
-      CONTINUE;
-    END;
-  END LOOP;
-END; $$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_numero_pedido BEFORE INSERT ON pedidos
-  FOR EACH ROW WHEN (NEW.numero IS NULL OR NEW.numero = 0)
-  EXECUTE FUNCTION fn_numero_pedido();
+-- Número sequencial CONTÍNUO por loja (sequência em loja_sequencias).
+-- A trigger trg_numero_pedido (BEFORE INSERT) executa fn_trg_numero_pedido:
+-- se NEW.numero IS NULL ou = 0, chama fn_proximo_numero(loja_id) —
+-- upsert atômico em loja_sequencias, sem race condition.
+-- Unicidade dos novos pedidos garantida pelo índice parcial
+-- uq_pedidos_loja_numero (loja_id, numero) WHERE criado_em >= '2026-07-22'.
+-- (O mecanismo diário pedido_sequencia/fn_numero_pedido foi removido na
+-- migration 20260722090000_cleanup_numeracao_pedidos — a numeração diária
+-- gerava números repetidos entre dias.)
 
 -- Baixa automática de estoque via ficha técnica (Verificação e Rollback)
 CREATE OR REPLACE FUNCTION fn_baixar_estoque(p_pedido_id UUID) RETURNS void AS $$
