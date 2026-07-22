@@ -522,6 +522,10 @@ export interface ChatConversation {
   cliente_id?: string | null;
   session_id?: string | null;
   criado_em: string;
+  canal?: 'VITRINE' | 'WHATSAPP';
+  telefone?: string | null;
+  wa_janela_expira_em?: string | null;
+  ia_ativa?: boolean;
   // Join virtual
   mensagens_nao_lidas?: number;
   ultima_mensagem?: string;

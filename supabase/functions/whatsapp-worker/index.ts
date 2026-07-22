@@ -154,10 +154,12 @@ serve(async (req) => {
       }
 
       // Resolve ou cria a conversa (canal=WHATSAPP, única por loja+telefone)
+      const nomeContato: string | null =
+        evento.payload?.contacts?.[0]?.profile?.name ?? null;
       let conversationId: string;
       const { data: existente } = await supabase
         .from("chat_conversations")
-        .select("id")
+        .select("id, cliente_nome")
         .eq("loja_id", evento.loja_id)
         .eq("telefone", telefone)
         .eq("canal", "WHATSAPP")
@@ -165,6 +167,13 @@ serve(async (req) => {
 
       if (existente) {
         conversationId = existente.id;
+        // Preenche o nome se a conversa ainda não tinha (ex.: criada antes do E5)
+        if (!existente.cliente_nome && nomeContato) {
+          await supabase
+            .from("chat_conversations")
+            .update({ cliente_nome: nomeContato })
+            .eq("id", conversationId);
+        }
       } else {
         const { data: nova, error: novaErr } = await supabase
           .from("chat_conversations")
@@ -172,6 +181,7 @@ serve(async (req) => {
             loja_id: evento.loja_id,
             canal: "WHATSAPP",
             telefone,
+            cliente_nome: nomeContato,
             wa_janela_expira_em: new Date(
               Date.now() + 24 * 3600 * 1000,
             ).toISOString(),
