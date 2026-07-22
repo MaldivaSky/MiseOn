@@ -258,17 +258,38 @@ export default function WhatsApp() {
           </p>
         </div>
 
-        {/* ── Wizard de conexão ── */}
+        {/* ── Conexão principal: Embedded Signup (em breve) ── */}
+        {status !== 'CONECTADO' && (
+          <div className="relative overflow-hidden rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-[#022c22] via-[#064e3b] to-[#052e16] p-6 shadow-lg">
+            <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-emerald-400/20 blur-3xl" />
+            <div className="relative flex flex-col items-center gap-3 text-center">
+              <div className="rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-md">
+                <MessageCircle size={26} className="text-emerald-300" />
+              </div>
+              <h3 className="font-['Sora'] text-lg font-black text-white">Conectar com Facebook</h3>
+              <p className="max-w-md text-sm leading-relaxed text-emerald-100/85">
+                Em breve: conexão em poucos cliques, direto com sua conta do Facebook —
+                <b className="text-white"> sem criar conta de desenvolvedor e sem colar código nenhum</b>.
+                Estamos finalizando a homologação da MiseOn junto à Meta para liberar este botão.
+              </p>
+              <span className="rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-bold text-emerald-200 backdrop-blur-md">
+                🔒 Homologação com a Meta em andamento
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* ── Conexão assistida (credenciais da Meta) ── */}
         {status !== 'CONECTADO' && (
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="mb-4 flex items-center gap-2">
               <Plug size={18} className="text-emerald-600 dark:text-emerald-400" />
               <div>
-                <h3 className="font-['Sora'] text-base font-bold text-gray-900 dark:text-white">Conectar meu número</h3>
+                <h3 className="font-['Sora'] text-base font-bold text-gray-900 dark:text-white">Conexão assistida (antecipada)</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Você encontra tudo no painel da Meta (developers.facebook.com):{' '}
-                  <b>App Dashboard → WhatsApp → Configuração da API</b> e{' '}
-                  <b>Configurações do app → Básico</b>.
+                  Para quem quer começar <b>antes</b> da conexão com Facebook: exige uma conta de
+                  desenvolvedor na Meta. <b>Nossa equipe faz esse processo junto com você</b> —
+                  não é necessário conhecimento técnico, apenas seguir o passo a passo guiado.
                 </p>
               </div>
             </div>
