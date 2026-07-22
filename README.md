@@ -47,7 +47,8 @@ O cliente pede pela vitrine (link próprio da loja), o dono recebe em tempo real
 | 📈 **Financeiro (Ledger)** | Contabilidade de **dupla entrada** atômica via Triggers no Postgres. Lançamentos automáticos de receita e estorno, sem *race conditions*, separando fluxo próprio de integrações (ex: taxa iFood destacada). |
 | 📊 **Inteligência** | **DRE Mensal em Tempo Real** (`vw_dre_mensal`), Extrato de Caixa (`vw_caixa_extrato`), Motor de Rateio de Despesas Fixas, Lucro Líquido Real e margem por produto na Ficha Técnica (`vw_custo_produto`). |
 | 👁️ **Observabilidade** | Monitoramento em tempo real (Supabase Realtime) no Painel Administrativo. Detecta e notifica sobre estornos suspeitos, falhas de estoque (cancelamentos após aceite) e falhas de assinatura em Webhooks (HMAC). |
-| 🤖 **Chat IA** *(fase 2)* | Atendimento websocket na própria vitrine com Gemini function calling — sem custo de API do WhatsApp |
+| 🤖 **Chat IA (Gemini)** | Atendimento inteligente por IA via WebSocket na vitrine utilizando **Gemini Function Calling** (consulta produtos, recomenda itens e realiza pedidos automaticamente sem depender de API paga do WhatsApp). |
+| 🧾 **Emissor NF-e / NFC-e** | Emissão fiscal nativa (NFC-e / NF-e 4.0) integrada ao PDV. Módulo 100% construído e pronto para transmissão (aguardando apenas o upload do Certificado Digital A1 e CNPJ no painel da loja). |
 
 ## 🏗️ Arquitetura
 
@@ -213,8 +214,10 @@ Antes de colocar a mão na massa, certifique-se de ler nossa [Documentação de 
 - [x] **Central de Compras**: módulo dedicado para lojista gerenciar recompra massiva.
 - [x] Cartão de crédito na plataforma (Efí one-step + tokenização) · tela do entregador com rota no mapa
 - [x] **Fase 3 — Ledger Financeiro & Code Splitting**: Contabilidade de dupla entrada rigorosa (Triggers), DRE, Observabilidade Realtime, Lazy Routes, Testes de Carga (K6) e Integração (Vitest).
-- [ ] **Fase 2**: chat IA na vitrine (Gemini function calling), Web Push, recuperador de vendas, fidelidade/cashback, painel do entregador
-- [ ] **Fase 4**: NFC-e, onboarding self-service de novas lojas
+- [x] **Salão 3D & Grafo PEPS 3D**: Engine Three.js WebGL para salão/assentos e rastreabilidade PEPS de estoque com conservação de valor.
+- [x] **Chat IA com Gemini**: Atendimento inteligente via WebSocket na vitrine com function calling (cardápio e suporte).
+- [x] **Emissor NF-e / NFC-e 4.0**: Emissão fiscal integrada ao PDV (pronto, pendente apenas upload do Certificado A1 / CNPJ).
+- [ ] **Fase 4 (Próximos Passos)**: Onboarding self-service automatizado e programa de fidelidade/cashback avançado.
 
 ## ❤️ Autor
 
