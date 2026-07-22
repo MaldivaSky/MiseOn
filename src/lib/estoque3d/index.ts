@@ -7,6 +7,8 @@
  *  - CostGraphEngine.ts  → engine Three.js (InstancedMesh, bloom, raycaster)
  *  - CostGraph3D.tsx     → wrapper React (montagem, tooltip HTML, dispose)
  *  - dadosExemplo.ts     → dataset do caso clássico (tomate #452)
+ *  - rastreio/           → Rastreio 3D: todos os itens por categoria, com a
+ *                         cadeia compra → uso, custos reais e etapas humanas
  */
 
 export { CostGraph3D, default } from './CostGraph3D';
@@ -29,10 +31,16 @@ export type {
 } from './types';
 export { COMPRAS_EXEMPLO } from './dadosExemplo';
 
-// Jogo 3D — a mesma conservação de valor, em versão linha de montagem jogável.
-export { extrairCadeias, CAP_ITENS } from './jogo/cadeiaJogo';
-export type { CadeiaJogo, EstagioJogo, PortaJogo, TipoPorta } from './jogo/cadeiaJogo';
-export { JogoTransformacaoEngine } from './jogo/JogoTransformacaoEngine';
-export type { EstadoJogo, EstadoPorta, StatusPorta } from './jogo/JogoTransformacaoEngine';
-export { JogoTransformacao3D } from './jogo/JogoTransformacao3D';
-export { EstoqueJogo3D } from './jogo/EstoqueJogo3D';
+// Rastreio 3D — prancha operacional de todos os itens, por categoria.
+export { carregarRastreio, montarRastreio } from './rastreio/carregarRastreio';
+export type {
+  CategoriaRastreio,
+  ItemRastreio,
+  EstagioItem,
+  EstadoItem,
+  OrigemCusto,
+} from './rastreio/carregarRastreio';
+export { RastreioEngine, contagemVisual, ITENS_POR_PAGINA } from './rastreio/RastreioEngine';
+export type { OpcoesRastreio, HoverRastreio } from './rastreio/RastreioEngine';
+export { Rastreio3D } from './rastreio/Rastreio3D';
+export { EstoqueRastreio3D } from './rastreio/EstoqueRastreio3D';

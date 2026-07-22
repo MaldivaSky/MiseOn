@@ -1,37 +1,33 @@
 /**
- * Camada de dados do Rastreio 3D — TODOS os itens ativos da loja, por categoria.
+ * Camada de dados do Rastreio 3D — TODOS os itens do estoque, por setor.
  *
- * Diferença para o Grafo de Custo (carregarGrafo.ts): o grafo reconstrói a
- * história dos LOTES (uma árvore por compra); o rastreio responde outra
- * pergunta — "onde está parado o dinheiro do estoque AGORA, item por item".
- * Por isso ele ancora em `insumos.quantidade_atual` (a posição atual) e na
- * view oficial `vw_custo_real_estoque` (o custo que o próprio banco calcula),
- * em vez de re-derivar custos dos lotes.
+ * Diferença em relação ao carregarGrafo.ts (que serve à árvore de custo de
+ * LOTES): aqui a unidade de rastreio é o INSUMO em si. Cada item vira uma
+ * linha completa Compra → Armazenado → Quebra(s) → Uso, com:
  *
- * Regras de negócio honradas aqui (não reinventar na engine):
+ *  - quantidade REAL em cada nível: a `quantidade_atual` (unidade base)
+ *    convertida para cima pela cadeia de fatores (40 fatias → 8 un → 1 kg);
+ *  - custo REAL por nível: o custo da unidade base na hierarquia que o
+ *    próprio banco usa — `custo_peps_proximo` (lote que sai primeiro) →
+ *    `custo_medio_ponderado` (lotes com saldo) → `custo_estimado`
+ *    (`preco_embalagem/qtd_embalagem` do cadastro) — dividida pelo fator
+ *    acumulado do nível;
+ *  - tipo da etapa: FÍSICA quando o passo sai de um agrupador (abrir a
+ *    caixa revela o conteúdo — fato automático) e HUMANA ⚠️ quando é
+ *    rendimento declarado (quebra/uso — alguém precisa fazê-lo e registrá-lo);
+ *  - estado de negócio: sem_estoque → crítico → sem_custo → alerta_desvio
+ *    (desvio ≥ 15% entre cadastro e lotes, oficial da vw) → ok.
  *
- *  - CADEIA = a mesma do grafo: `reconstruirCadeia` sobre os fatores por item,
- *    da unidade de compra (a que nunca é destino) até a unidade base. Item sem
- *    fatores tem 1 estágio — a compra já nasce na unidade de uso.
- *  - CONSERVAÇÃO: em cada nível vale quantidade × custoUnitário = constante
- *    (= quantidadeAtual × custoBase). Descer a cadeia subdivide a mesma
- *    riqueza em mais partes — nunca cria nem destrói valor.
- *  - ETAPA FÍSICA vs HUMANA: classificada pela GRANDEZA das unidades
- *    (unidades.ts), não pela origem da linha no banco. kg→g e L→ml são
- *    físicas (a dimensão define o rendimento); kg→un, un→fatias, cx→kg são
- *    humanas (o lojista é a autoridade sobre o rendimento — a "etapa ⚠️").
- *  - CUSTO BASE: a hierarquia que o banco usa — PEPS (custo do lote mais
- *    antigo com saldo) → médio ponderado dos saldos → estimado de cadastro
- *    (preco_embalagem / qtd_embalagem). A origem é exposta para o painel
- *    dizer de onde veio o número.
- *  - ESTADO: sem_estoque > sem_custo > crítico > alerta_desvio > ok. Um item
- *    zerado não é "crítico" — ele acabou; e custo desconhecido esconde qualquer
- *    crítico, porque sem custo não dá nem para precificar o risco.
+ * Agrupamento por SETOR FÍSICO (geladeira/armário/dispensa — ver setores.ts);
+ * a `categoria_insumo` do cadastro acompanha cada item no detalhe.
+ *
+ * Funções puras separadas das queries para teste sem banco.
  */
 
 import { supabase } from '../../supabase';
 import { reconstruirCadeia } from '../carregarGrafo';
-import { getUnidade, ehDimensional } from '../../unidades';
+import { getUnidade } from '../../unidades';
+import { derivarSetor, SETORES, ORDEM_SETORES, type Setor, type SetorId } from './setores';
 
 // ---------------------------------------------------------------------------
 // Tipos públicos
@@ -39,56 +35,48 @@ import { getUnidade, ehDimensional } from '../../unidades';
 
 export type EstadoItem = 'ok' | 'critico' | 'sem_estoque' | 'sem_custo' | 'alerta_desvio';
 
-/** De onde veio o custo base (hierarquia do banco). null = sem custo algum. */
-export type OrigemCusto = 'peps' | 'medio' | 'cadastro' | null;
-
 export interface EstagioItem {
   unidade: string;
   /** 0 'Compra', 1 'Armazenado', 2 'Quebra', ≥3 'Uso'. */
   rotulo: string;
-  /** Quantidade REAL convertida para esta unidade (a partir de quantidade_atual). */
+  /** Quantidade REAL do estoque atual expressa nesta unidade. */
   quantidade: number;
-  /** Custo por ESTA unidade (custo base × fator acumulado). null = sem custo. */
+  /** Custo por esta unidade (null quando não há custo conhecido). */
   custoUnitario: number | null;
-  /**
-   * Estágio 0 (Compra) é sempre 'fisica' — a compra é fato, não conversão.
-   * Estágio i ≥ 1 herda o tipo do passo que o produziu: físico quando a
-   * dimensão define o rendimento (kg→g), humano quando o lojista declarou.
-   */
+  /** Etapa que CHEGA neste nível: física (automática) ou humana ⚠️. */
   tipo: 'fisica' | 'humana';
 }
 
 export interface ItemRastreio {
   insumoId: string;
   nome: string;
+  /** categoria_insumo do cadastro (ou 'Preparo'). */
   categoria: string;
+  setor: SetorId;
   unidadeBase: string;
-  /** [compra?…, base] — sem fatores: exatamente 1 estágio. */
   estagios: EstagioItem[];
-  /** Posição atual na unidade base (insumos.quantidade_atual). */
-  quantidadeAtual: number;
-  /** Custo por unidade base: PEPS → médio ponderado → cadastro. */
-  custoBase: number | null;
-  origemCusto: OrigemCusto;
-  /** saldo_total (view) × custoBase. null quando não há custo conhecido. */
+  quantidadeAtual: number; // na unidade base
+  custoBase: number | null; // por unidade base
+  /** Origem do custoBase — exibida no painel ("de onde sai esse número"). */
+  origemCusto: 'PEPS' | 'médio ponderado' | 'cadastro' | null;
   totalInvestido: number | null;
   estoqueMinimo: number;
   estado: EstadoItem;
-  /** desvio_pct da view (estimado vs real), quando houver. */
   desvioPct: number | null;
   lotesAtivos: number;
+  isPreparo: boolean;
 }
 
-export interface CategoriaRastreio {
-  nome: string;
+export interface SetorRastreio {
+  setor: Setor;
   itens: ItemRastreio[];
   totalInvestido: number;
-  /** Itens em estado 'critico' ou 'alerta_desvio'. */
+  /** Itens em qualquer estado ≠ ok — o que merece atenção do usuário. */
   alertas: number;
 }
 
 // ---------------------------------------------------------------------------
-// Linhas do banco (formato exato — ver migrações 20260721*/20260722*)
+// Linhas das queries (espelho das tabelas/views reais)
 // ---------------------------------------------------------------------------
 
 export interface LinhaInsumoRastreio {
@@ -96,11 +84,11 @@ export interface LinhaInsumoRastreio {
   nome: string;
   unidade_medida: string;
   quantidade_atual: number;
-  estoque_minimo: number | null;
-  preco_embalagem: number | null;
-  qtd_embalagem: number | null;
+  estoque_minimo: number;
+  preco_embalagem: number;
+  qtd_embalagem: number;
   categoria_insumo: string | null;
-  is_preparo: boolean | null;
+  is_preparo: boolean;
 }
 
 export interface LinhaCustoView {
@@ -121,162 +109,150 @@ export interface LinhaFatorRastreio {
   multiplicador: number;
 }
 
+const ROTULOS_ESTAGIO = ['Compra', 'Armazenado', 'Quebra'];
+
+function rotuloEstagio(indice: number): string {
+  return ROTULOS_ESTAGIO[indice] ?? 'Uso';
+}
+
+/** Severidade para ordenação: problema primeiro, depois o valor investido. */
+const PESO_ESTADO: Record<EstadoItem, number> = {
+  sem_estoque: 0,
+  critico: 1,
+  sem_custo: 2,
+  alerta_desvio: 3,
+  ok: 4,
+};
+
 // ---------------------------------------------------------------------------
 // Montagem pura (testável sem banco)
 // ---------------------------------------------------------------------------
 
-const ROTULOS_ESTAGIO = ['Compra', 'Armazenado', 'Quebra', 'Uso'] as const;
-
-/**
- * Um passo de conversão é FÍSICO quando ambas as unidades são dimensionais da
- * mesma grandeza (a física fixa o rendimento: kg→g = ×1000, L→ml = ×1000).
- * Todo o resto — agrupador→massa, massa→contagem, contagem→semântico — é
- * rendimento declarado pelo lojista: etapa HUMANA (⚠️).
- * Unidade fora do registro canônico ⇒ desconhecida ⇒ humana por prudência.
- */
-function tipoDoPasso(de: string, para: string): 'fisica' | 'humana' {
-  const uDe = getUnidade(de);
-  const uPara = getUnidade(para);
-  if (!uDe || !uPara) return 'humana';
-  if (ehDimensional(uDe) && ehDimensional(uPara) && uDe.grandeza === uPara.grandeza) {
-    return 'fisica';
-  }
-  return 'humana';
-}
-
-/** Número finito ou null — o banco manda numeric que o PostgREST pode zerar. */
-function numOuNull(v: number | null | undefined): number | null {
-  return typeof v === 'number' && Number.isFinite(v) ? v : null;
-}
-
-/**
- * Monta o rastreio a partir das três fontes. Função pura: separada da query
- * para ser testada sem banco.
- */
 export function montarRastreio(
   insumos: LinhaInsumoRastreio[],
   custosView: LinhaCustoView[],
   fatores: LinhaFatorRastreio[],
-): CategoriaRastreio[] {
-  const custoPorInsumo = new Map(custosView.map((c) => [c.insumo_id, c]));
+): SetorRastreio[] {
+  const custoPorItem = new Map(custosView.map((c) => [c.insumo_id, c]));
   const fatoresPorItem = new Map<string, LinhaFatorRastreio[]>();
   for (const f of fatores) {
-    if (!f.item_id) continue; // universais (kg→g) são fallback SQL, não história do item
+    if (!f.item_id) continue; // universais (kg→g) não descrevem a cadeia do item
     if (!fatoresPorItem.has(f.item_id)) fatoresPorItem.set(f.item_id, []);
     fatoresPorItem.get(f.item_id)!.push(f);
   }
 
-  const porCategoria = new Map<string, ItemRastreio[]>();
+  const porSetor = new Map<SetorId, ItemRastreio[]>();
 
   for (const insumo of insumos) {
-    const base = insumo.unidade_medida;
-    const quantidadeAtual = numOuNull(insumo.quantidade_atual) ?? 0;
-    const view = custoPorInsumo.get(insumo.id);
+    const view = custoPorItem.get(insumo.id);
+    const quantidadeAtual = Number(insumo.quantidade_atual) || 0;
+    const estoqueMinimo = Number(insumo.estoque_minimo) || 0;
 
-    // --- Custo base na hierarquia do banco --------------------------------
-    const peps = numOuNull(view?.custo_peps_proximo);
-    const medio = numOuNull(view?.custo_medio_ponderado);
-    const estimado = numOuNull(view?.custo_estimado);
-    let custoBase: number | null = null;
-    let origemCusto: OrigemCusto = null;
-    if (peps != null && peps > 0) { custoBase = peps; origemCusto = 'peps'; }
-    else if (medio != null && medio > 0) { custoBase = medio; origemCusto = 'medio'; }
-    else if (estimado != null && estimado > 0) { custoBase = estimado; origemCusto = 'cadastro'; }
+    // Hierarquia oficial de custo: o lote que o PEPS consome primeiro, depois
+    // a média dos lotes, por fim o cadastro — mesma ordem do fallback do banco.
+    const custoBase =
+      view?.custo_peps_proximo != null ? Number(view.custo_peps_proximo)
+      : view?.custo_medio_ponderado != null ? Number(view.custo_medio_ponderado)
+      : view?.custo_estimado != null ? Number(view.custo_estimado)
+      : insumo.qtd_embalagem > 0 && insumo.preco_embalagem > 0
+        ? insumo.preco_embalagem / insumo.qtd_embalagem
+        : null;
+    const origemCusto: ItemRastreio['origemCusto'] =
+      view?.custo_peps_proximo != null ? 'PEPS'
+      : view?.custo_medio_ponderado != null ? 'médio ponderado'
+      : (view?.custo_estimado != null || (insumo.qtd_embalagem > 0 && insumo.preco_embalagem > 0))
+        ? 'cadastro'
+        : null;
 
-    // --- Estágios: da unidade de compra até a base --------------------------
-    const cadeia = reconstruirCadeia(fatoresPorItem.get(insumo.id) ?? [], base);
-    const unidades = cadeia.length === 0 ? [base] : [cadeia[0].de, ...cadeia.map((p) => p.para)];
+    // Cadeia compra → base (reusa reconstruirCadeia, a mesma do grafo de custo).
+    const cadeia = reconstruirCadeia(fatoresPorItem.get(insumo.id) ?? [], insumo.unidade_medida);
+    const unidades: string[] =
+      cadeia.length === 0
+        ? [insumo.unidade_medida]
+        : [cadeia[0].de, ...cadeia.map((p) => p.para)];
 
-    // Fator acumulado de cada nível ATÉ a base (produto dos multiplicadores a
-    // jusante). Conservação: quantidade × custoUnitario é constante por nível.
-    const n = unidades.length;
-    const fatorAcum = new Array<number>(n).fill(1);
-    for (let i = n - 2; i >= 0; i--) {
-      const mult = Number(cadeia[i].multiplicador);
-      // Multiplicador torto do banco não pode zerar/explodir a cadeia visual.
-      fatorAcum[i] = fatorAcum[i + 1] * (Number.isFinite(mult) && mult > 0 ? mult : 1);
+    // Fator acumulado de cada nível até a base (base = 1).
+    const fatorAteBase: number[] = new Array(unidades.length).fill(1);
+    for (let i = unidades.length - 2; i >= 0; i--) {
+      fatorAteBase[i] = fatorAteBase[i + 1] * cadeia[i].multiplicador;
     }
 
-    const estagios: EstagioItem[] = unidades.map((unidade, i) => {
-      const quantidade = quantidadeAtual / fatorAcum[i];
-      return {
-        unidade,
-        rotulo: ROTULOS_ESTAGIO[Math.min(i, ROTULOS_ESTAGIO.length - 1)],
-        quantidade: Number.isFinite(quantidade) ? quantidade : 0,
-        custoUnitario: custoBase != null ? custoBase * fatorAcum[i] : null,
-        tipo: i === 0 ? 'fisica' : tipoDoPasso(cadeia[i - 1].de, cadeia[i - 1].para),
-      };
-    });
+    const estagios: EstagioItem[] = unidades.map((unidade, i) => ({
+      unidade,
+      rotulo: rotuloEstagio(i),
+      quantidade: quantidadeAtual / fatorAteBase[i],
+      custoUnitario: custoBase != null ? custoBase / fatorAteBase[i] : null,
+      // A abertura do agrupador (cx→kg) é fato físico da compra; os demais
+      // passos são rendimentos declarados — etapas humanas da operação.
+      tipo: i === 0 ? 'fisica' : getUnidade(unidades[i - 1])?.grandeza === 'agrupador' ? 'fisica' : 'humana',
+    }));
 
-    // --- Estado e total investido -------------------------------------------
-    const estoqueMinimo = numOuNull(insumo.estoque_minimo) ?? 0;
-    const alertaDesvio = view?.alerta_desvio === true;
-    let estado: EstadoItem = 'ok';
-    if (quantidadeAtual <= 0) estado = 'sem_estoque';
-    else if (custoBase == null) estado = 'sem_custo';
-    else if (quantidadeAtual <= estoqueMinimo) estado = 'critico';
-    else if (alertaDesvio) estado = 'alerta_desvio';
-
-    // Saldo rastreado: o da view (lotes com saldo) quando existir linha; sem
-    // linha na view, cai na posição atual do cadastro.
-    const saldo = numOuNull(view?.saldo_total) ?? quantidadeAtual;
-    const totalInvestido = custoBase != null ? saldo * custoBase : null;
+    const desvioPct = view?.desvio_pct != null ? Number(view.desvio_pct) : null;
+    const estado: EstadoItem =
+      quantidadeAtual <= 0 ? 'sem_estoque'
+      : quantidadeAtual <= estoqueMinimo ? 'critico'
+      : custoBase == null ? 'sem_custo'
+      : view?.alerta_desvio ? 'alerta_desvio'
+      : 'ok';
 
     const item: ItemRastreio = {
       insumoId: insumo.id,
       nome: insumo.nome,
-      categoria: insumo.categoria_insumo ?? 'Ingrediente',
-      unidadeBase: base,
+      categoria: insumo.is_preparo ? 'Preparo' : (insumo.categoria_insumo ?? 'Ingrediente'),
+      setor: derivarSetor(insumo.nome, insumo.categoria_insumo),
+      unidadeBase: insumo.unidade_medida,
       estagios,
       quantidadeAtual,
       custoBase,
       origemCusto,
-      totalInvestido,
+      totalInvestido: custoBase != null ? quantidadeAtual * custoBase : null,
       estoqueMinimo,
       estado,
-      desvioPct: numOuNull(view?.desvio_pct),
-      lotesAtivos: numOuNull(view?.qtd_lotes_ativos) ?? 0,
+      desvioPct,
+      lotesAtivos: Number(view?.qtd_lotes_ativos ?? 0),
+      isPreparo: Boolean(insumo.is_preparo),
     };
 
-    if (!porCategoria.has(item.categoria)) porCategoria.set(item.categoria, []);
-    porCategoria.get(item.categoria)!.push(item);
+    if (!porSetor.has(item.setor)) porSetor.set(item.setor, []);
+    porSetor.get(item.setor)!.push(item);
   }
 
-  // --- Ordenação: o dinheiro manda. Categoria mais cara primeiro; dentro
-  // dela, item mais caro primeiro. Nome desempata (ordem estável).
-  const investidoDesc = (a: number | null, b: number | null) => (b ?? 0) - (a ?? 0);
-
-  const categorias: CategoriaRastreio[] = [];
-  for (const [nome, itens] of porCategoria) {
-    itens.sort((a, b) => investidoDesc(a.totalInvestido, b.totalInvestido) || a.nome.localeCompare(b.nome, 'pt-BR'));
-    categorias.push({
-      nome,
+  // Ordena: problemas primeiro (o usuário precisa vê-los), depois por valor.
+  const setores: SetorRastreio[] = [];
+  for (const id of ORDEM_SETORES) {
+    const itens = (porSetor.get(id) ?? []).sort((a, b) => {
+      const p = PESO_ESTADO[a.estado] - PESO_ESTADO[b.estado];
+      if (p !== 0) return p;
+      return (b.totalInvestido ?? 0) - (a.totalInvestido ?? 0);
+    });
+    if (itens.length === 0) continue;
+    setores.push({
+      setor: SETORES[id],
       itens,
       totalInvestido: itens.reduce((acc, i) => acc + (i.totalInvestido ?? 0), 0),
-      alertas: itens.filter((i) => i.estado === 'critico' || i.estado === 'alerta_desvio').length,
+      alertas: itens.filter((i) => i.estado !== 'ok').length,
     });
   }
-  categorias.sort((a, b) => b.totalInvestido - a.totalInvestido || a.nome.localeCompare(b.nome, 'pt-BR'));
-
-  return categorias;
+  return setores;
 }
 
 // ---------------------------------------------------------------------------
-// Query (Supabase)
+// Query real (Supabase)
 // ---------------------------------------------------------------------------
 
-/**
- * Carrega o rastreio completo da loja: insumos ativos + custos da view
- * oficial + fatores por item, em paralelo.
- */
-export async function carregarRastreio(lojaId: string): Promise<CategoriaRastreio[]> {
+/** Carrega todos os insumos ativos da loja com custo e cadeia, por setor. */
+export async function carregarRastreio(lojaId: string): Promise<SetorRastreio[]> {
   const [insumosRes, custosRes, fatoresRes] = await Promise.all([
     supabase
       .from('insumos')
       .select('id,nome,unidade_medida,quantidade_atual,estoque_minimo,preco_embalagem,qtd_embalagem,categoria_insumo,is_preparo')
       .eq('loja_id', lojaId)
-      .eq('ativo', true),
-    supabase.from('vw_custo_real_estoque').select('*').eq('loja_id', lojaId),
+      .eq('ativo', true)
+      .order('nome'),
+    supabase
+      .from('vw_custo_real_estoque')
+      .select('insumo_id,saldo_total,qtd_lotes_ativos,custo_medio_ponderado,custo_estimado,desvio_pct,alerta_desvio,custo_peps_proximo')
+      .eq('loja_id', lojaId),
     supabase
       .from('fatores_conversao')
       .select('item_id,unidade_origem,unidade_destino,multiplicador')

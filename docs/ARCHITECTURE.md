@@ -106,16 +106,42 @@ O administrador da loja recebe alertas instantâneos via Toast caso o banco de d
 
 ---
 
-## 6. Tecnologias Críticas e Padrões
+## 7. Engines WebGL 3D & Modelo Comercial SaaS 🚀
+
+O MiseOn eleva o padrão dos sistemas B2B gastronômicos incorporando tecnologia gráfica WebGL de ponta diretamente no navegador:
+
+### A. Salão 3D Inteligente por Assentos (`Mesas3DEngine.ts`)
+- **Graphics Core**: Desenvolvido sobre **Three.js** com renderizador WebGL, sombras dinâmicas, materiais PBR (Physics-Based Rendering), pós-processamento com filtro de *Unreal Bloom* (anéis LED de status) e Raycasting de alta velocidade $O(1)$ para clique em mesas e assentos numerados.
+- **Divisão Inteligente de Comandas**: `GarcomMesaDrawer.tsx` gerencia 3 modalidades de comanda:
+  1. **Por Assento (Cadeira Individual)**: Mapeamento de itens por `assento_numero` (1-indexed).
+  2. **Divisão Igualitária**: Rateio automático do saldo da mesa entre $N$ clientes.
+  3. **Valor Livre/Parcial**: Lançamento de pagamentos parciais avulsos.
+- **Temporizador de Permanência**: Badges flutuantes na HUD de AR exibem em tempo real o tempo decorrido desde a abertura da comanda (`⏱️ Xh Ym`), alertando a brigada de garçons.
+
+### B. Grafo 3D PEPS de Custeio de Estoque (`CostGraphEngine.ts`)
+- **Visualização Causal 3D**: Renderiza em tempo real o Grafo de Transformação de Lotes e Insumos baseados no princípio PEPS (Primeiro que Entra, Primeiro que Sai).
+- **Conservação de Valor**: Visualização interativa da migração de custos da compra do insumo bruto até a porção vendida no produto final, com mapas térmicos de densidade de valor por lote.
+
+### C. Modelo Comercial SaaS & Checkout Híbrido (`Assinatura.tsx`)
+- **Checkout Integrado Efí Bank**: Faturamento transparente sem retenção de recebíveis por marketplaces.
+- **Estrutura de Planos**:
+  - **Plano Mensal**: R$ 129,90 /mês (Cobrança recorrente flexível sem fidelidade).
+  - **Plano Anual**: R$ 99,90 /mês (Parcela única de R$ 1.198,80/ano com **23% OFF / R$ 360,00 de economia por ano**).
+- **Liberdade de Meio de Pagamento**: Suporte instantâneo a Pix (QR Code dinâmico + copia-e-cola com confirmação por Webhook) e Cartão de Crédito tokenizado.
+
+---
+
+## 8. Tecnologias Críticas e Padrões
 
 Neste projeto adotamos tecnologias modernas e ferramentas otimizadas:
 
 - **Frontend Core**: Vite + React 19 + TypeScript. Optamos por *Strict Mode* total para garantir que não haja vazamentos de tipagem em *runtime*. 
 - **Estilização**: TailwindCSS v4 + Componentes Radix UI adaptados (para Acessibilidade e Teclado). A arquitetura visual é modular (arquivos `<component>.tsx`).
 - **Gerenciamento de Estado**: Embora usemos React Query (implícito) para cacheadas, usamos `Zustand` para estado global que não depende de servidor (ex: Carrinho de Compras, Modal de Configurações, Permissões de Usuário na sessão atual).
-- **Code-Splitting Avançado:** (Fase 3) A aplicação usa configuração customizada de chunks (`manualChunks` no Vite) e `React.lazy()` extensivo. Isso divide a aplicação em pedaços lógicos, carregando sob demanda e isolando libs pesadas (Recharts, Leaflet, Konva), despencando o LCP inicial.
+- **Code-Splitting Avançado:** A aplicação usa configuração customizada de chunks (`manualChunks` no Vite) e `React.lazy()` extensivo. Isso divide a aplicação em pedaços lógicos, carregando sob demanda e isolando libs pesadas (Three.js, Recharts, Leaflet, Konva), despencando o LCP inicial.
 - **Tempo Real e Sincronização**: *Não gerenciamos WebSockets crus (Socket.io)*. Assinamos diretamente os canais do `Supabase Realtime`, permitindo que o Painel do Lojista (PDV e Pedidos) reaja instantaneamente a mudanças no banco (ex: um INSERT na tabela pedidos vira uma notificação visual em ms).
 - **QA e Performance:** 
   - Testes unitários/integração via **Vitest**, que se conectam ao Supabase via `service-role` testando garantias de Dupla Entrada, Estornos e concorrências de pedidos diretamente no banco.
   - Testes de Estresse via **K6**, simulando +200 requisições simultâneas de Webhook Pix e validando os SLAs operacionais e a ausência de *Race Conditions*.
 - **DevOps e Qualidade**: O repositório roda com proteção **Husky** + **Lint-Staged** no pre-commit. Nenhum código quebra regras do *ESLint (Flat Config)* ou violações do *TypeScript* chega à `main`.
+

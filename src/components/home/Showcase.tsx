@@ -1,8 +1,21 @@
 import { useState } from 'react';
-import { ShoppingBag, Store, Boxes, QrCode, Bike, ChevronRight, TrendingUp, DollarSign, CheckCircle2, Clock, AlertCircle, MapPin, Truck } from 'lucide-react';
-
+import { ShoppingBag, Store, Boxes, QrCode, ChevronRight, TrendingUp, DollarSign, CheckCircle2, Clock, AlertCircle, MapPin, Truck, Box } from 'lucide-react';
 
 const RECURSOS = [
+  {
+    id: 'salao3d',
+    icon: <Box size={24} />,
+    titulo: 'Salão 3D & Assentos (App Garçom)',
+    texto: 'Mapa 3D interativo do seu salão com divisão inteligente de comanda por cadeira e tempo de permanência.',
+    detalhe: 'O garçom lança pedidos sabendo exatamente qual assento pediu o prato. Suporte a cobrança individual por cadeira, divisão igualitária e alerta de permanência.',
+  },
+  {
+    id: 'estoque3d',
+    icon: <Boxes size={24} />,
+    titulo: 'Grafo 3D PEPS & Custeio Real',
+    texto: 'Motor 3D de rastreabilidade PEPS que calcula a rota do custo do lote comprado até a porção vendida.',
+    detalhe: 'Conservação exata de valor de insumos, margem bruta em tempo real e visualização gráfica de fracionamentos por lote.',
+  },
   {
     id: 'kds',
     icon: <ShoppingBag size={24} />,
@@ -18,13 +31,6 @@ const RECURSOS = [
     detalhe: 'O sistema calcula sozinho a taxa que o iFood retém de cada pedido e te mostra o valor LÍQUIDO real. O estoque baixa certinho.',
   },
   {
-    id: 'estoque',
-    icon: <Boxes size={24} />,
-    titulo: 'Estoque com Ficha Técnica',
-    texto: 'Vendeu um X-Bacon? O sistema baixa o pão, a carne, o bacon e a embalagem automaticamente.',
-    detalhe: 'Saiba o custo exato de cada produto e a margem real de cada venda. O sistema avisa o que falta repor.',
-  },
-  {
     id: 'efi',
     icon: <QrCode size={24} />,
     titulo: 'Dinheiro direto na SUA conta',
@@ -33,10 +39,10 @@ const RECURSOS = [
   },
   {
     id: 'logistica',
-    icon: <Bike size={24} />,
-    titulo: 'Entregas com app do motoboy',
-    texto: 'Despache com um toque e acompanhe a entrega em tempo real — sem cobrar app extra.',
-    detalhe: 'Rotas organizadas por bairro, status automático para o cliente e registro de quem entregou o quê.',
+    icon: <Truck size={24} />,
+    titulo: 'Entregas & Motoboy',
+    texto: 'Despache pedidos em tempo real com acompanhamento de rota no mapa.',
+    detalhe: 'Rotas otimizadas por bairro, status automático para o cliente e registro de entregas por entregador.',
   },
 ];
 
@@ -253,17 +259,62 @@ const ArrowUpRight = ({ size, className }: { size: number, className?: string })
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
 );
 
+const MockupSalao3D = () => (
+  <div className="w-full h-full bg-[#0B1120] p-5 flex flex-col gap-4">
+    <div className="flex justify-between items-center border-b border-gray-800 pb-3">
+      <div className="text-white font-bold text-lg flex items-center gap-2">
+        <Box size={20} className="text-orange-500" /> Salão 3D & Gestão por Assento
+      </div>
+      <span className="bg-orange-500/20 text-orange-400 text-xs font-bold px-3 py-1 rounded-full border border-orange-500/30">
+        Three.js Engine WebGL
+      </span>
+    </div>
+
+    <div className="relative flex-1 bg-gray-950 rounded-2xl border border-gray-800 p-4 overflow-hidden flex flex-col justify-between">
+      {/* Grade visual simulação 3D */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-gray-900 border-2 border-orange-500/60 rounded-2xl p-4 relative shadow-lg shadow-orange-500/10">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-white font-black text-lg">Mesa 04</span>
+            <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">OCUPADA</span>
+          </div>
+          <p className="text-orange-400 font-bold text-base">R$ 184,50</p>
+          <div className="flex items-center gap-2 mt-2 text-xs text-gray-400 font-semibold">
+            <span>⏱️ 45m em mesa</span> ·
+            <span className="text-blue-400 font-bold">3/4 cadeiras</span>
+          </div>
+        </div>
+
+        <div className="bg-gray-900 border-2 border-emerald-500/40 rounded-2xl p-4 relative">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-white font-black text-lg">Mesa 05</span>
+            <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-black px-2 py-0.5 rounded-full">LIVRE</span>
+          </div>
+          <p className="text-gray-400 font-bold text-sm">Disponível</p>
+          <div className="mt-2 text-xs text-emerald-400 font-semibold">4 lugares vagos</div>
+        </div>
+      </div>
+
+      <div className="bg-gray-900/90 backdrop-blur-md rounded-xl border border-gray-800 p-3">
+        <div className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-1">Garçom App • Divisão Inteligente</div>
+        <div className="text-xs text-gray-300">Cadeira #1: Chopp + Picanha (R$ 89,00) · Cadeira #2: Suco + Risotto (R$ 95,50)</div>
+      </div>
+    </div>
+  </div>
+);
+
 export default function Showcase() {
   const [activeTab, setActiveTab] = useState(RECURSOS[0].id);
 
   const renderMockup = () => {
     switch (activeTab) {
+      case 'salao3d': return <MockupSalao3D />;
+      case 'estoque3d': return <MockupEstoque />;
       case 'kds': return <MockupKDS />;
       case 'ifood': return <MockupIFood />;
-      case 'estoque': return <MockupEstoque />;
       case 'efi': return <MockupEfi />;
       case 'logistica': return <MockupLogistica />;
-      default: return null;
+      default: return <MockupSalao3D />;
     }
   };
 

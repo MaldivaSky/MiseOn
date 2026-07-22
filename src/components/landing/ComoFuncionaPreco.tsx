@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ArrowRight, Check, Landmark, ShieldCheck } from 'lucide-react';
 import { EFI_TARIFAS, EFI_LINKS } from '../../lib/efiInfo';
 import { zap } from './zap';
@@ -5,23 +6,25 @@ import { zap } from './zap';
 const PASSOS = [
   { numero: '1', titulo: 'Cadastre sua loja', texto: 'Nome, cardápio e identidade visual. Você mesmo faz em minutos, ou nosso time monta com você no WhatsApp.' },
   { numero: '2', titulo: 'Conecte o recebimento', texto: 'Abra uma conta Efí gratuita e cole 3 dados no painel. Pix e cartão passam a cair direto na sua conta.' },
-  { numero: '3', titulo: 'Venda no balcão, na mesa e no delivery', texto: 'Cardápio no ar, KDS ligado, PDV funcionando. Tudo no mesmo sistema, no mesmo dia.' },
+  { numero: '3', titulo: 'Venda no balcão, na mesa e no delivery', texto: 'Cardápio no ar, KDS ligado, PDV e Salão 3D funcionando. Tudo no mesmo sistema, no mesmo dia.' },
 ];
 
 const INCLUSO = [
-  'Cardápio digital white-label + QR Code',
-  'KDS de cozinha com cronômetros',
-  'PDV de balcão e mapa de mesas',
-  'Estoque com ficha técnica e rendimento',
-  'Produção de preparos com lotes e validade',
-  'Central de compras',
-  'Entregas com rota ao vivo',
+  'Salão 3D Inteligente com Gestão de Assentos e Divisão de Conta',
+  'Grafo 3D PEPS de Custeio de Estoque e Rastreabilidade de Lotes',
+  'Cardápio digital white-label + QR Code por mesa',
+  'KDS de cozinha com cronômetros de preparo',
+  'PDV de balcão e gestão unificada de comandas',
+  'Central de compras e fichas técnicas de rendimento',
+  'Logística de entregas com rotas ao vivo',
   'Cupons, cashback e recuperação de carrinho',
-  'Equipe com papéis e financeiro com gráficos',
-  'PWA instalável (vira app no celular)',
+  'Emissor NFC-e (Cupom Fiscal) incluso',
+  'PWA instalável (vira app no celular do garçom)',
 ];
 
 export function ComoFuncionaPreco() {
+  const [anual, setAnual] = useState(true);
+
   return (
     <>
       {/* ── Como funciona ── */}
@@ -58,14 +61,32 @@ export function ComoFuncionaPreco() {
         <div className="mx-auto max-w-6xl px-6">
           <div className="mb-12 text-center">
             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, letterSpacing: '.3em', color: '#FC5B24', textTransform: 'uppercase', marginBottom: 14 }}>
-              Preço
+              Preço Transparente
             </div>
             <h2 style={{ fontFamily: "'Sora', sans-serif" }} className="text-3xl font-extrabold tracking-tight sm:text-4xl">
               Um preço fixo. Zero comissão por pedido.
             </h2>
             <p style={{ color: 'rgba(234,241,251,0.55)' }} className="mx-auto mt-4 max-w-2xl text-base">
-              Marketplace nenhum fica com percentual do seu faturamento. Aqui você paga a mensalidade e fica com 100% das suas vendas.
+              Marketplace nenhum fica com percentual do seu faturamento. Aqui você escolhe a mensalidade e fica com 100% das suas vendas.
             </p>
+
+            {/* Toggle Mensal / Anual */}
+            <div className="mt-8 inline-flex items-center gap-1 rounded-full border border-gray-800 bg-[#0B1120] p-1 shadow-2xl">
+              <button
+                onClick={() => setAnual(false)}
+                style={{ fontFamily: "'Sora', sans-serif" }}
+                className={`rounded-full px-6 py-2.5 text-xs sm:text-sm font-bold transition ${!anual ? 'bg-[#FC5B24] text-white' : 'text-gray-400 hover:text-white'}`}
+              >
+                Mensal (R$ 129,90/mês)
+              </button>
+              <button
+                onClick={() => setAnual(true)}
+                style={{ fontFamily: "'Sora', sans-serif" }}
+                className={`flex items-center gap-2 rounded-full px-6 py-2.5 text-xs sm:text-sm font-bold transition ${anual ? 'bg-[#0A5CC4] text-white shadow-[0_0_20px_rgba(10,92,196,0.5)]' : 'text-gray-400 hover:text-white'}`}
+              >
+                Anual (R$ 99,90/mês) <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${anual ? 'bg-white text-[#0A5CC4]' : 'bg-blue-900/40 text-blue-400'}`}>-23% OFF</span>
+              </button>
+            </div>
           </div>
 
           <div className="grid items-start gap-8 lg:grid-cols-[1fr_1fr]">
@@ -77,15 +98,15 @@ export function ComoFuncionaPreco() {
               <div style={{ height: 4, background: 'linear-gradient(90deg, #FC5B24, #0A5CC4)', position: 'absolute', top: 0, left: 0, right: 0 }} />
               <div className="p-8 sm:p-10">
                 <p style={{ color: '#FC5B24', fontFamily: "'Sora', sans-serif" }} className="text-sm font-extrabold uppercase tracking-widest">
-                  MiseOn Profissional
+                  MiseOn Enterprise
                 </p>
                 <div style={{ fontFamily: "'Sora', sans-serif" }} className="mt-4 flex items-center text-6xl font-extrabold tracking-tight">
                   <span style={{ color: 'rgba(234,241,251,0.4)' }} className="mr-2 text-2xl">R$</span>
-                  <span>150</span>
+                  <span>{anual ? '99,90' : '129,90'}</span>
                   <span style={{ color: 'rgba(234,241,251,0.4)' }} className="text-xl font-medium">/mês</span>
                 </div>
                 <p style={{ color: 'rgba(234,241,251,0.4)' }} className="mt-3 text-sm">
-                  Valor fixo, sem taxa por pedido e sem fidelidade. Cancele quando quiser.
+                  {anual ? 'Faturado em parcela única (R$ 1.198,80/ano). Economia de R$ 360,00 por ano!' : 'Assinatura mensal sem fidelidade. Cancele quando quiser.'}
                 </p>
 
                 <ul className="mt-8 grid gap-3 sm:grid-cols-2">

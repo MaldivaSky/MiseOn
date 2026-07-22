@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { CreditCard, CheckCircle, AlertCircle, Calendar, Lock, ShieldCheck, QrCode, Copy } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -13,6 +13,8 @@ export default function Assinatura() {
   const [vencimento, setVencimento] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [metodo, setMetodo] = useState<'cartao' | 'pix'>('cartao');
+  const [ciclo, setCiclo] = useState<'mensal' | 'anual'>('anual');
+  const [parcelas, setParcelas] = useState<number>(12);
   
   // Estados para o Cartão de Crédito
   const [numero, setNumero] = useState('');
@@ -30,7 +32,7 @@ export default function Assinatura() {
   const [copiaCola, setCopiaCola] = useState('');
   const [copiado, setCopiado] = useState(false);
 
-  const carregarDados = async () => {
+  const carregarDados = useCallback(async () => {
     setCarregando(true);
     const { data } = await supabase.from('lojas').select('status_assinatura, trial_termina_em, criado_em').eq('id', lojaId).single();
     if (data) {
@@ -40,11 +42,11 @@ export default function Assinatura() {
       setVencimento(data.trial_termina_em);
     }
     setCarregando(false);
-  };
+  }, [lojaId]);
 
   useEffect(() => {
     setTimeout(carregarDados, 0);
-  }, [lojaId]);
+  }, [lojaId, carregarDados]);
 
   const assinarCartao = async () => {
     setErro(''); setSucesso('');
@@ -95,7 +97,13 @@ export default function Assinatura() {
       }
       
       const { data, error } = await supabase.functions.invoke('saas-assinar', {
-        body: { loja_id: lojaId, payment_token, customer: { name: nome, cpf, phone: celular } }
+        body: {
+          loja_id: lojaId,
+          ciclo,
+          parcelas: ciclo === 'anual' ? parcelas : 1,
+          payment_token,
+          customer: { name: nome, cpf, phone: celular },
+        }
       });
 
       if (error || data?.error) throw new Error(data?.error || error?.message || 'Pagamento recusado pelo banco.');
@@ -113,7 +121,7 @@ export default function Assinatura() {
     setErro(''); setSucesso(''); setProcessando(true);
     try {
       const { data, error } = await supabase.functions.invoke('saas-pix', {
-        body: { loja_id: lojaId }
+        body: { loja_id: lojaId, ciclo }
       });
       if (error || data?.error) throw new Error(data?.error || error?.message || 'Falha ao gerar Pix.');
       
@@ -187,10 +195,50 @@ export default function Assinatura() {
               </div>
             </div>
 
+            {/* Seletor de Ciclo Mensal vs Anual */}
+            <div className="mb-6 rounded-2xl bg-gray-100 dark:bg-gray-950 p-1.5 border border-gray-200 dark:border-gray-800">
+              <div className="grid grid-cols-2 gap-1 text-center">
+                <button
+                  type="button"
+                  onClick={() => setCiclo('anual')}
+                  className={`rounded-xl py-2 text-xs font-black transition ${
+                    ciclo === 'anual'
+                      ? 'bg-[var(--cor-primaria)] text-white shadow-md'
+                      : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                  }`}
+                >
+                  Plano Anual <span className="text-[10px] opacity-90">(-23% OFF)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCiclo('mensal')}
+                  className={`rounded-xl py-2 text-xs font-black transition ${
+                    ciclo === 'mensal'
+                      ? 'bg-[var(--cor-primaria)] text-white shadow-md'
+                      : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                  }`}
+                >
+                  Plano Mensal
+                </button>
+              </div>
+            </div>
+
             <div className="rounded-2xl bg-gray-50 dark:bg-gray-950 p-5 border border-gray-100 dark:border-gray-800 space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">MiseOn Profissional</span>
-                <span className="font-black text-lg text-gray-900 dark:text-gray-100">R$ 150,00 <span className="text-xs text-gray-400 font-medium">/mês</span></span>
+                <div>
+                  <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 block">MiseOn Enterprise</span>
+                  <span className="text-[11px] text-gray-400">
+                    {ciclo === 'anual' ? 'Parcela única de R$ 1.198,80/ano' : 'Cobrança mensal flexível'}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="font-black text-xl text-gray-900 dark:text-gray-100 block">
+                    R$ {ciclo === 'anual' ? '99,90' : '129,90'} <span className="text-xs text-gray-400 font-medium">/mês</span>
+                  </span>
+                  {ciclo === 'anual' && (
+                    <span className="text-[10px] font-bold text-emerald-500">Economia de R$ 360,00/ano</span>
+                  )}
+                </div>
               </div>
               
               <div className="h-px bg-gray-200 dark:bg-gray-800 w-full"></div>
@@ -240,7 +288,9 @@ export default function Assinatura() {
 
               {metodo === 'cartao' ? (
                 <div className="space-y-4 animate-in slide-in-from-right-4">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-2">Cobrança recorrente mensal. Cancele quando quiser.</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-2">
+                    {ciclo === 'anual' ? 'Plano Anual: R$ 1.198,80 (equivale a R$ 99,90/mês)' : 'Plano Mensal: R$ 129,90/mês. Cancele quando quiser.'}
+                  </p>
                   
                   <label className="block">
                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 ml-1">Número do Cartão</span>
@@ -283,12 +333,28 @@ export default function Assinatura() {
                     </label>
                   </div>
 
+                  {ciclo === 'anual' && (
+                    <label className="block mt-4">
+                       <span className="text-xs font-bold text-[var(--cor-primaria)] ml-1">Opções de Parcelamento no Cartão</span>
+                       <select
+                         value={parcelas}
+                         onChange={(e) => setParcelas(Number(e.target.value))}
+                         className="mt-1 w-full rounded-xl border border-gray-300 p-3.5 text-sm font-bold focus:border-[var(--cor-primaria)] focus:ring-4 focus:ring-[var(--cor-primaria)]/10 focus:outline-none dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100 transition-all"
+                       >
+                         <option value={12}>12x de R$ 99,90 / mês (Total R$ 1.198,80 - Sem Juros)</option>
+                         <option value={6}>6x de R$ 199,80 / mês (Total R$ 1.198,80)</option>
+                         <option value={3}>3x de R$ 399,60 / mês (Total R$ 1.198,80)</option>
+                         <option value={1}>1x de R$ 1.198,80 à vista</option>
+                       </select>
+                    </label>
+                  )}
+
                   <button onClick={assinarCartao} disabled={processando}
                     className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 dark:bg-gray-100 py-4 font-bold text-white dark:text-gray-900 transition-transform hover:scale-[1.01] active:scale-95 disabled:pointer-events-none disabled:opacity-50">
                     {processando ? (
                       <><div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-500 border-t-white dark:border-t-gray-900"></div> Autenticando no Banco...</>
                     ) : (
-                      <><Lock size={18} /> Pagar Assinatura (R$ 150,00)</>
+                      <><Lock size={18} /> Pagar Assinatura ({ciclo === 'anual' ? 'R$ 1.198,80' : 'R$ 129,90'})</>
                     )}
                   </button>
                 </div>
@@ -296,7 +362,9 @@ export default function Assinatura() {
                 <div className="space-y-6 animate-in slide-in-from-left-4 flex flex-col items-center">
                   <div className="text-center mt-2">
                      <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">Pagamento instantâneo via Pix.</p>
-                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Acesso liberado no exato segundo que você pagar.</p>
+                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                       {ciclo === 'anual' ? 'Plano Anual: R$ 1.198,80 (equivalente a R$ 99,90/mês)' : 'Plano Mensal: R$ 129,90/mês'}
+                     </p>
                   </div>
 
                   {!qrCode ? (
@@ -305,7 +373,7 @@ export default function Assinatura() {
                        {processando ? (
                          <><div className="h-5 w-5 animate-spin rounded-full border-2 border-teal-800 border-t-white"></div> Gerando código seguro...</>
                        ) : (
-                         <><QrCode size={20} /> Gerar Pix de R$ 150,00</>
+                         <><QrCode size={20} /> Gerar Pix ({ciclo === 'anual' ? 'R$ 1.198,80' : 'R$ 129,90'})</>
                        )}
                      </button>
                   ) : (

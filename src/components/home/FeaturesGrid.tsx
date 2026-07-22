@@ -1,4 +1,4 @@
-import { Check, MonitorSmartphone, Receipt, Bike, TrendingUp, DollarSign, Store } from 'lucide-react';
+import { Check, MonitorSmartphone, Receipt, DollarSign, Store, Box, Boxes } from 'lucide-react';
 
 export default function FeaturesGrid() {
   return (
@@ -16,6 +16,18 @@ export default function FeaturesGrid() {
 
         <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
           {[
+            {
+              icon: <Box size={24} className="text-orange-500" />,
+              titulo: 'Salão 3D & Divisão por Assento',
+              deles: 'Mesas genéricas em 2D que não identificam qual cliente pediu o quê, gerando confusão no fechamento da conta.',
+              nosso: 'MiseOn: Engine 3D realista com assentos numerados, cronômetro de permanência do cliente e 3 modalidades de divisão de comanda (individual por cadeira, igualitária ou parcial).',
+            },
+            {
+              icon: <Boxes size={24} className="text-orange-500" />,
+              titulo: 'Grafo 3D PEPS & Custeio Real',
+              deles: 'Estoque amador baseado em planilhas ou contagens manuais sem rastreabilidade de lotes.',
+              nosso: 'MiseOn: Visualização gráfica em 3D da movimentação de lotes por PEPS, cálculo automático de rendimento e CMV exato grama por grama.',
+            },
             {
               icon: <DollarSign size={24} className="text-blue-500" />,
               titulo: 'Loja Própria Premium',
@@ -40,18 +52,6 @@ export default function FeaturesGrid() {
               deles: 'Cobrança de mensalidade extra apenas para emitir obrigações fiscais.',
               nosso: 'MiseOn: Emissor NFC-e nativo. Emita os cupons fiscais com um clique, sem sair do PDV e sem taxas escondidas.',
             },
-            {
-              icon: <TrendingUp size={24} className="text-blue-500" />,
-              titulo: 'Ficha Técnica Profissional',
-              deles: 'Estoque amador baseado em "achismos" e contagens manuais incorretas.',
-              nosso: 'MiseOn: Baixa de insumos grama por grama a cada venda. Saiba exatamente o seu CMV e evite desperdícios.',
-            },
-            {
-              icon: <Bike size={24} className="text-blue-500" />,
-              titulo: 'Logística Descomplicada',
-              deles: 'Planilhas ou aplicativos terceiros complexos para acionar motoboys.',
-              nosso: 'MiseOn: Despache o pedido com um clique, calcule rotas e acompanhe as entregas através do painel logístico integrado.',
-            }
           ].map((c, i) => (
             <div key={i} style={{ border: '1px solid rgba(255,255,255,.05)', background: '#111827' }} className="rounded-3xl p-8 relative hover:border-[rgba(10,92,196,0.3)] transition-all">
               <div className="mb-4 bg-blue-500/10 inline-block p-3 rounded-2xl">{c.icon}</div>

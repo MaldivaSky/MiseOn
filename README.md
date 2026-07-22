@@ -36,12 +36,14 @@ O cliente pede pela vitrine (link próprio da loja), o dono recebe em tempo real
 
 | Módulo | Recursos |
 |---|---|
-| 🛍 **Vitrine** | Banners promocionais, busca, filtros por categoria, "os mais pedidos", grupos de adicionais/extras, combos, horário de funcionamento automático, pedido mínimo |
-| 🛒 **Pedidos** | Carrinho, delivery/retirada, cupons (1ª compra, por método de pagamento), taxa de entrega por bairro, troco, observações por item |
-| 💸 **Pagamentos** | Pix **dentro da plataforma** (Efí Bank: QR Code + copia-e-cola + confirmação automática via webhook), **cartão de crédito online** com tokenização no navegador (PCI-safe, parcelado), fallback Pix estático, dinheiro/cartão na entrega |
-| 🛵 **Entregador** | Login com papel próprio, fila de entregas em tempo real, rota no Google Maps com 1 toque, aviso de cobrança na entrega, baixa de entrega |
-| 📟 **Painel (PWA)** | Pedidos em tempo real (websocket), som de campainha, notificação, fluxo de status (novo → aceito → preparando → pronto → em rota → finalizado), comanda térmica 80mm |
-| 📦 **Estoque** | Ledger auditável, baixa automática no aceite, estorno no cancelamento, **Calculadora Dinâmica de Rendimento**, e **Central de Compras Massiva** com conversão reversa inteligente |
+| 🪑 **Salão 3D & Assentos** | Engine **Three.js WebGL** interativa para visualização 3D de salão, assentos numerados por mesa, cronômetro de permanência do cliente e 3 modalidades de comanda fracionada (por cadeira, igualitária ou valor parcial). |
+| 🧊 **Estoque & Grafo PEPS 3D** | Ledger auditável PEPS com **Grafo 3D de Transformação de Lotes**, baixa automática no aceite, estorno no cancelamento, **Calculadora Dinâmica de Rendimento** e **Central de Compras Massiva** com conversão reversa. |
+| 🛍 **Vitrine** | Banners promocionais, busca, filtros por categoria, "os mais pedidos", grupos de adicionais/extras, combos, horário de funcionamento automático, pedido mínimo. |
+| 🛒 **Pedidos** | Carrinho, delivery/retirada/salão, cupons (1ª compra, por método de pagamento), taxa de entrega por bairro, troco, observações por item. |
+| 💸 **Pagamentos** | Pix **dentro da plataforma** (Efí Bank: QR Code + copia-e-cola + confirmação automática via webhook), **cartão de crédito online** com tokenização no navegador (PCI-safe, parcelado), fallback Pix estático, dinheiro/cartão na entrega. |
+| 💳 **Assinatura SaaS** | Checkout transparente integrado à Efí Bank com opções **Mensal (R$ 129,90/mês)** e **Anual (R$ 99,90/mês — R$ 1.198,80/ano com 23% OFF / R$ 360 de economia)**. |
+| 🛵 **Entregador** | Login com papel próprio, fila de entregas em tempo real, rota no Google Maps com 1 toque, aviso de cobrança na entrega, baixa de entrega. |
+| 📟 **Painel (PWA)** | Pedidos em tempo real (websocket), som de campainha, notificação, fluxo de status (novo → aceito → preparando → pronto → em rota → finalizado), comanda térmica 80mm. |
 | 📈 **Financeiro (Ledger)** | Contabilidade de **dupla entrada** atômica via Triggers no Postgres. Lançamentos automáticos de receita e estorno, sem *race conditions*, separando fluxo próprio de integrações (ex: taxa iFood destacada). |
 | 📊 **Inteligência** | **DRE Mensal em Tempo Real** (`vw_dre_mensal`), Extrato de Caixa (`vw_caixa_extrato`), Motor de Rateio de Despesas Fixas, Lucro Líquido Real e margem por produto na Ficha Técnica (`vw_custo_produto`). |
 | 👁️ **Observabilidade** | Monitoramento em tempo real (Supabase Realtime) no Painel Administrativo. Detecta e notifica sobre estornos suspeitos, falhas de estoque (cancelamentos após aceite) e falhas de assinatura em Webhooks (HMAC). |
