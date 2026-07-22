@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History, CreditCard, ShoppingCart, Flame, ChevronLeft, Menu, UserCircle, LifeBuoy, LayoutDashboard, Calculator, ChefHat, LayoutGrid, MessageSquare, Plug } from 'lucide-react';
+import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History, CreditCard, ShoppingCart, Flame, ChevronLeft, Menu, UserCircle, LifeBuoy, LayoutDashboard, Calculator, ChefHat, LayoutGrid, MessageSquare, MessageCircle, Plug } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { avaliarAssinatura } from '../../lib/assinatura';
 import ThemeToggle from '../../components/ThemeToggle';
@@ -169,6 +169,7 @@ export default function AdminLayout() {
   const mais = [
     { to: '/admin/chat', icon: <MessageSquare size={20} />, label: 'Central de Atendimento (Chat)' },
     { to: '/admin/ifood', icon: <Plug size={20} />, label: 'Integração iFood' },
+    { to: '/admin/whatsapp', icon: <MessageCircle size={20} />, label: 'Integração WhatsApp' },
     { to: '/admin/compras', icon: <ShoppingCart size={20} />, label: 'Central de Compras' },
     { to: '/admin/financeiro', icon: <TrendingUp size={20} />, label: 'Financeiro' },
     { to: '/admin/historico', icon: <History size={20} />, label: 'Histórico' },

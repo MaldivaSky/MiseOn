@@ -28,3 +28,7 @@ verify_jwt = false
 [functions.whatsapp-worker]
 enabled = true
 verify_jwt = true
+
+[functions.whatsapp-conectar]
+enabled = true
+verify_jwt = true
