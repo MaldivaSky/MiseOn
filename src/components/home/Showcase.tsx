@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingBag, Store, Boxes, QrCode, ChevronRight, TrendingUp, DollarSign, CheckCircle2, Clock, AlertCircle, MapPin, Truck, Box } from 'lucide-react';
+import { ShoppingBag, Store, Boxes, QrCode, ChevronRight, TrendingUp, DollarSign, CheckCircle2, Clock, MapPin, Truck, Box } from 'lucide-react';
 
 const RECURSOS = [
   {
@@ -123,55 +123,7 @@ const MockupIFood = () => (
   </div>
 );
 
-const MockupEstoque = () => (
-  <div className="w-full h-full bg-[#0B1120] p-5 flex flex-col gap-4">
-    <div className="flex justify-between items-center">
-      <div className="text-white font-bold text-lg flex items-center gap-2"><Boxes size={20} className="text-blue-500" /> Ficha Técnica & Estoque</div>
-    </div>
-    
-    <div className="bg-gray-900 rounded-xl border border-gray-800 p-5 flex-1">
-      <div className="text-sm font-bold text-white mb-4 border-b border-gray-800 pb-2">Insumos Críticos</div>
-      
-      <div className="space-y-5">
-        <div>
-          <div className="flex justify-between text-sm mb-1">
-            <span className="text-white font-medium">Blend Carne 180g</span>
-            <span className="text-red-400 font-bold">12 un</span>
-          </div>
-          <div className="w-full bg-gray-800 rounded-full h-2">
-            <div className="bg-red-500 h-2 rounded-full" style={{ width: '15%' }}></div>
-          </div>
-          <div className="text-xs text-red-400 mt-1 flex items-center gap-1"><AlertCircle size={10}/> Comprar urgente</div>
-        </div>
 
-        <div>
-          <div className="flex justify-between text-sm mb-1">
-            <span className="text-white font-medium">Pão Brioche</span>
-            <span className="text-yellow-400 font-bold">45 un</span>
-          </div>
-          <div className="w-full bg-gray-800 rounded-full h-2">
-            <div className="bg-yellow-500 h-2 rounded-full" style={{ width: '40%' }}></div>
-          </div>
-        </div>
-
-        <div>
-          <div className="flex justify-between text-sm mb-1">
-            <span className="text-white font-medium">Queijo Cheddar Fatiado</span>
-            <span className="text-green-400 font-bold">2.4 kg</span>
-          </div>
-          <div className="w-full bg-gray-800 rounded-full h-2">
-            <div className="bg-green-500 h-2 rounded-full" style={{ width: '85%' }}></div>
-          </div>
-        </div>
-      </div>
-      
-      <div className="mt-6 bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-        <div className="text-xs text-blue-400 font-bold mb-1">Baixa Automática</div>
-        <div className="text-xs text-gray-300">A venda do pedido #1042 consumiu <b className="text-white">1x Blend 180g</b> e <b className="text-white">1x Pão Brioche</b>.</div>
-      </div>
-    </div>
-  </div>
-);
 
 const MockupEfi = () => (
   <div className="w-full h-full bg-[#0B1120] p-5 flex flex-col gap-5">
@@ -259,45 +211,146 @@ const ArrowUpRight = ({ size, className }: { size: number, className?: string })
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
 );
 
-const MockupSalao3D = () => (
-  <div className="w-full h-full bg-[#0B1120] p-5 flex flex-col gap-4">
+const MockupEstoque3D = () => (
+  <div className="w-full h-full bg-[#0B1120] p-5 flex flex-col gap-4 font-sans">
     <div className="flex justify-between items-center border-b border-gray-800 pb-3">
       <div className="text-white font-bold text-lg flex items-center gap-2">
-        <Box size={20} className="text-orange-500" /> Salão 3D & Gestão por Assento
+        <Boxes size={20} className="text-cyan-400" /> Grafo 3D PEPS & Rastreio de Lotes
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="bg-cyan-500/20 text-cyan-300 text-xs font-bold px-3 py-1 rounded-full border border-cyan-500/30">
+          Engine WebGL 3D
+        </span>
+      </div>
+    </div>
+
+    <div className="relative flex-1 bg-[#070C18] rounded-2xl border border-gray-800 p-4 overflow-hidden flex flex-col justify-between shadow-2xl">
+      {/* Grade Neon e Linhas de Conexão Causal 3D */}
+      <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#0A5CC4_1px,transparent_1px)] bg-[size:16px_16px]"></div>
+      
+      {/* Visualizador de Nós de Grafo 3D */}
+      <div className="relative z-10 grid grid-cols-3 gap-3 h-full my-auto items-center">
+        
+        {/* Nó 1: Lote de Compra */}
+        <div className="bg-gray-900/90 backdrop-blur-md border-2 border-cyan-500/60 rounded-2xl p-3.5 shadow-[0_0_20px_rgba(6,182,212,0.15)] flex flex-col justify-between h-36">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black uppercase text-cyan-400 tracking-wider">Nó #1 • Lote PEPS</span>
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+          </div>
+          <div>
+            <p className="text-white font-black text-xs leading-tight">Lote #2026-07A</p>
+            <p className="text-gray-400 text-[11px] font-medium mt-0.5">Caixa Carne 25kg</p>
+          </div>
+          <div className="border-t border-gray-800 pt-1.5 flex justify-between items-center text-[10px]">
+            <span className="text-gray-500">Custo Lote:</span>
+            <span className="text-cyan-300 font-bold">R$ 625,00</span>
+          </div>
+        </div>
+
+        {/* Nó 2: Insumo Processado */}
+        <div className="bg-gray-900/90 backdrop-blur-md border-2 border-orange-500/60 rounded-2xl p-3.5 shadow-[0_0_20px_rgba(252,91,36,0.15)] flex flex-col justify-between h-36 relative">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black uppercase text-orange-400 tracking-wider">Nó #2 • Ficha Técnica</span>
+            <span className="bg-orange-500/20 text-orange-400 text-[9px] font-bold px-1.5 py-0.5 rounded">Rendimento 96.8%</span>
+          </div>
+          <div>
+            <p className="text-white font-black text-xs leading-tight">Blend Smash 180g</p>
+            <p className="text-gray-400 text-[11px] font-medium mt-0.5">138 porções ativas</p>
+          </div>
+          <div className="border-t border-gray-800 pt-1.5 flex justify-between items-center text-[10px]">
+            <span className="text-gray-500">Custo/Un:</span>
+            <span className="text-orange-300 font-bold">R$ 4,50 /porção</span>
+          </div>
+        </div>
+
+        {/* Nó 3: Produto Final */}
+        <div className="bg-gray-900/90 backdrop-blur-md border-2 border-emerald-500/60 rounded-2xl p-3.5 shadow-[0_0_20px_rgba(16,185,129,0.15)] flex flex-col justify-between h-36">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">Nó #3 • Produto Final</span>
+            <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-bold px-1.5 py-0.5 rounded">Margem 79.1%</span>
+          </div>
+          <div>
+            <p className="text-white font-black text-xs leading-tight">Burger Master X-Bacon</p>
+            <p className="text-gray-400 text-[11px] font-medium mt-0.5">Preço: R$ 38,90</p>
+          </div>
+          <div className="border-t border-gray-800 pt-1.5 flex justify-between items-center text-[10px]">
+            <span className="text-gray-500">CMV Exato:</span>
+            <span className="text-emerald-300 font-bold">R$ 8,12 (20.8%)</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div className="relative z-10 bg-gray-900/90 backdrop-blur-md rounded-xl border border-gray-800 p-3 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
+          <span className="text-xs text-gray-200 font-bold">Conservação de Valor PEPS: <strong className="text-emerald-400">100.0% Auditado</strong></span>
+        </div>
+        <span className="text-[11px] text-gray-400 font-mono">Rastreio Causal Lote → Venda</span>
+      </div>
+    </div>
+  </div>
+);
+
+const MockupSalao3D = () => (
+  <div className="w-full h-full bg-[#0B1120] p-5 flex flex-col gap-4 font-sans">
+    <div className="flex justify-between items-center border-b border-gray-800 pb-3">
+      <div className="text-white font-bold text-lg flex items-center gap-2">
+        <Box size={20} className="text-orange-500" /> Salão 3D & Divisão por Cadeira
       </div>
       <span className="bg-orange-500/20 text-orange-400 text-xs font-bold px-3 py-1 rounded-full border border-orange-500/30">
-        Three.js Engine WebGL
+        Three.js WebGL Engine
       </span>
     </div>
 
-    <div className="relative flex-1 bg-gray-950 rounded-2xl border border-gray-800 p-4 overflow-hidden flex flex-col justify-between">
-      {/* Grade visual simulação 3D */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-gray-900 border-2 border-orange-500/60 rounded-2xl p-4 relative shadow-lg shadow-orange-500/10">
+    <div className="relative flex-1 bg-[#070C18] rounded-2xl border border-gray-800 p-4 overflow-hidden flex flex-col justify-between shadow-2xl">
+      {/* Simulação Salão Isometrico 3D */}
+      <div className="grid grid-cols-2 gap-4 my-auto">
+        
+        {/* Mesa Ocupada */}
+        <div className="bg-gray-900/90 backdrop-blur-md border-2 border-orange-500/80 rounded-2xl p-4 relative shadow-[0_0_30px_rgba(252,91,36,0.2)]">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-white font-black text-lg">Mesa 04</span>
-            <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">OCUPADA</span>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-orange-500 shadow-[0_0_10px_#FC5B24] animate-pulse"></div>
+              <span className="text-white font-black text-lg">Mesa 04 (Redonda)</span>
+            </div>
+            <span className="bg-orange-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full">OCUPADA</span>
           </div>
-          <p className="text-orange-400 font-bold text-base">R$ 184,50</p>
-          <div className="flex items-center gap-2 mt-2 text-xs text-gray-400 font-semibold">
-            <span>⏱️ 45m em mesa</span> ·
-            <span className="text-blue-400 font-bold">3/4 cadeiras</span>
+          <div className="flex items-baseline justify-between mt-3">
+            <span className="text-orange-400 font-black text-2xl">R$ 214,00</span>
+            <span className="text-xs text-blue-400 font-bold bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">4/4 Cadeiras</span>
+          </div>
+          <div className="flex items-center gap-2 mt-3 text-xs text-gray-300 font-medium border-t border-gray-800 pt-2">
+            <span>⏱️ <strong>1h 12m</strong> em mesa</span>
+            <span className="text-gray-600">•</span>
+            <span className="text-emerald-400 font-semibold">Comanda Ativa #890</span>
           </div>
         </div>
 
-        <div className="bg-gray-900 border-2 border-emerald-500/40 rounded-2xl p-4 relative">
+        {/* Mesa Livre */}
+        <div className="bg-gray-900/90 backdrop-blur-md border-2 border-emerald-500/40 rounded-2xl p-4 relative">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-white font-black text-lg">Mesa 05</span>
-            <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-black px-2 py-0.5 rounded-full">LIVRE</span>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_10px_#10B981]"></div>
+              <span className="text-white font-black text-lg">Mesa 05 (Booth)</span>
+            </div>
+            <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-black px-2.5 py-0.5 rounded-full">LIVRE</span>
           </div>
-          <p className="text-gray-400 font-bold text-sm">Disponível</p>
-          <div className="mt-2 text-xs text-emerald-400 font-semibold">4 lugares vagos</div>
+          <div className="mt-4">
+            <p className="text-gray-400 font-medium text-sm">Pronta para Atendimento</p>
+            <p className="text-xs text-emerald-400 font-bold mt-1">4 lugares disponíveis no setor Salão Principal</p>
+          </div>
         </div>
       </div>
 
-      <div className="bg-gray-900/90 backdrop-blur-md rounded-xl border border-gray-800 p-3">
-        <div className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-1">Garçom App • Divisão Inteligente</div>
-        <div className="text-xs text-gray-300">Cadeira #1: Chopp + Picanha (R$ 89,00) · Cadeira #2: Suco + Risotto (R$ 95,50)</div>
+      <div className="bg-gray-900/90 backdrop-blur-md rounded-xl border border-gray-800 p-3.5 flex justify-between items-center">
+        <div>
+          <div className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-0.5">App Garçom • Divisão por Assento</div>
+          <div className="text-xs text-gray-300">Cadeira #1: R$ 65,00 · Cadeira #2: R$ 82,00 · Cadeira #3: R$ 67,00</div>
+        </div>
+        <span className="text-[10px] font-bold text-orange-400 bg-orange-500/10 px-2.5 py-1.5 rounded-lg border border-orange-500/20 shrink-0">
+          3 Modos de Fechamento
+        </span>
       </div>
     </div>
   </div>
@@ -309,7 +362,7 @@ export default function Showcase() {
   const renderMockup = () => {
     switch (activeTab) {
       case 'salao3d': return <MockupSalao3D />;
-      case 'estoque3d': return <MockupEstoque />;
+      case 'estoque3d': return <MockupEstoque3D />;
       case 'kds': return <MockupKDS />;
       case 'ifood': return <MockupIFood />;
       case 'efi': return <MockupEfi />;
