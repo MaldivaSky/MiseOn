@@ -180,39 +180,43 @@ export default function Ajuda() {
       {/* ── TAB: INTEGRAÇÕES ── */}
       {tabAtiva === 'integracoes' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="mb-8 rounded-3xl border border-green-200/60 bg-gradient-to-br from-green-50 to-emerald-50/30 p-6 dark:border-green-900/30 dark:from-green-900/10 dark:to-emerald-900/10">
-             <div className="flex items-start gap-4">
-               <div className="rounded-full bg-green-100 p-3 dark:bg-green-900/30">
-                  <MessageCircle size={24} className="text-green-600 dark:text-green-400" />
+          <div className="relative mb-8 overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-[#022c22] via-[#064e3b] to-[#052e16] p-6 shadow-xl shadow-emerald-950/40 sm:p-8">
+             {/* brilhos decorativos */}
+             <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-emerald-400/20 blur-3xl" />
+             <div className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-teal-300/10 blur-3xl" />
+
+             <div className="relative flex items-start gap-4">
+               <div className="rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-md">
+                  <MessageCircle size={26} className="text-emerald-300" />
                </div>
                <div>
-                  <h3 className="mb-2 text-lg font-black text-green-900 dark:text-green-100">Seu WhatsApp atendendo sozinho — de verdade</h3>
-                  <p className="text-sm leading-relaxed text-green-800/80 dark:text-green-200/80">
-                    A IA do MiseOn responde seus clientes no WhatsApp usando os dados <b>reais</b> da sua loja — cardápio, preços, estoque e horário.
+                  <h3 className="mb-2 text-lg font-black text-white sm:text-xl">Seu WhatsApp atendendo sozinho — de verdade</h3>
+                  <p className="text-sm leading-relaxed text-emerald-100/85">
+                    A IA do MiseOn responde seus clientes no WhatsApp usando os dados <b className="text-white">reais</b> da sua loja — cardápio, preços, estoque e horário.
                     Quando o cliente quer pedir, ele finaliza no seu cardápio digital e o pedido cai direto no seu painel, com selo verde.
                   </p>
                </div>
              </div>
-             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div className="flex items-start gap-3 rounded-2xl bg-white/70 p-4 shadow-sm dark:bg-black/20 backdrop-blur">
-                  <MessageCircle size={20} className="mt-0.5 shrink-0 text-green-600" />
+             <div className="relative mt-6 grid gap-3 sm:grid-cols-3">
+                <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-md transition-colors hover:bg-white/15">
+                  <MessageCircle size={20} className="mt-0.5 shrink-0 text-emerald-300" />
                   <div>
-                    <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Responde dúvidas</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">Preço, ingredientes, taxa de entrega, horário — tudo lido do seu cadastro.</p>
+                    <p className="text-sm font-bold text-white">Responde dúvidas</p>
+                    <p className="text-xs text-emerald-100/70 mt-0.5">Preço, ingredientes, taxa de entrega, horário — tudo lido do seu cadastro.</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 rounded-2xl bg-white/70 p-4 shadow-sm dark:bg-black/20 backdrop-blur">
-                  <QrCode size={20} className="mt-0.5 shrink-0 text-green-600" />
+                <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-md transition-colors hover:bg-white/15">
+                  <QrCode size={20} className="mt-0.5 shrink-0 text-emerald-300" />
                   <div>
-                    <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Manda o cardápio</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">Na hora de pedir, o cliente recebe o link e monta o carrinho com preço real.</p>
+                    <p className="text-sm font-bold text-white">Manda o cardápio</p>
+                    <p className="text-xs text-emerald-100/70 mt-0.5">Na hora de pedir, o cliente recebe o link e monta o carrinho com preço real.</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 rounded-2xl bg-white/70 p-4 shadow-sm dark:bg-black/20 backdrop-blur">
-                  <ClipboardList size={20} className="mt-0.5 shrink-0 text-green-600" />
+                <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-md transition-colors hover:bg-white/15">
+                  <ClipboardList size={20} className="mt-0.5 shrink-0 text-emerald-300" />
                   <div>
-                    <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Pedido no painel</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">Cai como "Novo" com selo WhatsApp. Você aceita como qualquer pedido.</p>
+                    <p className="text-sm font-bold text-white">Pedido no painel</p>
+                    <p className="text-xs text-emerald-100/70 mt-0.5">Cai como "Novo" com selo WhatsApp. Você aceita como qualquer pedido.</p>
                   </div>
                 </div>
               </div>
