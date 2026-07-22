@@ -139,11 +139,66 @@ DEFINER`. `email_log` estava **sem RLS** antes desta entrega.
 
 | # | Pendência | Por que importa |
 |---|---|---|
-| P1 | **Agendar o worker.** Criar `EMAIL_WORKER_TOKEN` (Supabase Secrets + Vercel Env), rota `/api/cron/email` e `crons` no `vercel.json` | Hoje a fila só drena por chamada manual. Sem isso, nada é enviado sozinho |
+| P1 | **Definir os segredos do agendador** (ver 5.1) | O código está pronto e no ar, mas sem os segredos a drenagem agendada responde 401 |
 | P2 | **Revogar a App Password do Gmail** exposta no histórico do Git e gerar outra | Credencial comprometida em repositório |
 | P3 | **Migrar para Resend com domínio próprio** (SPF/DKIM/DMARC) | Gmail limita ~500/dia e o remetente aparece como conta pessoal; sem DKIM o volume vai para spam |
 | P4 | **Capturar e-mail no checkout** | `clientes.email` é opcional e o fluxo é telefone-first: hoje a maioria dos clientes não tem e-mail, e a fila descarta em silêncio |
 | P5 | Trocar `acesso-equipe` por **link de senha de uso único** (`generateLink`) | Elimina a senha em trânsito e a senha fixa versionada no seed |
+
+### 5.1 Como a fila é drenada
+
+O plano Hobby da Vercel limita cron a **1x por dia**, o que serve de rede de
+segurança mas não de entrega — "seu pedido saiu para entrega" chegando no dia
+seguinte não vale nada. Por isso são três camadas:
+
+| Camada | Quando | Autenticação | Alcance |
+|---|---|---|---|
+| Painel aberto | a cada 60s durante o serviço | JWT do usuário | só a própria loja |
+| Cron diário | 08:00 BRT (`0 11 * * *` UTC) | `CRON_SECRET` + `EMAIL_WORKER_TOKEN` | todas as lojas |
+| Manual | sob demanda | `EMAIL_WORKER_TOKEN` | todas as lojas |
+
+O horário do cron coincide com a abertura da janela de silêncio, então o
+marketing represado durante a madrugada sai na primeira execução do dia.
+
+**A service role key não circula.** O agendador usa `EMAIL_WORKER_TOKEN`, que
+só sabe drenar a fila. Se vazar, o estrago é disparar e-mails já aprovados; a
+service key daria o banco inteiro.
+
+A edge function roda com `verify_jwt: false` — obrigatório para o agendador
+autenticar por token próprio. Em troca, **cada ação autentica a si mesma**:
+`processar` exige o token do worker, `drenar` exige JWT com vínculo na loja,
+`teste` exige JWT de admin da loja, e qualquer outra ação é rejeitada.
+Token ausente e token errado devolvem o mesmo 401, para não revelar o estado
+do serviço a quem sonda de fora.
+
+#### Segredos a definir (uma vez)
+
+Gere um valor aleatório forte, por exemplo:
+
+```bash
+openssl rand -base64 32
+```
+
+| Onde | Nome | Valor |
+|---|---|---|
+| Supabase → Edge Functions → Secrets | `EMAIL_WORKER_TOKEN` | o valor gerado |
+| Vercel → Environment Variables | `EMAIL_WORKER_TOKEN` | **o mesmo** valor |
+| Vercel → Environment Variables | `CRON_SECRET` | outro valor aleatório |
+| Vercel → Environment Variables | `SUPABASE_FUNCTIONS_URL` | `https://zzuxklwhaoisuuvndtfw.supabase.co/functions/v1` |
+
+O `CRON_SECRET` é enviado automaticamente pela Vercel como `Bearer` no header
+das execuções agendadas — não precisa de código para isso.
+
+Conferir depois de configurar:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' \
+  -X POST https://zzuxklwhaoisuuvndtfw.supabase.co/functions/v1/send-transactional-email \
+  -H 'Content-Type: application/json' -H "x-worker-token: $EMAIL_WORKER_TOKEN" \
+  -d '{"acao":"processar"}'
+```
+
+`200` = drenando. `401` = token divergente entre os dois cofres.
 
 ---
 

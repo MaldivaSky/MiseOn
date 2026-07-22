@@ -72,6 +72,28 @@ export default function AdminLayout() {
     })();
   }, [nav, loc.pathname]);
 
+  // O agendador externo roda 1x/dia (limite do plano) — serve de rede de
+  // segurança, não de entrega: "seu pedido saiu para entrega" chegando no
+  // dia seguinte não vale nada. Enquanto o painel está aberto, ou seja
+  // exatamente durante o serviço, ele cutuca a fila da própria loja.
+  // Falha aqui é silenciosa de propósito: e-mail não pode atrapalhar a
+  // operação, e o cron recupera o que ficar para trás.
+  useEffect(() => {
+    if (!ctx?.lojaId) return;
+    let vivo = true;
+
+    const cutucar = () => {
+      if (!vivo || document.hidden) return;
+      supabase.functions
+        .invoke('send-transactional-email', { body: { acao: 'drenar', loja_id: ctx.lojaId } })
+        .catch(() => {});
+    };
+
+    cutucar();
+    const timer = setInterval(cutucar, 60_000);
+    return () => { vivo = false; clearInterval(timer); };
+  }, [ctx?.lojaId]);
+
   const sair = async () => { await supabase.auth.signOut(); nav('/admin/login'); };
 
   if (erroConexao) {

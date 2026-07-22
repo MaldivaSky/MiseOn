@@ -41,6 +41,22 @@ const GMAIL_USER = Deno.env.get('GMAIL_USER');
 const GMAIL_APP_PASSWORD = Deno.env.get('GMAIL_APP_PASSWORD');
 const REMETENTE_NOME = Deno.env.get('EMAIL_FROM_NAME') ?? 'MiseOn';
 
+// Token dedicado só para drenar a fila. Menor privilégio: se vazar, o
+// estrago é disparar e-mails já aprovados — a service role key daria o
+// banco inteiro. Por isso o agendador não conhece a service key.
+const EMAIL_WORKER_TOKEN = Deno.env.get('EMAIL_WORKER_TOKEN');
+
+/** Comparação em tempo constante: não revela o segredo pelo tempo de resposta. */
+function tokenConfere(recebido: string | null, esperado: string) {
+  if (!recebido) return false;
+  const a = new TextEncoder().encode(recebido);
+  const b = new TextEncoder().encode(esperado);
+  if (a.length !== b.length) return false;
+  let diferenca = 0;
+  for (let i = 0; i < a.length; i++) diferenca |= a[i] ^ b[i];
+  return diferenca === 0;
+}
+
 const MAX_TENTATIVAS = 4;
 const LOTE = 20;
 
@@ -227,11 +243,53 @@ Deno.serve(async (req) => {
     }
 
     // ── Drenagem da fila ──────────────────────────────────────
+    // A função roda com verify_jwt desligado para o agendador poder
+    // chamar por token dedicado, então cada ação autentica a si mesma.
+    //
+    //   'processar' → agendador, token de worker, drena todas as lojas
+    //   'drenar'    → painel aberto na loja, JWT do usuário, só a loja dele
+    if (acao !== 'processar' && acao !== 'drenar') {
+      return json({ error: 'Ação desconhecida' }, 400);
+    }
+
+    let escopoLoja: string | null = null;
+
+    if (acao === 'drenar') {
+      const comoUsuario = createClient(SUPABASE_URL, ANON_KEY, {
+        global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
+      });
+      const { data: { user } } = await comoUsuario.auth.getUser();
+      if (!user) return json({ error: 'Não autenticado' }, 401);
+
+      const { loja_id } = body;
+      if (!loja_id) return json({ error: 'loja_id obrigatório' }, 400);
+
+      const { data: vinculo } = await db
+        .from('usuarios_loja').select('papel')
+        .eq('user_id', user.id).eq('loja_id', loja_id).maybeSingle();
+      if (!vinculo) return json({ error: 'Sem acesso a esta loja' }, 403);
+
+      escopoLoja = loja_id;
+    } else {
+      // Token ausente na configuração e token errado respondem igual:
+      // a diferença revelaria o estado do serviço a quem sonda de fora.
+      // O motivo real fica só no log.
+      if (!EMAIL_WORKER_TOKEN) {
+        console.error('EMAIL_WORKER_TOKEN não definido — drenagem desabilitada.');
+      }
+      if (!EMAIL_WORKER_TOKEN || !tokenConfere(req.headers.get('x-worker-token'), EMAIL_WORKER_TOKEN)) {
+        return json({ error: 'Não autorizado' }, 401);
+      }
+    }
+
     // Carrinho abandonado é o único evento sem ator: ninguém clica
     // em "abandonar". A varredura roda junto com a drenagem.
     const { data: carrinhos } = await db.rpc('fn_email_varrer_carrinhos', { p_minutos: 45 });
 
-    const { data: itens, error } = await db.rpc('fn_email_reservar', { p_limite: LOTE });
+    const { data: itens, error } = await db.rpc('fn_email_reservar', {
+      p_limite: LOTE,
+      p_loja: escopoLoja,
+    });
     if (error) throw error;
     if (!itens?.length) return json({ ok: true, processados: 0, carrinhos_detectados: carrinhos ?? 0 });
 
