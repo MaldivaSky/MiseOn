@@ -27,7 +27,7 @@
 import { supabase } from '../../supabase';
 import { reconstruirCadeia } from '../carregarGrafo';
 import { getUnidade } from '../../unidades';
-import { derivarSetor, SETORES, ORDEM_SETORES, type Setor, type SetorId } from './setores';
+import { derivarSetor, validarSetor, SETORES, ORDEM_SETORES, type Setor, type SetorId } from './setores';
 
 // ---------------------------------------------------------------------------
 // Tipos públicos
@@ -89,6 +89,8 @@ export interface LinhaInsumoRastreio {
   qtd_embalagem: number;
   categoria_insumo: string | null;
   is_preparo: boolean;
+  /** Setor físico do cadastro (null/ausente = derivação automática). */
+  setor?: string | null;
 }
 
 export interface LinhaCustoView {
@@ -113,6 +115,31 @@ const ROTULOS_ESTAGIO = ['Compra', 'Armazenado', 'Quebra'];
 
 function rotuloEstagio(indice: number): string {
   return ROTULOS_ESTAGIO[indice] ?? 'Uso';
+}
+
+/**
+ * Tipo da etapa que CHEGA no nível i:
+ *  - nível 0 (Compra) é sempre físico;
+ *  - sair de um agrupador (abrir a caixa: cx→kg) é físico — o conteúdo veio
+ *    dentro da embalagem, é fato da compra;
+ *  - conversão dimensional DENTRO da mesma grandeza (kg→g, L→ml) é física —
+ *    o fator é imutável por definição, não rendimento declarado;
+ *  - todo o resto (kg→un, un→fatias) é rendimento HUMANO ⚠️ — alguém precisa
+ *    fracionar/porcionar e registrar.
+ */
+function tipoEtapa(unidades: string[], i: number): 'fisica' | 'humana' {
+  if (i === 0) return 'fisica';
+  const anterior = getUnidade(unidades[i - 1])?.grandeza;
+  if (anterior === 'agrupador') return 'fisica';
+  const atual = getUnidade(unidades[i])?.grandeza;
+  if (
+    anterior != null &&
+    anterior === atual &&
+    (anterior === 'massa' || anterior === 'volume')
+  ) {
+    return 'fisica';
+  }
+  return 'humana';
 }
 
 /** Severidade para ordenação: problema primeiro, depois o valor investido. */
@@ -171,7 +198,8 @@ export function montarRastreio(
         ? [insumo.unidade_medida]
         : [cadeia[0].de, ...cadeia.map((p) => p.para)];
 
-    // Fator acumulado de cada nível até a base (base = 1).
+    // Fator acumulado de cada nível até a base (base = 1): quantas unidades
+    // BASE cabem em 1 unidade deste nível (1 cx = 320 fatias).
     const fatorAteBase: number[] = new Array(unidades.length).fill(1);
     for (let i = unidades.length - 2; i >= 0; i--) {
       fatorAteBase[i] = fatorAteBase[i + 1] * cadeia[i].multiplicador;
@@ -180,11 +208,11 @@ export function montarRastreio(
     const estagios: EstagioItem[] = unidades.map((unidade, i) => ({
       unidade,
       rotulo: rotuloEstagio(i),
+      // Quantidade: divide (40 fatias = 0,125 cx). Custo: MULTIPLICA (1 cx
+      // custa 320 × R$ 0,50 = R$ 160) — conserva quantidade × custoUnitario.
       quantidade: quantidadeAtual / fatorAteBase[i],
-      custoUnitario: custoBase != null ? custoBase / fatorAteBase[i] : null,
-      // A abertura do agrupador (cx→kg) é fato físico da compra; os demais
-      // passos são rendimentos declarados — etapas humanas da operação.
-      tipo: i === 0 ? 'fisica' : getUnidade(unidades[i - 1])?.grandeza === 'agrupador' ? 'fisica' : 'humana',
+      custoUnitario: custoBase != null ? custoBase * fatorAteBase[i] : null,
+      tipo: tipoEtapa(unidades, i),
     }));
 
     const desvioPct = view?.desvio_pct != null ? Number(view.desvio_pct) : null;
@@ -199,7 +227,8 @@ export function montarRastreio(
       insumoId: insumo.id,
       nome: insumo.nome,
       categoria: insumo.is_preparo ? 'Preparo' : (insumo.categoria_insumo ?? 'Ingrediente'),
-      setor: derivarSetor(insumo.nome, insumo.categoria_insumo),
+      // Setor oficial do cadastro manda; null = derivação automática.
+      setor: validarSetor(insumo.setor) ?? derivarSetor(insumo.nome, insumo.categoria_insumo),
       unidadeBase: insumo.unidade_medida,
       estagios,
       quantidadeAtual,
@@ -243,12 +272,7 @@ export function montarRastreio(
 /** Carrega todos os insumos ativos da loja com custo e cadeia, por setor. */
 export async function carregarRastreio(lojaId: string): Promise<SetorRastreio[]> {
   const [insumosRes, custosRes, fatoresRes] = await Promise.all([
-    supabase
-      .from('insumos')
-      .select('id,nome,unidade_medida,quantidade_atual,estoque_minimo,preco_embalagem,qtd_embalagem,categoria_insumo,is_preparo')
-      .eq('loja_id', lojaId)
-      .eq('ativo', true)
-      .order('nome'),
+    carregarInsumosRastreio(lojaId),
     supabase
       .from('vw_custo_real_estoque')
       .select('insumo_id,saldo_total,qtd_lotes_ativos,custo_medio_ponderado,custo_estimado,desvio_pct,alerta_desvio,custo_peps_proximo')
@@ -267,4 +291,31 @@ export async function carregarRastreio(lojaId: string): Promise<SetorRastreio[]>
     (custosRes.data ?? []) as LinhaCustoView[],
     (fatoresRes.data ?? []) as LinhaFatorRastreio[],
   );
+}
+
+const SELECT_INSUMOS =
+  'id,nome,unidade_medida,quantidade_atual,estoque_minimo,preco_embalagem,qtd_embalagem,categoria_insumo,is_preparo';
+
+/**
+ * Tenta ler com a coluna `setor` (oficial, da migração). Se a coluna ainda
+ * não existir no banco (erro 42703), degrada para a derivação automática em
+ * vez de derrubar o rastreio — o campo de cadastro é um refinamento, não um
+ * pré-requisito.
+ */
+async function carregarInsumosRastreio(lojaId: string) {
+  const comSetor = await supabase
+    .from('insumos')
+    .select(`${SELECT_INSUMOS},setor`)
+    .eq('loja_id', lojaId)
+    .eq('ativo', true)
+    .order('nome');
+  if ((comSetor.error as { code?: string } | null)?.code === '42703') {
+    return supabase
+      .from('insumos')
+      .select(SELECT_INSUMOS)
+      .eq('loja_id', lojaId)
+      .eq('ativo', true)
+      .order('nome');
+  }
+  return comSetor;
 }

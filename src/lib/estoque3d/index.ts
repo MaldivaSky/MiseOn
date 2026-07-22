@@ -7,8 +7,10 @@
  *  - CostGraphEngine.ts  → engine Three.js (InstancedMesh, bloom, raycaster)
  *  - CostGraph3D.tsx     → wrapper React (montagem, tooltip HTML, dispose)
  *  - dadosExemplo.ts     → dataset do caso clássico (tomate #452)
- *  - rastreio/           → Rastreio 3D: todos os itens por categoria, com a
- *                         cadeia compra → uso, custos reais e etapas humanas
+ *  - rastreio/           → Rastreio 3D: TODOS os itens por setor físico
+ *                         (geladeira/armário/dispensa), com a cadeia
+ *                         compra → uso, custos reais (PEPS → médio → cadastro),
+ *                         etapas humanas ⚠️ e checagem de receitas na cena
  */
 
 export { CostGraph3D, default } from './CostGraph3D';
@@ -31,16 +33,33 @@ export type {
 } from './types';
 export { COMPRAS_EXEMPLO } from './dadosExemplo';
 
-// Rastreio 3D — prancha operacional de todos os itens, por categoria.
+// ── Rastreio 3D — corredor operacional de todos os itens, por setor ────────
 export { carregarRastreio, montarRastreio } from './rastreio/carregarRastreio';
 export type {
-  CategoriaRastreio,
+  SetorRastreio,
   ItemRastreio,
   EstagioItem,
   EstadoItem,
-  OrigemCusto,
+  LinhaInsumoRastreio,
+  LinhaCustoView,
+  LinhaFatorRastreio,
 } from './rastreio/carregarRastreio';
-export { RastreioEngine, contagemVisual, ITENS_POR_PAGINA } from './rastreio/RastreioEngine';
-export type { OpcoesRastreio, HoverRastreio } from './rastreio/RastreioEngine';
+export {
+  SETORES,
+  ORDEM_SETORES,
+  OPCOES_SETOR,
+  derivarSetor,
+  validarSetor,
+} from './rastreio/setores';
+export type { Setor, SetorId } from './rastreio/setores';
+export { verificarReceita, carregarDadosReceitas } from './rastreio/receitas';
+export type {
+  DadosReceitas,
+  ReceitaCheck,
+  ReceitaResumo,
+  IngredienteCheck,
+} from './rastreio/receitas';
+export { RastreioEngine, contagemVisual } from './rastreio/RastreioEngine';
+export type { OpcoesRastreio } from './rastreio/RastreioEngine';
 export { Rastreio3D } from './rastreio/Rastreio3D';
 export { EstoqueRastreio3D } from './rastreio/EstoqueRastreio3D';

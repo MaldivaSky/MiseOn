@@ -91,3 +91,16 @@ export function derivarSetor(nome: string, categoriaInsumo: string | null | unde
 
   return 'dispensa';
 }
+
+/** Aceita só ids válidos de setor (campo do cadastro); o resto vira null. */
+export function validarSetor(valor: string | null | undefined): SetorId | null {
+  return valor === 'geladeira' || valor === 'armario' || valor === 'dispensa' ? valor : null;
+}
+
+/** Opções do select de cadastro — vazio = automático (derivação). */
+export const OPCOES_SETOR: Array<{ valor: SetorId | ''; rotulo: string }> = [
+  { valor: '', rotulo: 'Automático (pelo tipo de item)' },
+  { valor: 'geladeira', rotulo: '❄️ Geladeira' },
+  { valor: 'armario', rotulo: '🗄️ Armário' },
+  { valor: 'dispensa', rotulo: '🥫 Dispensa' },
+];
