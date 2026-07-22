@@ -23,7 +23,7 @@ function json(body: unknown, status = 200) {
 }
 
 function erro(msg: string, status = 400) {
-  return json({ error: msg }, { status });
+  return json({ error: msg }, status);
 }
 
 // RN-15: nunca expor segredo — só máscara com os últimos 4 caracteres
@@ -302,6 +302,6 @@ serve(async (req) => {
     return erro(`Ação desconhecida: ${acao}`);
   } catch (e) {
     console.error(e);
-    return json({ error: String((e as Error)?.message ?? e) }, { status: 500 });
+    return json({ error: String((e as Error)?.message ?? e) }, 500);
   }
 });
