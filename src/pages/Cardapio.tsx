@@ -179,8 +179,11 @@ export default function Cardapio() {
       document.title = `${l.nome} — Peça online`;
 
       if (numeroMesaUrl) {
-        const { data: mesa } = await supabase.from('mesas').select('*')
-          .eq('loja_id', l.id).eq('numero', Number(numeroMesaUrl)).eq('ativo', true).maybeSingle();
+        // A tabela `mesas` não tem mais SELECT público: o QR resolve a mesa
+        // pelo RPC fn_mesa_publica (slug + número exatos, não enumerável).
+        const { data: mesa } = await supabase
+          .rpc('fn_mesa_publica', { p_slug: slug, p_numero: Number(numeroMesaUrl) })
+          .maybeSingle();
         if (mesa) setMesaAtual(mesa as Mesa); else setMesaErro(true);
       }
     })();
