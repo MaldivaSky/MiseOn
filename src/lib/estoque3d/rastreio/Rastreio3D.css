@@ -1,284 +1,365 @@
-/* Estilos do Rastreio 3D — mesma linguagem visual do CostGraph3D
-   (fundo #0a0e17, painéis rgba(12,18,32,0.94), texto #eaf1ff/#9fb2d4). */
+/* Rastreio 3D — paleta vibrante sobre fundo profundo.
+   Cada setor tem sua cor (--cor-setor) usada em chips, cartões e cena. */
 
 .mo-r3d {
   position: relative;
   width: 100%;
-  border-radius: 16px;
+  border-radius: 18px;
   overflow: hidden;
-  background: radial-gradient(120% 120% at 50% 0%, #131b2e 0%, #0a0e17 60%);
-  box-shadow: 0 24px 60px -30px rgba(0, 0, 0, 0.8);
+  background: radial-gradient(120% 130% at 50% 0%, #18224a 0%, #0b1020 55%);
+  box-shadow: 0 24px 60px -30px rgba(0, 0, 0, 0.85);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
-.mo-r3d-canvas {
+.mo-r3d-canvas { position: absolute; inset: 0; }
+.mo-r3d-canvas canvas { display: block; }
+
+/* ── Chips de setor ─────────────────────────────────────────────── */
+.mo-r3d-setores {
   position: absolute;
-  inset: 0;
+  top: 14px;
+  left: 14px;
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 60%;
 }
 
-.mo-r3d-canvas canvas {
-  display: block;
+.mo-r3d-setor {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--cor-setor);
+  background: rgba(10, 16, 34, 0.82);
+  color: #eaf1ff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
-/* HUD superior esquerdo: números da categoria. */
+.mo-r3d-setor:hover { transform: translateY(-1px); }
+
+.mo-r3d-setor.ativo {
+  background: var(--cor-setor);
+  color: #0b1020;
+  box-shadow: 0 6px 22px -6px var(--cor-setor);
+}
+
+.mo-r3d-setor-n {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+}
+.mo-r3d-setor.ativo .mo-r3d-setor-n { background: rgba(0, 0, 0, 0.18); }
+
+.mo-r3d-setor-alerta {
+  font-size: 11px;
+  font-weight: 800;
+  color: #fca5a5;
+}
+.mo-r3d-setor.ativo .mo-r3d-setor-alerta { color: #7f1d1d; }
+
+/* ── HUD superior direita ───────────────────────────────────────── */
 .mo-r3d-hud {
   position: absolute;
   top: 14px;
-  left: 16px;
-  z-index: 2;
-  display: flex;
-  gap: 18px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: rgba(12, 18, 32, 0.82);
-  border: 1px solid rgba(120, 160, 255, 0.22);
-  backdrop-filter: blur(6px);
-  pointer-events: none;
-}
-
-.mo-r3d-hud > div {
+  right: 14px;
+  z-index: 5;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 46%;
 }
 
-.mo-r3d-hud-rotulo {
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #8ea3c9;
-}
-
-.mo-r3d-hud strong {
-  font-size: 15px;
+.mo-r3d-resumo {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: rgba(10, 16, 34, 0.82);
+  border: 1px solid rgba(120, 160, 255, 0.22);
   color: #eaf1ff;
-  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  font-weight: 600;
 }
 
-/* Legenda inferior esquerda. */
+.mo-r3d-resumo span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.mo-r3d-hud-alerta { color: #fca5a5; }
+
+.mo-r3d-acoes { display: flex; gap: 8px; }
+
+.mo-r3d-busca,
+.mo-r3d-receita-sel {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(10, 16, 34, 0.82);
+  border: 1px solid rgba(120, 160, 255, 0.22);
+  color: #9fb2d4;
+}
+
+.mo-r3d-busca input,
+.mo-r3d-receita-sel select {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #eaf1ff;
+  font-size: 12.5px;
+  font-weight: 600;
+  max-width: 190px;
+}
+.mo-r3d-receita-sel select option { color: #0b1020; }
+
+/* ── Paginação ──────────────────────────────────────────────────── */
+.mo-r3d-paginas {
+  position: absolute;
+  top: 64px;
+  left: 14px;
+  z-index: 5;
+  display: flex;
+  gap: 5px;
+}
+
+.mo-r3d-pagina {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 160, 255, 0.25);
+  background: rgba(10, 16, 34, 0.82);
+  color: #9fb2d4;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mo-r3d-pagina.ativa { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+
+/* ── Legenda ────────────────────────────────────────────────────── */
 .mo-r3d-legenda {
   position: absolute;
   left: 16px;
-  bottom: 14px;
-  z-index: 2;
+  bottom: 12px;
+  z-index: 4;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
+  gap: 14px;
   font-size: 11px;
   color: #9fb2d4;
   pointer-events: none;
+  flex-wrap: wrap;
+  max-width: 52%; /* nunca invade a nota à direita */
 }
 
-.mo-r3d-ponto {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
+.mo-r3d-legenda span { display: inline-flex; align-items: center; gap: 6px; }
+.mo-r3d-dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+
+/* ── Badges de estado ───────────────────────────────────────────── */
+.mo-r3d-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 8px;
   border-radius: 999px;
-  margin-right: 4px;
+  white-space: nowrap;
 }
+.mo-r3d-badge.ok { background: rgba(34, 197, 94, 0.18); color: #4ade80; }
+.mo-r3d-badge.critico { background: rgba(239, 68, 68, 0.22); color: #f87171; }
+.mo-r3d-badge.sem-estoque { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; }
+.mo-r3d-badge.sem-custo { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.mo-r3d-badge.desvio { background: rgba(251, 146, 60, 0.2); color: #fb923c; }
 
-/* Paginação inferior direita. */
-.mo-r3d-paginacao {
+/* ── Painéis (detalhe / receita) ────────────────────────────────── */
+.mo-r3d-painel,
+.mo-r3d-recpanel {
   position: absolute;
-  right: 16px;
-  bottom: 12px;
-  z-index: 3;
+  top: 108px;
+  right: 14px;
+  z-index: 6;
+  width: 300px;
+  max-height: calc(100% - 220px);
+  overflow-y: auto;
+  padding: 14px 16px;
+  border-radius: 14px;
+  color: #eaf1ff;
+  background: rgba(10, 16, 34, 0.94);
+  border: 1px solid rgba(120, 160, 255, 0.28);
+  box-shadow: 0 18px 44px -20px rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(8px);
+}
+.mo-r3d-recpanel { border-color: rgba(163, 230, 53, 0.35); }
+.mo-r3d-recpanel.falta { border-color: rgba(239, 68, 68, 0.4); }
+.mo-r3d-painel { top: auto; bottom: 40px; }
+
+.mo-r3d-painel header,
+.mo-r3d-recpanel header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: 8px;
-  padding: 5px 10px;
-  border-radius: 10px;
-  background: rgba(12, 18, 32, 0.85);
-  border: 1px solid rgba(120, 160, 255, 0.22);
-  color: #9fb2d4;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
+  margin-bottom: 8px;
+  font-size: 14.5px;
 }
 
-.mo-r3d-paginacao button {
-  display: flex;
-  align-items: center;
+.mo-r3d-painel header button,
+.mo-r3d-recpanel header button {
   border: none;
   background: transparent;
   color: #9fb2d4;
   cursor: pointer;
   padding: 2px;
-  border-radius: 6px;
+  display: inline-flex;
 }
+.mo-r3d-painel header button:hover,
+.mo-r3d-recpanel header button:hover { color: #fff; }
 
-.mo-r3d-paginacao button:hover:not(:disabled) {
-  color: #eaf1ff;
-  background: rgba(120, 160, 255, 0.12);
-}
-
-.mo-r3d-paginacao button:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-/* Tooltip de hover — nunca captura o ponteiro. */
-.mo-r3d-tooltip {
-  position: absolute;
-  transform: translate(14px, -50%);
-  pointer-events: none;
-  z-index: 3;
-  max-width: 280px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 12.5px;
-  line-height: 1.35;
-  color: #eaf1ff;
-  background: rgba(12, 18, 32, 0.92);
-  border: 1px solid rgba(120, 160, 255, 0.35);
-  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.9);
-  backdrop-filter: blur(6px);
-  white-space: normal;
-}
-
-/* Painel de detalhe do item selecionado (lado direito). */
-.mo-r3d-painel {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 4;
-  width: 264px;
-  max-height: calc(100% - 32px);
-  overflow-y: auto;
-  padding: 14px 16px 16px;
-  border-radius: 14px;
-  color: #eaf1ff;
-  background: rgba(12, 18, 32, 0.94);
-  border: 1px solid rgba(120, 160, 255, 0.28);
-  box-shadow: 0 18px 44px -20px rgba(0, 0, 0, 0.9);
-  backdrop-filter: blur(8px);
-}
-
-.mo-r3d-painel header {
+.mo-r3d-painel-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.mo-r3d-badge {
-  display: inline-block;
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 3px 8px;
-  border-radius: 999px;
-  color: #9fc0ff;
-  background: rgba(90, 130, 255, 0.16);
-}
-
-.mo-r3d-badge-ok {
-  color: #6ee7b7;
-  background: rgba(52, 211, 153, 0.14);
-}
-
-.mo-r3d-badge-critico {
-  color: #fca5a5;
-  background: rgba(239, 68, 68, 0.16);
-}
-
-.mo-r3d-badge-sem_estoque {
-  color: #94a3b8;
-  background: rgba(100, 116, 139, 0.18);
-}
-
-.mo-r3d-badge-sem_custo {
-  color: #fcd34d;
-  background: rgba(245, 158, 11, 0.16);
-}
-
-.mo-r3d-badge-alerta_desvio {
-  color: #fdba74;
-  background: rgba(251, 146, 60, 0.16);
-}
-
-.mo-r3d-fechar {
-  border: none;
-  background: transparent;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
   color: #9fb2d4;
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0 2px;
+  margin: 0 0 10px;
 }
 
-.mo-r3d-fechar:hover {
-  color: #eaf1ff;
-}
+.mo-r3d-painel dl { margin: 0 0 10px; display: grid; gap: 6px; }
+.mo-r3d-painel dl > div { display: flex; justify-content: space-between; gap: 10px; }
+.mo-r3d-painel dt { font-size: 11.5px; color: #8ea3c9; }
+.mo-r3d-painel dd { margin: 0; font-size: 12.5px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.mo-r3d-painel dd i { font-style: normal; color: #9fb2d4; font-weight: 500; }
+.mo-r3d-dd-alerta { color: #fb923c; }
 
-.mo-r3d-painel h4 {
+.mo-r3d-painel-cadeia {
+  list-style: none;
   margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.mo-r3d-painel-cat {
-  margin: 2px 0 10px;
-  font-size: 11px;
-  color: #8ea3c9;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.mo-r3d-painel dl {
-  margin: 0;
+  padding: 8px 0 0;
+  border-top: 1px solid rgba(120, 160, 255, 0.18);
   display: grid;
-  gap: 7px;
+  gap: 5px;
 }
-
-.mo-r3d-painel dl > div {
+.mo-r3d-painel-cadeia li {
   display: flex;
-  align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
+  font-size: 12px;
 }
+.mo-r3d-painel-cadeia li span:first-child { color: #9fb2d4; font-weight: 600; }
+.mo-r3d-painel-cadeia li span:last-child { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
 
-.mo-r3d-painel dt {
-  font-size: 11.5px;
-  color: #8ea3c9;
-  flex-shrink: 0;
-}
+/* ── Receita: veredito e lista ──────────────────────────────────── */
+.mo-r3d-rec-veredito { font-size: 13px; font-weight: 700; margin: 0 0 8px; }
+.mo-r3d-rec-veredito.ok { color: #4ade80; }
+.mo-r3d-rec-veredito.falta { color: #fca5a5; }
+.mo-r3d-rec-linha { font-size: 12.5px; color: #9fb2d4; margin: 0; }
 
-.mo-r3d-painel dd {
+.mo-r3d-rec-lista {
+  list-style: none;
   margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+.mo-r3d-rec-lista li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.mo-r3d-rec-lista li.falta { background: rgba(239, 68, 68, 0.1); }
+.mo-r3d-rec-nome em { color: #9fb2d4; font-size: 11px; }
+.mo-r3d-rec-num { font-variant-numeric: tabular-nums; color: #9fb2d4; white-space: nowrap; }
+
+/* ── Cartões-resumo ─────────────────────────────────────────────── */
+.mo-r3d-cartoes {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 34px;
+  z-index: 4;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.mo-r3d-cartao {
+  flex: 0 0 auto;
+  min-width: 210px;
+  max-width: 260px;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(120, 160, 255, 0.2);
+  border-left: 4px solid var(--cor-setor);
+  background: rgba(10, 16, 34, 0.88);
+  color: #eaf1ff;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.mo-r3d-cartao:hover { transform: translateY(-2px); }
+.mo-r3d-cartao.selecionado { border-color: var(--cor-setor); box-shadow: 0 8px 24px -10px var(--cor-setor); }
+
+.mo-r3d-cartao-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.mo-r3d-cartao-cadeia {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 11.5px;
+  color: #9fb2d4;
+}
+.mo-r3d-cartao-estagio { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mo-r3d-cartao-estagio em { color: #9fc0ff; font-style: normal; }
+.mo-r3d-cartao-seta { font-style: normal; margin-right: 4px; }
+
+.mo-r3d-vazio-busca {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #9fb2d4;
   font-size: 12.5px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  padding: 8px 12px;
+}
+
+/* ── Nota de precisão ───────────────────────────────────────────── */
+.mo-r3d-nota {
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  z-index: 4;
+  margin: 0;
+  font-size: 10.5px;
+  color: #7288ad;
+  pointer-events: none;
+  /* Divide a faixa inferior com a legenda sem colidir: meia-largura, 1 linha. */
+  max-width: 44%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-align: right;
 }
 
-.mo-r3d-painel-estagios {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(120, 160, 255, 0.18);
-  display: grid;
-  gap: 6px;
-}
-
-.mo-r3d-painel-estagio {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  font-size: 11.5px;
-  color: #cbd5e1;
-}
-
-.mo-r3d-painel-estagio-rotulo {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #8ea3c9;
-}
-
-/* Fallback quando o WebGL/engine falha — nunca derruba a página. */
+/* ── Fallback (sem WebGL / erro) ────────────────────────────────── */
 .mo-r3d-falha {
   display: flex;
   flex-direction: column;
@@ -286,27 +367,15 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 24px;
-  border-radius: 16px;
+  padding: 28px;
+  border-radius: 18px;
   color: #ffd7d7;
   background: rgba(40, 14, 18, 0.9);
   border: 1px solid rgba(255, 120, 120, 0.35);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
-
-.mo-r3d-falha strong {
-  font-size: 14px;
-}
-
-.mo-r3d-falha span {
-  font-size: 12.5px;
-  color: #ffb3b3;
-  max-width: 420px;
-}
+.mo-r3d-falha span { font-size: 12.5px; color: #ffb3b3; max-width: 460px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .mo-r3d * {
-    transition: none !important;
-    animation: none !important;
-  }
+  .mo-r3d-setor, .mo-r3d-cartao { transition: none; }
 }

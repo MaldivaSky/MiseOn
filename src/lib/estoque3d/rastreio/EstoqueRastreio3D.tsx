@@ -1,30 +1,36 @@
 /**
- * Aba "Rastreio 3D" do Estoque: todos os itens ativos da loja, por categoria.
- *
- * Concentra aqui os estados de carregando/erro/vazio para que o Rastreio3D
- * só precise renderizar a prancha. Espelha o EstoqueCusto3D de propósito:
- * ele mostra a árvore por LOTE; este mostra a posição ATUAL por ITEM.
+ * Aba "Rastreio 3D" do Estoque: carrega TODOS os itens da loja (por setor) e
+ * as receitas checáveis, e entrega ao renderizador WebGL. Concentra aqui os
+ * estados de carregando/erro/vazio para que o Rastreio3D só precise desenhar.
  */
 
 import { useEffect, useState } from 'react';
-import { AlertTriangle, ScanLine, Boxes } from 'lucide-react';
-import { carregarRastreio, type CategoriaRastreio } from './carregarRastreio';
+import { Boxes, AlertTriangle, ScanLine } from 'lucide-react';
 import { Rastreio3D } from './Rastreio3D';
+import { carregarRastreio, type SetorRastreio } from './carregarRastreio';
+import { carregarDadosReceitas, type DadosReceitas } from './receitas';
 
 export function EstoqueRastreio3D({ lojaId }: { lojaId: string }) {
-  const [categorias, setCategorias] = useState<CategoriaRastreio[] | null>(null);
+  const [setores, setSetores] = useState<SetorRastreio[] | null>(null);
+  const [dadosReceitas, setDadosReceitas] = useState<DadosReceitas | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
     let vivo = true;
-    setCategorias(null);
+    setSetores(null);
     setErro(null);
-    carregarRastreio(lojaId)
-      .then((c) => vivo && setCategorias(c))
+    Promise.all([
+      carregarRastreio(lojaId),
+      // Receitas são complemento: se falhar, o rastreio continua sem o seletor.
+      carregarDadosReceitas(lojaId).catch(() => null),
+    ])
+      .then(([s, r]) => {
+        if (!vivo) return;
+        setSetores(s);
+        setDadosReceitas(r);
+      })
       .catch((e) => vivo && setErro(e instanceof Error ? e.message : String(e)));
-    return () => {
-      vivo = false;
-    };
+    return () => { vivo = false; };
   }, [lojaId]);
 
   if (erro) {
@@ -32,31 +38,33 @@ export function EstoqueRastreio3D({ lojaId }: { lojaId: string }) {
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 dark:bg-red-900/20 dark:border-red-900/50 flex items-start gap-3">
         <AlertTriangle className="text-red-500 shrink-0" size={20} />
         <div>
-          <p className="font-bold text-red-800 dark:text-red-300">Não foi possível montar o rastreio 3D</p>
+          <p className="font-bold text-red-800 dark:text-red-300">Não foi possível montar o rastreio</p>
           <p className="text-sm text-red-700 dark:text-red-400 mt-1">{erro}</p>
         </div>
       </div>
     );
   }
 
-  if (!categorias) {
+  if (!setores) {
     return (
-      <div className="h-[560px] rounded-2xl bg-gray-100 dark:bg-gray-800/40 animate-pulse flex items-center justify-center">
-        <p className="text-sm text-gray-500 dark:text-gray-400">Rastreando o valor do estoque…</p>
+      <div className="h-[620px] rounded-2xl bg-gray-100 dark:bg-gray-800/40 animate-pulse flex items-center justify-center">
+        <p className="text-sm text-gray-500 dark:text-gray-400">Rastreando o estoque por setor…</p>
       </div>
     );
   }
 
-  const totalItens = categorias.reduce((acc, c) => acc + c.itens.length, 0);
+  const totalItens = setores.reduce((acc, s) => acc + s.itens.length, 0);
+  const totalInvestido = setores.reduce((acc, s) => acc + s.totalInvestido, 0);
+  const totalAlertas = setores.reduce((acc, s) => acc + s.alertas, 0);
 
   if (totalItens === 0) {
     return (
       <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-10 text-center">
         <Boxes className="mx-auto text-gray-400 mb-3" size={32} />
-        <p className="font-bold dark:text-gray-200">Nenhum insumo ativo para rastrear</p>
+        <p className="font-bold dark:text-gray-200">Nenhum item ativo no estoque</p>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-md mx-auto">
-          O rastreio 3D aparece quando há itens cadastrados no estoque. Cadastre o primeiro insumo em
-          &quot;Matérias-Primas&quot; para ver o valor da compra se subdividir até a unidade de uso.
+          O rastreio aparece quando houver insumos cadastrados. Registre itens em
+          "Matérias-Primas" para vê-los por setor, da compra ao uso.
         </p>
       </div>
     );
@@ -64,18 +72,31 @@ export function EstoqueRastreio3D({ lojaId }: { lojaId: string }) {
 
   return (
     <div className="space-y-3">
-      <div>
-        <h3 className="font-bold dark:text-gray-100 flex items-center gap-2">
-          <ScanLine size={18} className="text-emerald-500" /> Rastreio 3D do estoque
-        </h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 max-w-2xl">
-          Todos os itens por categoria: o valor da compra subdividido até a unidade de uso. ⚠️ marca
-          etapas humanas (rendimento declarado); itens em vermelho estão críticos ou com desvio de
-          custo ≥ 15%.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="font-bold dark:text-gray-100 flex items-center gap-2">
+            <ScanLine size={18} className="text-cyan-500" /> Rastreio 3D do estoque
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Todos os itens por setor (❄️ geladeira, 🗄️ armário, 🥫 dispensa): o valor da compra
+            subdividido até a unidade de uso. ⚠️ marca etapa humana (rendimento declarado).
+            Selecione uma receita para checar os ingredientes.
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] uppercase font-semibold text-gray-500 dark:text-gray-400">
+            Investido em estoque
+          </p>
+          <p className="text-lg font-black text-green-700 dark:text-green-400">
+            {totalInvestido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+          </p>
+          {totalAlertas > 0 && (
+            <p className="text-[11px] font-bold text-red-500">{totalAlertas} itens pedem atenção</p>
+          )}
+        </div>
       </div>
 
-      <Rastreio3D categorias={categorias} altura={560} />
+      <Rastreio3D setores={setores} dadosReceitas={dadosReceitas} altura={620} />
     </div>
   );
 }
