@@ -18,10 +18,14 @@
  *                           tem permissao de drenar
  *
  * Variaveis necessarias no Vercel (Project Settings -> Environment Variables):
- *   CRON_SECRET             (o Vercel envia como Bearer no header)
- *   EMAIL_WORKER_TOKEN      (mesmo valor definido nos Secrets do Supabase)
- *   SUPABASE_FUNCTIONS_URL  ex.: https://<ref>.supabase.co/functions/v1
+ *   CRON_SECRET         (o Vercel envia sozinho como Bearer no header)
+ *   EMAIL_WORKER_TOKEN  (mesmo valor definido nos Secrets do Supabase)
+ *
+ * A URL do projeto Supabase nao e segredo — fica embutida abaixo, com
+ * SUPABASE_FUNCTIONS_URL disponivel so para apontar para outro ambiente.
  */
+
+const FUNCTIONS_URL_PADRAO = 'https://zzuxklwhaoisuuvndtfw.supabase.co/functions/v1';
 
 import { timingSafeEqual } from 'node:crypto';
 
@@ -36,9 +40,9 @@ function segredoConfere(recebido: string, esperado: string) {
 export default async function handler(req: any, res: any) {
   const cronSecret = process.env.CRON_SECRET;
   const workerToken = process.env.EMAIL_WORKER_TOKEN;
-  const functionsUrl = process.env.SUPABASE_FUNCTIONS_URL;
+  const functionsUrl = process.env.SUPABASE_FUNCTIONS_URL || FUNCTIONS_URL_PADRAO;
 
-  if (!cronSecret || !workerToken || !functionsUrl) {
+  if (!cronSecret || !workerToken) {
     console.error('cron/email: variaveis de ambiente ausentes');
     return res.status(500).json({ error: 'Agendador nao configurado' });
   }
