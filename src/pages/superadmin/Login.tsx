@@ -13,15 +13,6 @@ export default function SuperAdminLogin() {
     e.preventDefault();
     setErro('');
     setCarregando(true);
-    
-    // Auto-provisioning do SuperAdmin na primeira vez
-    if (email === 'rafaelmaldivas@yahoo.com.br' && senha === 'Mald1v@$') {
-      const { error: signErr } = await supabase.auth.signUp({
-        email,
-        password: senha
-      });
-      if (signErr) console.error('Erro no signUp:', signErr);
-    }
 
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
     setCarregando(false);

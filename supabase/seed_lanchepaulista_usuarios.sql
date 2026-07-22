@@ -6,19 +6,33 @@
 -- COMO RODAR: Supabase Dashboard → SQL Editor → cole tudo → Run.
 -- (Cria contas de autenticação; por isso é você quem executa.)
 --
--- Senha de todas: Paulista@2026
 --   admin@lanchepaulista.com       → Admin (painel completo)
 --   operador@lanchepaulista.com    → Operador/Cozinha (Pedidos, Produção, Entregas)
 --   entregador@lanchepaulista.com  → Entregador (App em /entregador)  [= Carlos Motoboy]
 --   cliente@lanchepaulista.com     → Cliente final (vitrine /lanchepaulista)
+--
+-- SENHA: nunca fica neste arquivo. O repositório é público — senha em
+-- arquivo versionado vira senha vazada, e o histórico do Git é eterno.
+-- Escolha uma das duas formas:
+--
+--   a) definir antes de rodar:
+--        SET miseon.seed_senha = '<troque-por-uma-senha-forte>';
+--   b) não definir nada: o script sorteia uma e imprime no NOTICE ao final.
+--      Copie do console — ela não é gravada em lugar nenhum.
 -- ============================================================
 
 DO $$
 DECLARE
-  v_loja uuid;
-  v_uid  uuid;
-  rec    RECORD;
+  v_loja  uuid;
+  v_uid   uuid;
+  v_senha text;
+  rec     RECORD;
 BEGIN
+  -- Senha do operador, ou sorteada na hora. Nunca literal no arquivo.
+  v_senha := coalesce(
+    nullif(current_setting('miseon.seed_senha', true), ''),
+    replace(encode(extensions.gen_random_bytes(12), 'base64'), '/', '_')
+  );
   SELECT id INTO v_loja FROM public.lojas WHERE slug = 'lanchepaulista';
   IF v_loja IS NULL THEN
     RAISE EXCEPTION 'Rode antes o seed_lanchepaulista.sql (loja não encontrada).';
@@ -47,7 +61,7 @@ BEGIN
       is_super_admin, is_sso_user, is_anonymous
     ) VALUES (
       '00000000-0000-0000-0000-000000000000', v_uid, 'authenticated', 'authenticated', rec.email,
-      extensions.crypt('Paulista@2026', extensions.gen_salt('bf')), now(),
+      extensions.crypt(v_senha, extensions.gen_salt('bf')), now(),
       now(), now(), '{"provider":"email","providers":["email"]}'::jsonb,
       jsonb_build_object('name', initcap(split_part(rec.email,'@',1))),
       '', '', '', '', false, false, false
@@ -78,5 +92,6 @@ BEGIN
     -- 'cliente' não precisa de vínculo: loga na vitrine; pedidos ligam por cliente_user_id.
   END LOOP;
 
-  RAISE NOTICE 'OK: 4 usuários criados (senha Paulista@2026).';
+  RAISE NOTICE 'OK: 4 usuários criados. Senha: %', v_senha;
+  RAISE NOTICE 'Copie a senha agora — ela não fica salva em lugar nenhum.';
 END $$;

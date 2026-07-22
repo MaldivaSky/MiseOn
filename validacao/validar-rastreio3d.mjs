@@ -14,9 +14,16 @@ import { mkdirSync } from 'node:fs';
 
 const PORTA = process.argv[2] ?? '5199';
 const BASE = `http://localhost:${PORTA}`;
-const EMAIL = 'admin@lanchepaulista.com';
-const SENHA = 'Paulista@2026';
+// Credenciais nunca ficam no arquivo: o repositório é público.
+// Rode com:  MISEON_SEED_EMAIL=... MISEON_SEED_SENHA=... node validacao/validar-rastreio3d.mjs
+const EMAIL = process.env.MISEON_SEED_EMAIL ?? 'admin@lanchepaulista.com';
+const SENHA = process.env.MISEON_SEED_SENHA;
 const PASTA = 'validacao';
+
+if (!SENHA) {
+  console.error('Defina MISEON_SEED_SENHA no ambiente antes de rodar este script.');
+  process.exit(1);
+}
 
 const erros = [];
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -1,1 +1,4 @@
+# Repositório público: segredo commitado é segredo vazado, e o
+# histórico do Git é permanente. Bloqueia antes de virar commit.
+node scripts/verificar-segredos.mjs
 npx lint-staged
