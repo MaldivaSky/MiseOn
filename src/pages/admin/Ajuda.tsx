@@ -45,7 +45,7 @@ function Passo({ n, titulo, children }: { n: number; titulo: string; children: R
 }
 
 export default function Ajuda() {
-  const [tabAtiva, setTabAtiva] = useState<'sistema' | 'financeiro' | 'indicadores' | 'especialista'>('sistema');
+  const [tabAtiva, setTabAtiva] = useState<'sistema' | 'integracoes' | 'financeiro' | 'indicadores' | 'especialista'>('sistema');
 
   return (
     <div className="mx-auto max-w-4xl p-4 pb-16">
@@ -72,6 +72,12 @@ export default function Ajuda() {
             tabAtiva === 'sistema' ? 'bg-[var(--cor-primaria)] text-white shadow-md' : 'text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'
           }`}>
           <Settings size={18} /> Como Funciona
+        </button>
+        <button onClick={() => setTabAtiva('integracoes')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-all whitespace-nowrap ${
+            tabAtiva === 'integracoes' ? 'bg-[var(--cor-primaria)] text-white shadow-md' : 'text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'
+          }`}>
+          <MessageCircle size={18} /> Integrações
         </button>
         <button onClick={() => setTabAtiva('financeiro')}
           className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-all whitespace-nowrap ${
@@ -166,6 +172,116 @@ export default function Ajuda() {
                 <li><b>Ficha Técnica:</b> É onde você liga um ao outro. Adicione os insumos e as quantidades usadas dentro de cada Produto.</li>
               </ul>
               <p className="mt-2 text-xs text-gray-500">Isso garante que você saiba exatamente o seu custo real (CMV) e nunca venda algo que não tem na despensa.</p>
+            </Expansivel>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB: INTEGRAÇÕES ── */}
+      {tabAtiva === 'integracoes' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="mb-8 rounded-3xl border border-green-200/60 bg-gradient-to-br from-green-50 to-emerald-50/30 p-6 dark:border-green-900/30 dark:from-green-900/10 dark:to-emerald-900/10">
+             <div className="flex items-start gap-4">
+               <div className="rounded-full bg-green-100 p-3 dark:bg-green-900/30">
+                  <MessageCircle size={24} className="text-green-600 dark:text-green-400" />
+               </div>
+               <div>
+                  <h3 className="mb-2 text-lg font-black text-green-900 dark:text-green-100">Seu WhatsApp atendendo sozinho — de verdade</h3>
+                  <p className="text-sm leading-relaxed text-green-800/80 dark:text-green-200/80">
+                    A IA do MiseOn responde seus clientes no WhatsApp usando os dados <b>reais</b> da sua loja — cardápio, preços, estoque e horário.
+                    Quando o cliente quer pedir, ele finaliza no seu cardápio digital e o pedido cai direto no seu painel, com selo verde.
+                  </p>
+               </div>
+             </div>
+             <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="flex items-start gap-3 rounded-2xl bg-white/70 p-4 shadow-sm dark:bg-black/20 backdrop-blur">
+                  <MessageCircle size={20} className="mt-0.5 shrink-0 text-green-600" />
+                  <div>
+                    <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Responde dúvidas</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">Preço, ingredientes, taxa de entrega, horário — tudo lido do seu cadastro.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 rounded-2xl bg-white/70 p-4 shadow-sm dark:bg-black/20 backdrop-blur">
+                  <QrCode size={20} className="mt-0.5 shrink-0 text-green-600" />
+                  <div>
+                    <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Manda o cardápio</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">Na hora de pedir, o cliente recebe o link e monta o carrinho com preço real.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 rounded-2xl bg-white/70 p-4 shadow-sm dark:bg-black/20 backdrop-blur">
+                  <ClipboardList size={20} className="mt-0.5 shrink-0 text-green-600" />
+                  <div>
+                    <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Pedido no painel</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">Cai como "Novo" com selo WhatsApp. Você aceita como qualquer pedido.</p>
+                  </div>
+                </div>
+              </div>
+          </div>
+
+          <h3 className="mb-4 flex items-center gap-2 text-base font-black dark:text-gray-100">
+            <MessageCircle size={18} className="text-[var(--cor-primaria)]" /> WhatsApp com IA — como funciona
+          </h3>
+          <div className="space-y-3 mb-10">
+            <Expansivel titulo="O que a IA faz (e o que ela NUNCA faz)" aberto_inicial>
+              <p><b>Ela responde, você vende.</b> A IA é uma recepcionista: tira dúvidas e apresenta o cardápio. Quem fecha o pedido é o cliente, no seu site.</p>
+              <ul className="list-disc space-y-1.5 pl-5 mt-2">
+                <li><b>Responde com dados reais:</b> preço, ingredientes, ficha técnica, taxa de entrega e horário vêm direto do seu cadastro — se está esgotado no estoque, ela avisa;</li>
+                <li><b>Nunca inventa preço nem desconto:</b> valores só aparecem se existirem no sistema. Isso protege você de ter que honrar uma "promoção" que não existe;</li>
+                <li><b>Não fecha pedido sozinha:</b> o cliente recebe o link do cardápio e finaliza no site. O pedido chega no painel para <b>você aceitar</b>, como sempre;</li>
+                <li><b>Alergia é com você:</b> se o cliente mencionar alergia ou intolerância, a IA coloca um aviso de segurança e <b>te chama na hora</b> — assunto de saúde nunca é automatizado;</li>
+                <li><b>Áudio e imagem:</b> por enquanto ela avisa que não entende e te chama para assumir.</li>
+              </ul>
+            </Expansivel>
+            <Expansivel titulo="Você continua no controle da conversa">
+              <p>Todas as conversas — WhatsApp e chat do site — chegam na mesma caixa de entrada, em <b>Conversas</b>:</p>
+              <ul className="list-disc space-y-1.5 pl-5 mt-2">
+                <li>Cada conversa tem <b>selo de origem</b> (🟢 WhatsApp ou 🌐 Site), nome e telefone do cliente;</li>
+                <li><b>Assumiu, a IA cala:</b> basta você responder que a IA silencia naquela conversa na hora;</li>
+                <li>Quer a IA de volta? Um clique devolve a conversa para ela;</li>
+                <li><b>Botão de emergência:</b> desligar a IA não desliga o recebimento — as mensagens continuam chegando para você atender manualmente.</li>
+              </ul>
+            </Expansivel>
+            <Expansivel titulo="O que você precisa para conectar">
+              <p><b>Opção A — disponível hoje: número dedicado.</b> Você usa um chip novo só para o atendimento automático (qualquer pré-pago serve). O assistente de conexão te guia em 4 passos, com imagem de cada tela, e valida tudo sozinho.</p>
+              <p className="mt-2"><b>Opção B — em breve: manter seu número atual.</b> Conexão com Facebook em poucos cliques, mantendo o WhatsApp que você já usa no celular. Estamos finalizando a homologação com a Meta para liberar essa opção.</p>
+              <div className="mt-3 rounded-lg bg-amber-50 p-3 dark:bg-amber-900/10">
+                <p className="text-xs text-amber-800 dark:text-amber-300">
+                  ⚠️ <b>Importante:</b> na Opção A, o número escolhido sai do WhatsApp comum e passa a ser só do atendimento automático.
+                  Por isso recomendamos um chip dedicado — nunca o número que você já usa para falar com clientes.
+                </p>
+              </div>
+            </Expansivel>
+            <Expansivel titulo="Quanto custa">
+              <ul className="list-disc space-y-1.5 pl-5">
+                <li><b>Sem mensalidade de integração</b> — está incluído no seu plano MiseOn;</li>
+                <li><b>Cliente mandou mensagem primeiro?</b> Você tem 24h para responder livremente, sem custo por conversa*;</li>
+                <li><b>Fora da janela de 24h</b> (ex.: avisar um cliente do dia anterior) só é possível com mensagens-modelo pagas — <b>desligadas por padrão</b>. Se um dia você quiser ligar, o custo estimado aparece na tela antes de confirmar;</li>
+                <li>Você pode desligar tudo quando quiser, sem multa e sem burocracia.</li>
+              </ul>
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                *A Meta (dona do WhatsApp) anunciou que passará a cobrar alguns centavos por mensagem a partir de outubro/2026.
+                Avisaremos com antecedência — e a decisão de manter ligado será sempre sua.
+              </p>
+            </Expansivel>
+            <Expansivel titulo="Como acompanhar se está funcionando">
+              <ul className="list-disc space-y-1.5 pl-5">
+                <li><b>Saúde da conexão:</b> a tela de integração mostra o semáforo (conectado/pendente/erro) e o motivo em português claro se algo falhar;</li>
+                <li><b>Pedidos com selo 🟢:</b> todo pedido vindo do WhatsApp aparece marcado no Painel de Pedidos, com link para ver a conversa;</li>
+                <li><b>Resultado no Dashboard:</b> conversas atendidas, % resolvidas sem você intervir e pedidos gerados — a prova do retorno.</li>
+              </ul>
+            </Expansivel>
+          </div>
+
+          <h3 className="mb-4 flex items-center gap-2 text-base font-black dark:text-gray-100">
+            <MonitorSmartphone size={18} className="text-[var(--cor-primaria)]" /> Outras integrações
+          </h3>
+          <div className="space-y-3 mb-10">
+            <Expansivel titulo="iFood">
+              <p>
+                A integração com o iFood já está disponível e explicada na aba <b>Como Funciona</b> —
+                pedidos caindo sozinhos no painel e taxas descontadas no Financeiro.
+                Configure em <Link to="/admin/ifood" className="font-semibold text-[var(--cor-primaria)] hover:underline">Integração iFood</Link>.
+              </p>
             </Expansivel>
           </div>
         </div>
