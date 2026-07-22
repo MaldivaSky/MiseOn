@@ -367,6 +367,8 @@ export interface Insumo {
   ativo: boolean;
   is_preparo?: boolean;
   categoria_insumo?: string;
+  /** Setor físico de armazenamento (geladeira/armario/dispensa); null = automático. */
+  setor?: string | null;
   rendimento_porcoes?: number;
   pessoas_servidas?: number;
   validade_horas?: number | null; // preparos: horas até vencer após produção (null = não controla)

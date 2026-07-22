@@ -4,6 +4,7 @@ import { AlertTriangle, Plus, Pencil, Calculator, Trash2, ArrowRight, ArchiveRes
 import { supabase } from '../../lib/supabase';
 import { Insumo, fmt, InsumoRendimentoJSON } from '../../types';
 import { UNIDADES, destinosPermitidos, validarConversao } from '../../lib/unidades';
+import { OPCOES_SETOR, SETORES, validarSetor, derivarSetor } from '../../lib/estoque3d/rastreio/setores';
 import type { CtxLoja } from './AdminLayout';
 import EstoquePreparos from './EstoquePreparos';
 import { SimuladorCusto } from '../../components/custeio';
@@ -11,11 +12,11 @@ import type { ItemEstoque, FatorItem } from '../../lib/custeio';
 
 // three.js pesa ~600 KB: só entra no bundle de quem abrir a aba 3D.
 const EstoqueCusto3D = lazy(() => import('../../lib/estoque3d/EstoqueCusto3D'));
-const EstoqueJogo3D = lazy(() => import('../../lib/estoque3d/jogo/EstoqueJogo3D'));
+const EstoqueRastreio3D = lazy(() => import('../../lib/estoque3d/rastreio/EstoqueRastreio3D'));
 
 export default function Estoque() {
   const { lojaId } = useOutletContext<CtxLoja>();
-  const [tab, setTab] = useState<'insumos' | 'preparos' | 'custo3d' | 'jogo3d'>('insumos');
+  const [tab, setTab] = useState<'insumos' | 'preparos' | 'custo3d' | 'rastreio3d'>('insumos');
   const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [inativos, setInativos] = useState<Insumo[]>([]);
   const [mostrarInativos, setMostrarInativos] = useState(false);
@@ -24,6 +25,7 @@ export default function Estoque() {
   // States para Novo Insumo Dinâmico
   const [nome, setNome] = useState('');
   const [categoriaInsumo, setCategoriaInsumo] = useState('Ingrediente');
+  const [setor, setSetor] = useState('');
   const [isNovaCategoria, setIsNovaCategoria] = useState(false);
   const [nomeNovaCategoria, setNomeNovaCategoria] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState<string | null>(null);
@@ -182,7 +184,8 @@ export default function Estoque() {
       preco_embalagem: precoEmb,
       qtd_embalagem: rendEmb,
       detalhes_rendimento: jsonRegras,
-      categoria_insumo: categoriaFinal
+      categoria_insumo: categoriaFinal,
+      setor: setor || null
     };
 
     if (editando) {
@@ -209,6 +212,7 @@ export default function Estoque() {
     setEditando(i);
     setNome(i.nome);
     setCategoriaInsumo(i.categoria_insumo || 'Ingrediente');
+    setSetor(i.setor ?? '');
     setIsNovaCategoria(false);
     setNomeNovaCategoria('');
     setEstoqueMinimo(String(i.estoque_minimo || ''));
@@ -233,7 +237,7 @@ export default function Estoque() {
 
   const cancelarEdicao = () => {
     setEditando(null);
-    setNome(''); setQtdEstoqueCompra(''); setEstoqueMinimo(''); setPrecoCompra(''); setCategoriaInsumo('Ingrediente');
+    setNome(''); setQtdEstoqueCompra(''); setEstoqueMinimo(''); setPrecoCompra(''); setCategoriaInsumo('Ingrediente'); setSetor('');
     setIsNovaCategoria(false); setNomeNovaCategoria('');
     setPassosRendimento([{ id: '1', rendimento: '1', unidade: 'un' }]); setUnidadeCompra('pct');
   };
@@ -281,13 +285,13 @@ export default function Estoque() {
            <button onClick={() => setTab('insumos')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'insumos' ? 'bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Matérias-Primas</button>
            <button onClick={() => setTab('preparos')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'preparos' ? 'bg-white dark:bg-gray-900 shadow-sm text-orange-600 dark:text-orange-500' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Receitas & Preparos</button>
            <button onClick={() => setTab('custo3d')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'custo3d' ? 'bg-white dark:bg-gray-900 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Custo 3D</button>
-           <button onClick={() => setTab('jogo3d')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'jogo3d' ? 'bg-white dark:bg-gray-900 shadow-sm text-emerald-600 dark:text-emerald-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Rastreio 3D</button>
+           <button onClick={() => setTab('rastreio3d')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'rastreio3d' ? 'bg-white dark:bg-gray-900 shadow-sm text-emerald-600 dark:text-emerald-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Rastreio 3D</button>
          </div>
       </div>
 
-      {tab === 'jogo3d' ? (
+      {tab === 'rastreio3d' ? (
         <Suspense fallback={<div className="h-[560px] rounded-2xl bg-gray-100 dark:bg-gray-800/40 animate-pulse" />}>
-          <EstoqueJogo3D lojaId={lojaId} />
+          <EstoqueRastreio3D lojaId={lojaId} />
         </Suspense>
       ) : tab === 'custo3d' ? (
         <Suspense fallback={<div className="h-[520px] rounded-2xl bg-gray-100 dark:bg-gray-800/40 animate-pulse" />}>
@@ -327,15 +331,15 @@ export default function Estoque() {
         
         <div className="space-y-5">
            {/* Nome */}
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <label className="block">
                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Nome do Insumo / Produto</span>
                  <input id="input-nome-insumo" className="mt-1 w-full rounded-xl border border-gray-300 p-3 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100 focus:border-[var(--cor-primaria)] focus:outline-none transition-colors" placeholder="ex: Queijo Mussarela, Coca-Cola Lata" value={nome} onChange={e => setNome(e.target.value)} />
               </label>
               <label className="block">
                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Categoria</span>
-                 <select className="mt-1 w-full rounded-xl border border-gray-300 p-3 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100 focus:border-[var(--cor-primaria)] focus:outline-none" 
-                   value={isNovaCategoria ? 'nova' : categoriaInsumo} 
+                 <select className="mt-1 w-full rounded-xl border border-gray-300 p-3 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100 focus:border-[var(--cor-primaria)] focus:outline-none"
+                   value={isNovaCategoria ? 'nova' : categoriaInsumo}
                    onChange={e => {
                      if (e.target.value === 'nova') {
                        setIsNovaCategoria(true);
@@ -351,14 +355,27 @@ export default function Estoque() {
                  </select>
                  {isNovaCategoria && (
                    <div className="mt-2 animate-in fade-in slide-in-from-top-1">
-                     <input className="w-full rounded-xl border border-orange-300 bg-orange-50/50 dark:bg-orange-900/10 p-3 text-sm dark:border-orange-800/50 dark:text-gray-100 focus:border-orange-500 focus:outline-none" 
-                       placeholder="Digite o nome da nova categoria..." 
-                       value={nomeNovaCategoria} 
-                       onChange={e => setNomeNovaCategoria(e.target.value)} 
+                     <input className="w-full rounded-xl border border-orange-300 bg-orange-50/50 dark:bg-orange-900/10 p-3 text-sm dark:border-orange-800/50 dark:text-gray-100 focus:border-orange-500 focus:outline-none"
+                       placeholder="Digite o nome da nova categoria..."
+                       value={nomeNovaCategoria}
+                       onChange={e => setNomeNovaCategoria(e.target.value)}
                        autoFocus
                      />
                    </div>
                  )}
+              </label>
+              <label className="block">
+                 <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Setor de Armazenamento</span>
+                 <select className="mt-1 w-full rounded-xl border border-gray-300 p-3 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100 focus:border-[var(--cor-primaria)] focus:outline-none"
+                   value={setor}
+                   onChange={e => setSetor(e.target.value)}>
+                   {OPCOES_SETOR.map(op => (
+                     <option key={op.valor} value={op.valor}>{op.rotulo}</option>
+                   ))}
+                 </select>
+                 <span className="mt-1 block text-[10px] text-gray-400 dark:text-gray-500">
+                   Onde o item fica guardado — usado no Rastreio 3D. "Automático" deduz pelo tipo do item.
+                 </span>
               </label>
            </div>
            
@@ -534,6 +551,18 @@ export default function Estoque() {
                       {i.categoria_insumo}
                     </span>
                   )}
+                  {(() => {
+                    const setorEfetivo = validarSetor(i.setor) ?? derivarSetor(i.nome, i.categoria_insumo);
+                    const s = SETORES[setorEfetivo];
+                    return (
+                      <span
+                        title={i.setor ? `Setor: ${s.rotulo} (cadastro)` : `Setor: ${s.rotulo} (automático)`}
+                        className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border"
+                        style={{ color: s.cor, borderColor: `${s.cor}55`, backgroundColor: `${s.cor}1a` }}>
+                        {s.icone} {s.rotulo}{i.setor ? '' : ' ·auto'}
+                      </span>
+                    );
+                  })()}
                 </p>
                 <div className="flex gap-4 mt-1">
                   <p className="text-xs text-gray-500 dark:text-gray-400">
