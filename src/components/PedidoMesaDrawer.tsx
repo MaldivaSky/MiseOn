@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Check, Loader2, UtensilsCrossed } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { obterOuCriarComandaAberta } from '../lib/comandas';
 import { fmt, precoItem, type Loja, type Mesa, type ItemCarrinho } from '../types';
 
 /* ─────────────────────────────────────────────────────────────
@@ -35,38 +34,24 @@ export default function PedidoMesaDrawer({ loja, mesa, carrinho, setCarrinho, on
     setEnviando(true); setErro('');
     try {
       if (nome.trim()) localStorage.setItem(chaveNome, nome.trim());
-      const comandaId = await obterOuCriarComandaAberta(loja.id, mesa.id);
-
-      const { data: pedido, error: erroPedido } = await supabase.from('pedidos').insert({
-        loja_id: loja.id,
-        tipo_pedido: 'SALAO',
-        origem: 'mesa',
-        comanda_id: comandaId,
-        mesa_numero: mesa.numero,
-        identificador_cliente: nome.trim() || `Mesa ${mesa.numero}`,
-        subtotal, valor_total: subtotal,
-        observacao: observacao.trim() || null,
-        requer_cozinha: false, // trigger promove p/ true se algum item for COZINHA
-      }).select('id, numero').single();
+      // Pedido de mesa nasce 100% no servidor (RPC security definer):
+      // anônimo não tem SELECT em pedidos/itens_pedido, então o
+      // INSERT..RETURNING direto falhava na RLS — e de quebra os preços
+      // são recalculados no banco, nunca confiados ao cliente.
+      const { data, error: erroPedido } = await supabase.rpc('fn_pedido_mesa_criar', {
+        p_loja_id: loja.id,
+        p_mesa_id: mesa.id,
+        p_identificador: nome.trim() || `Mesa ${mesa.numero}`,
+        p_observacao: observacao.trim() || null,
+        p_itens: carrinho.map((i) => ({
+          produto_id: i.produto.id,
+          quantidade: i.quantidade,
+          observacao: i.observacao ?? null,
+          opcoes: i.opcoesSelecionadas.map((o) => ({ opcao_id: o.id })),
+        })),
+      });
+      const pedido = (data as { pedido_id: string; numero: number }[] | null)?.[0];
       if (erroPedido || !pedido) throw erroPedido ?? new Error('Falha ao enviar o pedido');
-
-      for (const item of carrinho) {
-        const { data: it, error: erroItem } = await supabase.from('itens_pedido').insert({
-          pedido_id: pedido.id,
-          produto_id: item.produto.id,
-          nome_produto: item.produto.nome,
-          preco_unitario: Number(item.produto.preco) + item.opcoesSelecionadas.reduce((s, o) => s + Number(o.preco_adicional), 0),
-          quantidade: item.quantidade,
-          observacao: item.observacao ?? null,
-        }).select('id').single();
-        if (erroItem || !it) throw erroItem ?? new Error(`Falha ao registrar ${item.produto.nome}`);
-        if (item.opcoesSelecionadas.length > 0) {
-          const { error: erroOpcoes } = await supabase.from('itens_pedido_opcoes').insert(
-            item.opcoesSelecionadas.map((o) => ({ item_id: it.id, opcao_id: o.id, nome_opcao: o.nome, preco_adicional: o.preco_adicional })),
-          );
-          if (erroOpcoes) throw erroOpcoes;
-        }
-      }
 
       setCarrinho([]);
       onSucesso(pedido.numero);
