@@ -1,0 +1,200 @@
+# E-mail no MiseOn — regra de negócio, arquitetura e backlog
+
+Status: **E1 concluída e em produção** (2026-07-22)
+Projeto Supabase: `zzuxklwhaoisuuvndtfw` · Domínio: `https://miseon.vercel.app`
+
+---
+
+## 1. Princípios
+
+**E-mail é consequência de evento, nunca de clique.** Não existe botão "enviar
+e-mail". O banco observa transições de estado e enfileira. Isso vale igual
+para pedido vindo do PDV, do cardápio, do webhook da Efí ou do iFood — a regra
+não mora no frontend, então não tem caminho que escape dela.
+
+**A fila é a única porta de entrada.** Tudo passa por `fn_email_enfileirar`,
+que valida endereço, aplica consentimento, aplica janela de silêncio e
+deduplica. Nenhum código envia e-mail direto.
+
+**Idempotência por `(loja_id, evento, referencia_id)`.** O webhook da Efí
+repete notificação — e repete mesmo. Sem essa chave única o cliente receberia
+sete confirmações do mesmo pagamento.
+
+**Consentimento é por endereço, não por conta.** O cliente final do restaurante
+não tem login no MiseOn. Amarrar preferência em `auth.users` deixaria ele sem
+como se descadastrar, o que é problema de LGPD antes de ser de UX.
+
+**Link em e-mail não tem desfazer.** Depois de enviado, um link errado é
+permanente. Por isso o domínio vive no secret `SITE_URL` e toda URL é derivada
+de id real no momento do envio — nunca escrita à mão no payload.
+
+---
+
+## 2. Matriz de eventos
+
+| Evento | Gatilho | Classe | Referência (dedup) |
+|---|---|---|---|
+| `pedido-recebido` | `AFTER INSERT ON pedidos` | Transacional | `pedido.id` |
+| `pagamento-confirmado` | `pagamentos.status → PAGO` | Transacional | `pedido.id` |
+| `pedido-a-caminho` | `pedidos.status → EM_ROTA` | Transacional | `pedido.id` |
+| `pedido-entregue` | `pedidos.status → FINALIZADO` | Transacional | `pedido.id` |
+| `carrinho-abandonado` | varredura, 45 min parado | **Marketing** | `carrinho.id` |
+| `cupom-disponivel` | campanha do lojista | **Marketing** | `cupom`/campanha |
+| `acesso-equipe` | criação de login | Transacional | `user_id` |
+
+Pedido de **salão não gera** aviso de entrega: o cliente está na mesa.
+Pagamento dividido gera **um** e-mail, porque a referência é o pedido.
+
+### Transacional vs Marketing
+
+**Transacional** é legítimo interesse: confirma pagamento, entrega, acesso.
+Não exige opt-in e **não pode ser desligado** — sem ele o cliente não sabe se
+o dinheiro dele foi capturado.
+
+**Marketing** exige opt-in explícito em `email_consentimentos`, tem link de
+descadastro obrigatório no rodapé, respeita **janela de 8h–22h** e no máximo
+**1 envio por endereço por loja a cada 7 dias**. Essas regras estão no Postgres,
+não na aplicação, para valerem mesmo se o disparo vier de fora do app.
+
+---
+
+## 3. Arquitetura
+
+```
+evento de negócio
+   │
+   ├─ trigger no Postgres  ──►  fn_email_enfileirar()
+   │                              ├─ valida e-mail
+   │                              ├─ consentimento (marketing)
+   │                              ├─ janela de silêncio (marketing)
+   │                              └─ dedup por referência
+   │                                    │
+   │                              email_fila (PENDENTE)
+   │                                    │
+   └─ worker (edge function) ──► fn_email_reservar()  ← FOR UPDATE SKIP LOCKED
+                                        │
+                                  hidrata do banco  ← itens só existem depois do INSERT
+                                  monta URL a partir de SITE_URL + id
+                                  renderiza Handlebars
+                                  envia SMTP
+                                        │
+                                  email_log + status ENVIADO
+```
+
+**Por que hidratar no envio e não no gatilho:** no `AFTER INSERT` do pedido os
+registros de `itens_pedido` ainda não existem — entram na transação seguinte.
+Montar o payload cedo produziria e-mail sem os itens. `fn_email_pedido_payload`
+roda no momento do despacho, quando o pedido está completo.
+
+**Retry:** backoff de 2min / 8min / 32min, 4 tentativas, depois `FALHOU` com o
+erro registrado em `email_log`.
+
+### Objetos criados
+
+| Objeto | Papel |
+|---|---|
+| `email_fila` | fila com dedup, status, tentativas, agendamento |
+| `email_consentimentos` | opt-in por `(loja_id, email)` + token de descadastro |
+| `email_log` | histórico de envio, com `loja_id`, `evento`, `classe` |
+| `fn_email_enfileirar` | porta de entrada única |
+| `fn_email_reservar` | reserva atômica do lote (`SKIP LOCKED`) |
+| `fn_email_pedido_payload` | dados do pedido no instante do envio |
+| `fn_email_pode_marketing` | opt-in + limite de 7 dias |
+| `fn_email_proxima_janela` | adia marketing para 8h |
+| `fn_email_varrer_carrinhos` | detecta carrinho parado há 45 min |
+| `fn_email_descadastrar` | descadastro por token, sem login |
+
+Migrations: `20260722050000_email_fila.sql`, `20260722060000_email_gatilhos.sql`.
+Function: `supabase/functions/send-transactional-email/`.
+Página pública de descadastro: `/email/descadastro?t=<token>`.
+
+---
+
+## 4. Segurança — decisões e porquês
+
+**A service role key não circula.** A drenagem da fila deve ser autenticada por
+um token dedicado (`EMAIL_WORKER_TOKEN`), não pela service key. Se o token
+vazar, o atacante drena uma fila de e-mails já aprovados; se a service key
+vazar, ele é dono do banco. Menor privilégio.
+
+**`pg_cron` + `pg_net` foram descartados de propósito.** Fariam o Postgres
+chamar a edge function, mas exigiriam guardar a service key dentro do próprio
+banco (Vault) — uma segunda cópia do segredo mais crítico, dentro do sistema
+que ele protege. O agendamento fica externo.
+
+**Senha nunca vai por e-mail.** O template `acesso-equipe` entrega login e URL
+de acesso; a senha é repassada presencialmente. E-mail fica em texto na caixa
+do destinatário para sempre, é encaminhável e cairia no `email_log`.
+
+**O token de descadastro é opaco.** A URL carrega um UUID, nunca o e-mail —
+endereço em query string vaza em log de servidor, histórico e `Referer`.
+
+**RLS:** `email_fila`, `email_consentimentos` e `email_log` são legíveis só
+pelo admin da loja; escrita apenas por service role e funções `SECURITY
+DEFINER`. `email_log` estava **sem RLS** antes desta entrega.
+
+---
+
+## 5. Pendências para produção
+
+| # | Pendência | Por que importa |
+|---|---|---|
+| P1 | **Agendar o worker.** Criar `EMAIL_WORKER_TOKEN` (Supabase Secrets + Vercel Env), rota `/api/cron/email` e `crons` no `vercel.json` | Hoje a fila só drena por chamada manual. Sem isso, nada é enviado sozinho |
+| P2 | **Revogar a App Password do Gmail** exposta no histórico do Git e gerar outra | Credencial comprometida em repositório |
+| P3 | **Migrar para Resend com domínio próprio** (SPF/DKIM/DMARC) | Gmail limita ~500/dia e o remetente aparece como conta pessoal; sem DKIM o volume vai para spam |
+| P4 | **Capturar e-mail no checkout** | `clientes.email` é opcional e o fluxo é telefone-first: hoje a maioria dos clientes não tem e-mail, e a fila descarta em silêncio |
+| P5 | Trocar `acesso-equipe` por **link de senha de uso único** (`generateLink`) | Elimina a senha em trânsito e a senha fixa versionada no seed |
+
+---
+
+## 6. Backlog — Campanhas de e-mail para o lojista
+
+Objetivo: o lojista cria campanhas na aba **Marketing**, com banner e narrativa
+próprios, e vê **quanta receita a campanha gerou**.
+
+### E2 — Construtor de campanhas
+Aba `campanhas` em `src/pages/admin/Marketing.tsx`.
+
+- Tabela `email_campanhas`: `titulo`, `assunto`, `previa`, `banner_url`,
+  `story` (texto do lojista), `cta_texto`, `cta_url`, `cupom_id`, `publico`,
+  `status` (RASCUNHO/AGENDADA/ENVIANDO/ENVIADA), `agendada_para`.
+- Template `campanha.hbs`: banner no topo, story, cupom opcional, CTA — mesma
+  moldura MiseOn + card da loja dos demais.
+- Banner via `ImageUpload` (bucket `loja-assets`), proporção 2:1.
+- Público: `todos com opt-in`, `compraram nos últimos 30/90 dias`,
+  `nunca compraram`, `ticket acima de X`.
+- Pré-visualização real usando a ação `teste` da function (`somente_html`).
+- Disparo: `fn_email_campanha_disparar(campanha_id)` enfileira como MARKETING —
+  herda opt-in, janela e limite de 7 dias sem código novo.
+
+**Depende de P1 e P4.** Sem agendamento a campanha não sai; sem e-mail no
+cadastro o público é pequeno demais para valer a pena.
+
+### E3 — Resultado da campanha (receita atribuída)
+A pergunta que decide se o lojista continua usando: *quanto isso me deu?*
+
+- `email_log` ganha `campanha_id`; cupom da campanha vira o elo de atribuição.
+- Atribuição direta: pedidos com `cupom_id` da campanha.
+- Atribuição por janela: pedidos de destinatários da campanha em até 72h do
+  envio, mesmo sem cupom (marcar como "assistida", não creditar igual).
+- Painel: enviados · entregues · **pedidos gerados** · **receita** · ticket
+  médio · custo zero → ROI.
+- Requer tracking de abertura/clique (`opened_at`/`clicked_at` já existem em
+  `email_log`, hoje não populados) — pixel + redirect assinado.
+
+### E4 — Cashback no e-mail
+- `pedido-entregue` já tem o bloco de cashback pronto no template; falta ligar
+  em `cashback_movimentos` na hidratação.
+- Campanha "seu cashback expira em 7 dias" — alto retorno, baixo custo.
+
+### E5 — Recuperador de carrinho com IA
+- Hoje a varredura de 45 min é regra fixa. Evoluir para o agente já existente
+  (Groq, ver `docs/PLANO-WHATSAPP.md`) escolher **quando** e **com qual oferta**
+  abordar, a partir do histórico do cliente.
+- Cupom dinâmico: só oferece desconto quando o carrinho não converteria sozinho,
+  para não queimar margem com quem já ia comprar.
+- Canal escolhido pelo próprio agente: WhatsApp se houver sessão ativa, e-mail
+  como fallback.
+
+**Ordem sugerida:** P1 → P4 → E2 → E3 → E4 → E5. E3 é o que transforma a
+funcionalidade em argumento de venda; E5 só faz sentido com E3 medindo.

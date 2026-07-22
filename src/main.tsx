@@ -19,6 +19,7 @@ const MeusPedidos     = lazy(() => import('./pages/MeusPedidos'));
 const AcompanharPedido= lazy(() => import('./pages/Pedido'));
 const Termos          = lazy(() => import('./pages/legal/Termos'));
 const Privacidade     = lazy(() => import('./pages/legal/Privacidade'));
+const DescadastroEmail = lazy(() => import('./pages/legal/DescadastroEmail'));
 
 // ── Lazy: ADMIN_LAYOUT (único layout compartilhado — carrega rápido) ─────────
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
@@ -129,6 +130,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="/acesso"        element={<Acesso />} />
               <Route path="/termos"        element={<Termos />} />
               <Route path="/privacidade"   element={<Privacidade />} />
+              <Route path="/email/descadastro" element={<DescadastroEmail />} />
               <Route path="/lojas"         element={<Lojas />} />
               <Route path="/cadastre-se"   element={<CadastreSuaLoja />} />
               <Route path="/pedido/:id"    element={<AcompanharPedido />} />

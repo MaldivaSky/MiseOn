@@ -1,115 +1,264 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.6';
-import Handlebars from 'npm:handlebars';
-import nodemailer from 'npm:nodemailer';
+// MiseOn — Worker de e-mail.
+//
+// Duas ações:
+//   { acao: 'processar' }  → drena a fila (chamado por cron/webhook, service role)
+//   { acao: 'teste', ... } → envia um exemplo para o admin conferir o template
+//
+// Diferença central para a versão anterior: o destinatário vem da fila,
+// não do JWT de quem chamou. Sem isso era impossível avisar o cliente
+// final (que não tem conta) ou reagir a webhook de pagamento (que não
+// tem JWT).
 
-const corsHeaders = {
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+import nodemailer from 'npm:nodemailer@6.9.14';
+import { montarEmail, EVENTOS, SITE, type Loja } from './render.ts';
+
+// Eventos cujo conteúdo é montado a partir do pedido no instante do
+// envio — no INSERT os itens ainda não existem em itens_pedido.
+const EVENTOS_DE_PEDIDO = new Set([
+  'pedido-recebido',
+  'pedido-a-caminho',
+  'pedido-entregue',
+  'pagamento-confirmado',
+]);
+
+const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
+const json = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...cors },
+  });
 
-// Configura o transportador SMTP para o Gmail (credenciais definidas via variáveis de ambiente)
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: Deno.env.get('GMAIL_USER') || 'rafaelmaldivas@gmail.com',
-    pass: Deno.env.get('GMAIL_APP_PASSWORD') || 'jorz hrkh wxrd coej'
-  }
-});
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+const GMAIL_USER = Deno.env.get('GMAIL_USER');
+const GMAIL_APP_PASSWORD = Deno.env.get('GMAIL_APP_PASSWORD');
+const REMETENTE_NOME = Deno.env.get('EMAIL_FROM_NAME') ?? 'MiseOn';
+
+const MAX_TENTATIVAS = 4;
+const LOTE = 20;
+
+function transportador() {
+  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
+    throw new Error(
+      'Credenciais de envio ausentes. Defina os secrets GMAIL_USER e GMAIL_APP_PASSWORD na função.',
+    );
   }
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+  });
+}
+
+const admin = () => createClient(SUPABASE_URL, SERVICE_KEY);
+
+const lojasCache = new Map<string, Loja>();
+async function carregarLoja(db: ReturnType<typeof admin>, lojaId: string): Promise<Loja> {
+  const cached = lojasCache.get(lojaId);
+  if (cached) return cached;
+  const { data } = await db
+    .from('lojas')
+    .select('id, nome, slug, logo_url, telefone, whatsapp, endereco, cor_primaria, chat_ia_ativo')
+    .eq('id', lojaId)
+    .maybeSingle();
+  const loja = (data ?? { nome: 'Sua loja' }) as Loja;
+  lojasCache.set(lojaId, loja);
+  return loja;
+}
+
+async function urlDescadastro(db: ReturnType<typeof admin>, lojaId: string, email: string) {
+  const { data } = await db
+    .from('email_consentimentos')
+    .select('descadastro_token')
+    .eq('loja_id', lojaId)
+    .eq('email', email.toLowerCase())
+    .maybeSingle();
+  return data?.descadastro_token ? `${SITE}/email/descadastro?t=${data.descadastro_token}` : '';
+}
+
+/**
+ * Monta os dados do e-mail na hora do envio.
+ * Toda URL é derivada de SITE (secret) + id real — link em e-mail não
+ * tem como ser corrigido depois de enviado, então nada é escrito à mão.
+ */
+async function hidratar(db: ReturnType<typeof admin>, item: any, loja: Loja) {
+  const base: Record<string, any> = {};
+  const daLoja = loja.slug ? `${SITE}/${loja.slug}` : '';
+
+  if (EVENTOS_DE_PEDIDO.has(item.evento) && item.referencia_id) {
+    const { data } = await db.rpc('fn_email_pedido_payload', { p_pedido_id: item.referencia_id });
+    Object.assign(base, data ?? {});
+    base.acompanhar_url = `${SITE}/pedido/${item.referencia_id}`;
+    if (item.evento === 'pedido-entregue' && daLoja) base.pedir_novamente_url = daLoja;
+  }
+
+  if (item.evento === 'carrinho-abandonado' && daLoja) base.carrinho_url = daLoja;
+  if (item.evento === 'cupom-disponivel' && daLoja) base.cardapio_url = daLoja;
+  if (item.evento === 'acesso-equipe') base.login_url = `${SITE}/admin/login`;
+
+  // O que veio explícito na fila vence o que foi derivado.
+  return { ...base, ...(item.payload ?? {}) };
+}
+
+/** Envia um item já reservado e registra o desfecho. */
+async function despachar(db: ReturnType<typeof admin>, smtp: any, item: any) {
+  const loja = await carregarLoja(db, item.loja_id);
+  const descadastro =
+    item.classe === 'MARKETING' ? await urlDescadastro(db, item.loja_id, item.destinatario) : '';
+
+  const dados = await hidratar(db, item, loja);
+  const { assunto, html, texto } = await montarEmail(item.evento, dados, loja, {
+    descadastro_url: descadastro,
+  });
+
+  // O nome visível é o da loja; o endereço técnico continua sendo o da
+  // plataforma. É assim que o cliente reconhece quem está falando.
+  const info = await smtp.sendMail({
+    from: `"${loja.nome ?? REMETENTE_NOME} via MiseOn" <${GMAIL_USER}>`,
+    to: item.destinatario,
+    subject: assunto,
+    html,
+    text: texto,
+    ...(descadastro
+      ? { list: { unsubscribe: { url: descadastro, comment: 'Cancelar ofertas desta loja' } } }
+      : {}),
+  });
+
+  await db
+    .from('email_fila')
+    .update({ status: 'ENVIADO', atualizado_em: new Date().toISOString() })
+    .eq('id', item.id);
+
+  await db.from('email_log').insert({
+    loja_id: item.loja_id,
+    fila_id: item.id,
+    evento: item.evento,
+    classe: item.classe,
+    template_type: item.evento,
+    recipient: item.destinatario,
+    status: 'sent',
+    message_id: info.messageId,
+    metadata: item.payload,
+  });
+}
+
+async function falhou(db: ReturnType<typeof admin>, item: any, erro: string) {
+  const tentativas = (item.tentativas ?? 0) + 1;
+  const desistiu = tentativas >= MAX_TENTATIVAS;
+  // Backoff: 2min, 8min, 32min — falha transitória de SMTP se resolve sozinha.
+  const espera = Math.pow(4, tentativas) * 30_000;
+
+  await db
+    .from('email_fila')
+    .update({
+      status: desistiu ? 'FALHOU' : 'PENDENTE',
+      tentativas,
+      ultimo_erro: erro.slice(0, 500),
+      agendado_para: new Date(Date.now() + espera).toISOString(),
+      atualizado_em: new Date().toISOString(),
+    })
+    .eq('id', item.id);
+
+  if (desistiu) {
+    await db.from('email_log').insert({
+      loja_id: item.loja_id,
+      fila_id: item.id,
+      evento: item.evento,
+      classe: item.classe,
+      template_type: item.evento,
+      recipient: item.destinatario,
+      status: 'failed',
+      error_message: erro.slice(0, 500),
+      metadata: item.payload,
+    });
+  }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
   try {
-    // 1. Autenticação do Usuário logado
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Missing Authorization header');
-    }
+    const body = await req.json().catch(() => ({}));
+    const acao = body.acao ?? 'processar';
+    const db = admin();
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    // Cliente para auth validation
-    const supabaseClient = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !user) {
-      throw new Error('Unauthorized');
-    }
-
-    // 2. Extração de Payload
-    const { templateType, data: templateData } = await req.json();
-
-    if (!['invoice', 'payment-confirmed'].includes(templateType)) {
-      throw new Error('Template type is invalid');
-    }
-
-    // 3. Verificação de Preferências de Email (Opt-in / Opt-out)
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-    const { data: preferences } = await supabaseAdmin
-      .from('email_preferences')
-      .select('transactional_allowed')
-      .eq('user_id', user.id)
-      .single();
-
-    if (preferences && preferences.transactional_allowed === false) {
-      console.log(`Envio ignorado: Usuário ${user.email} desativou emails transacionais.`);
-      return new Response(JSON.stringify({ success: false, message: 'Usuário desativou recebimento.' }), { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
+    // ── Envio de exemplo, para o admin conferir o template ────
+    if (acao === 'teste') {
+      const authHeader = req.headers.get('Authorization') ?? '';
+      const comoUsuario = createClient(SUPABASE_URL, ANON_KEY, {
+        global: { headers: { Authorization: authHeader } },
       });
+      const { data: { user } } = await comoUsuario.auth.getUser();
+      if (!user) return json({ error: 'Não autenticado' }, 401);
+
+      const { loja_id, evento, destinatario } = body;
+      if (!loja_id || !evento) return json({ error: 'loja_id e evento são obrigatórios' }, 400);
+      if (!EVENTOS[evento]) return json({ error: `Evento desconhecido: ${evento}` }, 400);
+
+      const { data: acesso } = await db
+        .from('usuarios_loja').select('papel')
+        .eq('user_id', user.id).eq('loja_id', loja_id).maybeSingle();
+      if (acesso?.papel !== 'admin') {
+        return json({ error: 'Só o admin da loja pode disparar e-mail de teste' }, 403);
+      }
+
+      const para = destinatario ?? user.email;
+      const loja = await carregarLoja(db, loja_id);
+      const { assunto, html, texto } = await montarEmail(evento, body.dados ?? {}, loja, {
+        descadastro_url: `${SITE}/email/descadastro?t=exemplo`,
+      });
+
+      if (body.somente_html) return json({ ok: true, assunto, html });
+
+      const info = await transportador().sendMail({
+        from: `"${loja.nome ?? REMETENTE_NOME} via MiseOn" <${GMAIL_USER}>`,
+        to: para,
+        subject: `[TESTE] ${assunto}`,
+        html,
+        text: texto,
+      });
+      return json({ ok: true, destinatario: para, message_id: info.messageId });
     }
 
-    // 4. Renderização do Template Handlebars
-    // Lendo do file system (útil em Edge Functions Deno)
-    const templatePath = new URL(`./templates/${templateType}.hbs`, import.meta.url);
-    const templateSource = await Deno.readTextFile(templatePath);
-    
-    const compiledTemplate = Handlebars.compile(templateSource);
-    const html = compiledTemplate(templateData);
+    // ── Drenagem da fila ──────────────────────────────────────
+    // Carrinho abandonado é o único evento sem ator: ninguém clica
+    // em "abandonar". A varredura roda junto com a drenagem.
+    const { data: carrinhos } = await db.rpc('fn_email_varrer_carrinhos', { p_minutos: 45 });
 
-    const emailSubject = templateType === 'invoice' 
-      ? `MiseOn: Nota Fiscal do Pedido #${templateData.numero}`
-      : `MiseOn: Pagamento Confirmado #${templateData.pedidoId}`;
+    const { data: itens, error } = await db.rpc('fn_email_reservar', { p_limite: LOTE });
+    if (error) throw error;
+    if (!itens?.length) return json({ ok: true, processados: 0, carrinhos_detectados: carrinhos ?? 0 });
 
-    // 5. Envio do Email via Nodemailer (SMTP Gmail)
-    const mailOptions = {
-      from: '"MiseOn" <rafaelmaldivas@gmail.com>',
-      to: user.email,
-      subject: emailSubject,
-      html: html,
-      text: `Por favor, ative a visualização HTML para ler este email da MiseOn.`
-    };
+    const smtp = transportador();
+    let enviados = 0;
+    let falhas = 0;
 
-    const info = await transporter.sendMail(mailOptions);
+    for (const item of itens) {
+      try {
+        await despachar(db, smtp, item);
+        enviados++;
+      } catch (e) {
+        falhas++;
+        console.error(`Falha no item ${item.id} (${item.evento}):`, e);
+        await falhou(db, item, String((e as Error)?.message ?? e));
+      }
+    }
 
-    // 6. Log no Banco de Dados
-    await supabaseAdmin.from('email_log').insert({
-      user_id: user.id,
-      template_type: templateType,
-      recipient: user.email,
-      status: 'sent',
-      message_id: info.messageId,
-      metadata: templateData,
+    return json({
+      ok: true,
+      processados: itens.length,
+      enviados,
+      falhas,
+      carrinhos_detectados: carrinhos ?? 0,
     });
-
-    console.log(`Email enviado com sucesso para ${user.email} (Template: ${templateType})`);
-    return new Response(JSON.stringify({ success: true, messageId: info.messageId }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200
-    });
-
-  } catch (error: any) {
-    console.error('Falha ao enviar email transacional:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400
-    });
+  } catch (e) {
+    console.error('Worker de e-mail falhou:', e);
+    return json({ error: String((e as Error)?.message ?? e) }, 500);
   }
 });

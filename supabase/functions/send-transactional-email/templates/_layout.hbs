@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>{{assunto}}</title>
+  <!--[if mso]>
+  <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+  <![endif]-->
+  <style>
+    body, table, td, a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+    table, td { mso-table-lspace:0pt; mso-table-rspace:0pt; }
+    img { -ms-interpolation-mode:bicubic; border:0; outline:none; text-decoration:none; }
+    a { color:#0A5CC4; }
+    @media only screen and (max-width:620px) {
+      .px      { padding-left:24px !important; padding-right:24px !important; }
+      .h1      { font-size:22px !important; }
+      .hide-sm { display:none !important; }
+      .btn a   { display:block !important; text-align:center !important; }
+    }
+  </style>
+</head>
+<body style="margin:0; padding:0; width:100%; background-color:#EEF1F6; -webkit-font-smoothing:antialiased;">
+
+  <!-- Prévia na caixa de entrada (invisível no corpo) -->
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; mso-hide:all;">{{previa}}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#EEF1F6;">
+    <tr>
+      <td align="center" style="padding:36px 12px;">
+
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:100%; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+
+          <!-- ── Plataforma: barra MiseOn ─────────────────── -->
+          <tr>
+            <td style="background-color:#070C18; border-radius:18px 18px 0 0; padding:16px 32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="vertical-align:middle;">
+                    <span style="font-size:19px; font-weight:800; letter-spacing:-0.4px; color:#FC5B24;">Mise</span><span style="font-size:19px; font-weight:800; letter-spacing:-0.4px; color:#FFFFFF;">On</span>
+                  </td>
+                  <td align="right" class="hide-sm" style="vertical-align:middle;">
+                    <span style="font-size:10px; font-weight:700; letter-spacing:1.4px; text-transform:uppercase; color:#5C6478;">{{rotulo_plataforma}}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ── Filete na cor da loja ────────────────────── -->
+          <tr><td style="height:4px; line-height:4px; font-size:0; background-color:{{loja.cor_primaria}};">&nbsp;</td></tr>
+
+          <!-- ── O lojista em destaque ────────────────────── -->
+          <tr>
+            <td class="px" style="background-color:#FFFFFF; padding:26px 32px 22px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td width="56" style="width:56px; padding-right:16px; vertical-align:middle;">
+                    {{#if loja.logo_url}}
+                      <img src="{{loja.logo_url}}" width="56" height="56" alt="{{loja.nome}}"
+                           style="width:56px; height:56px; border-radius:14px; object-fit:cover; display:block; background-color:#F3F4F6; border:1px solid #E5E7EB;">
+                    {{else}}
+                      <table role="presentation" width="56" height="56" cellpadding="0" cellspacing="0" border="0" style="width:56px; height:56px; background-color:{{loja.cor_primaria}}; border-radius:14px;">
+                        <tr><td align="center" style="vertical-align:middle; font-size:22px; font-weight:800; color:#FFFFFF;">{{loja.inicial}}</td></tr>
+                      </table>
+                    {{/if}}
+                  </td>
+                  <td style="vertical-align:middle;">
+                    <div style="font-size:18px; font-weight:800; color:#0F172A; line-height:1.25; letter-spacing:-0.2px;">{{loja.nome}}</div>
+                    <div style="font-size:13px; color:#6B7280; margin-top:3px;">{{subtitulo_loja}}</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ── Conteúdo do evento ───────────────────────── -->
+          <tr>
+            <td class="px" style="background-color:#FFFFFF; padding:6px 32px 36px;">
+              {{{conteudo}}}
+            </td>
+          </tr>
+
+          <!-- ── Contato da loja ──────────────────────────── -->
+          {{#if mostrar_contato}}
+          <tr>
+            <td class="px" style="background-color:#FFFFFF; border-radius:0 0 18px 18px; padding:0 32px 30px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #F1F3F7;">
+                <tr>
+                  <td style="padding-top:18px;">
+                    <div style="font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:#9CA3AF;">Precisa de ajuda?</div>
+
+                    {{#if contato.url}}
+                    <!-- Um canal só: o que responde mais rápido nesta loja. -->
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:12px 0 0;">
+                      <tr>
+                        <td style="border:1.5px solid #E4EAF2; border-radius:10px;">
+                          <a href="{{contato.url}}" style="display:inline-block; padding:12px 22px; font-size:14px; font-weight:700; color:#004198; text-decoration:none;">{{contato.rotulo}}</a>
+                        </td>
+                      </tr>
+                    </table>
+                    {{#if contato.nota}}
+                    <div style="font-size:12px; color:#9CA3AF; margin-top:8px;">{{contato.nota}}</div>
+                    {{/if}}
+                    {{/if}}
+
+                    <div style="font-size:13px; color:#6B7280; margin-top:14px; line-height:1.6;">
+                      <strong style="color:#374151;">{{loja.nome}}</strong>
+                      {{#if loja.telefone}}<br>{{loja.telefone}}{{/if}}
+                      {{#if loja.endereco}}<br>{{loja.endereco}}{{/if}}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          {{else}}
+          <tr><td style="background-color:#FFFFFF; border-radius:0 0 18px 18px; height:8px; line-height:8px; font-size:0;">&nbsp;</td></tr>
+          {{/if}}
+
+          <!-- ── Rodapé ───────────────────────────────────── -->
+          <tr>
+            <td align="center" style="padding:24px 24px 8px; color:#8A93A3; font-size:12px; line-height:1.65;">
+              {{#if marketing}}
+                <p style="margin:0 0 8px;">Você recebe estas ofertas porque autorizou <strong style="color:#6B7280;">{{loja.nome}}</strong> a entrar em contato.</p>
+                {{#if descadastro_url}}
+                  <p style="margin:0 0 16px;"><a href="{{descadastro_url}}" style="color:#6B7280; text-decoration:underline;">Cancelar o recebimento de ofertas desta loja</a></p>
+                {{/if}}
+              {{else}}
+                <p style="margin:0 0 16px;">Aviso essencial sobre o seu pedido em {{loja.nome}}.</p>
+              {{/if}}
+
+              <p style="margin:0; color:#A6AEBC;">
+                {{loja.nome}} usa <strong style="color:#8A93A3;">MiseOn</strong> para gerenciar pedidos.
+              </p>
+              <p style="margin:8px 0 0;">
+                <a href="{{site}}/privacidade" style="color:#8A93A3; text-decoration:underline;">Privacidade</a>
+                &nbsp;&middot;&nbsp;
+                <a href="{{site}}/termos" style="color:#8A93A3; text-decoration:underline;">Termos</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

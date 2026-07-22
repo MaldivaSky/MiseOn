@@ -1,0 +1,81 @@
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px;">
+  <tr>
+    <td style="background-color:#E8F0FE; border-radius:999px; padding:7px 14px;">
+      <span style="font-size:11px; font-weight:800; letter-spacing:1.1px; text-transform:uppercase; color:#004198;">Pedido confirmado</span>
+    </td>
+  </tr>
+</table>
+
+<h1 class="h1" style="margin:0 0 12px; font-size:26px; line-height:1.22; font-weight:800; color:#0F172A; letter-spacing:-0.6px;">Pedido #{{pedido_numero}} confirmado</h1>
+
+<p style="margin:0 0 28px; font-size:15px; line-height:1.7; color:#4B5563;">
+  {{#if cliente_nome}}{{cliente_nome}}, a{{else}}A{{/if}} <strong style="color:#0F172A;">{{loja.nome}}</strong> recebeu o seu pedido e já está preparando tudo.
+</p>
+
+{{#if itens}}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #E4EAF2; border-radius:14px; overflow:hidden;">
+  <tr>
+    <td colspan="2" style="background-color:#F7F9FC; padding:12px 20px; font-size:11px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase; color:#8A93A3;">Seu pedido</td>
+  </tr>
+  {{#each itens}}
+  <tr>
+    <td style="padding:13px 20px; border-top:1px solid #F1F3F7; font-size:14px; color:#374151; line-height:1.45;">
+      <strong style="color:#0F172A;">{{qtd}}&times;</strong>&nbsp; {{nome}}
+    </td>
+    <td align="right" style="padding:13px 20px; border-top:1px solid #F1F3F7; font-size:14px; color:#374151; white-space:nowrap;">R$ {{valor}}</td>
+  </tr>
+  {{/each}}
+  {{#if taxa_entrega}}
+  <tr>
+    <td style="padding:13px 20px; border-top:1px solid #F1F3F7; font-size:14px; color:#6B7280;">Taxa de entrega</td>
+    <td align="right" style="padding:13px 20px; border-top:1px solid #F1F3F7; font-size:14px; color:#6B7280; white-space:nowrap;">R$ {{taxa_entrega}}</td>
+  </tr>
+  {{/if}}
+  {{#if desconto}}
+  <tr>
+    <td style="padding:13px 20px; border-top:1px solid #F1F3F7; font-size:14px; color:#047857;">Desconto</td>
+    <td align="right" style="padding:13px 20px; border-top:1px solid #F1F3F7; font-size:14px; color:#047857; white-space:nowrap;">&minus; R$ {{desconto}}</td>
+  </tr>
+  {{/if}}
+  <tr>
+    <td style="padding:16px 20px; border-top:2px solid #E4EAF2; font-size:15px; font-weight:800; color:#0F172A;">Total</td>
+    <td align="right" style="padding:16px 20px; border-top:2px solid #E4EAF2; font-size:20px; font-weight:800; color:#004198; white-space:nowrap; letter-spacing:-0.4px;">R$ {{valor_total}}</td>
+  </tr>
+</table>
+{{else}}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F7F9FC; border:1px solid #E4EAF2; border-radius:14px;">
+  <tr>
+    <td style="padding:20px 22px;">
+      <div style="font-size:11px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase; color:#8A93A3;">Total do pedido</div>
+      <div style="font-size:30px; font-weight:800; color:#004198; margin-top:4px; letter-spacing:-0.8px;">R$ {{valor_total}}</div>
+    </td>
+  </tr>
+</table>
+{{/if}}
+
+{{#if entrega_em}}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px; background-color:#FFF7F4; border:1px solid #FFE0D5; border-radius:14px;">
+  <tr>
+    <td style="padding:16px 20px;">
+      <div style="font-size:11px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase; color:#C2410C;">{{#if endereco_entrega}}Entrega em{{else}}Retirada em{{/if}}</div>
+      <div style="font-size:14px; color:#7C2D12; margin-top:5px; line-height:1.55;">{{entrega_em}}</div>
+    </td>
+  </tr>
+</table>
+{{/if}}
+
+{{#if previsao}}
+<p style="margin:20px 0 0; font-size:15px; color:#374151;">
+  Previsão: <strong style="color:#0F172A;">{{previsao}}</strong>
+</p>
+{{/if}}
+
+{{#if acompanhar_url}}
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" class="btn" style="margin:26px 0 0;">
+  <tr>
+    <td align="center" bgcolor="#FC5B24" style="border-radius:12px;">
+      <a href="{{acompanhar_url}}" style="display:inline-block; padding:15px 32px; font-size:15px; font-weight:700; color:#FFFFFF; text-decoration:none; border-radius:12px;">Acompanhar em tempo real</a>
+    </td>
+  </tr>
+</table>
+{{/if}}

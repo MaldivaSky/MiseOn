@@ -5,12 +5,13 @@ import { supabase } from '../../lib/supabase';
 import { avaliarAssinatura } from '../../lib/assinatura';
 import ThemeToggle from '../../components/ThemeToggle';
 import { useLedgerAlerts } from '../../hooks/useLedgerAlerts';
+import { podeAcessar, HOME_POR_PAPEL, type Papel } from '../../lib/permissoes';
 
 export interface CtxLoja {
   lojaId: string;
   lojaNome: string;
   lojaSlug: string;
-  papel: string; // admin | operador | entregador
+  papel: string; // admin | operador | garcom | entregador
   status_assinatura?: string | null;
   diasAtraso: number;
 }
@@ -63,10 +64,10 @@ export default function AdminLayout() {
       if (lojaInfo?.cor_secundaria) document.documentElement.style.setProperty('--cor-secundaria', lojaInfo.cor_secundaria);
       
       // Motor de Bloqueio Seco (Lockdown)
-      if (diasAtraso > 5 && papel === 'admin' && !location.pathname.includes('/assinatura')) {
+      if (diasAtraso > 5 && papel === 'admin' && !loc.pathname.includes('/assinatura')) {
         nav('/admin/assinatura');
-      } else if (papel === 'entregador' && !location.pathname.includes('/entregas')) {
-        nav('/admin/entregas');
+      } else if (!podeAcessar(papel, loc.pathname)) {
+        nav(HOME_POR_PAPEL[papel as Papel] ?? '/admin/inicio', { replace: true });
       }
     })();
   }, [nav, loc.pathname]);

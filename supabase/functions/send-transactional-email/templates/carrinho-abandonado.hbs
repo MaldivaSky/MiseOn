@@ -1,0 +1,63 @@
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px;">
+  <tr>
+    <td style="background-color:#FFF7F4; border-radius:999px; padding:7px 14px;">
+      <span style="font-size:11px; font-weight:800; letter-spacing:1.1px; text-transform:uppercase; color:#C2410C;">Seu carrinho está esperando</span>
+    </td>
+  </tr>
+</table>
+
+<h1 class="h1" style="margin:0 0 12px; font-size:26px; line-height:1.22; font-weight:800; color:#0F172A; letter-spacing:-0.6px;">
+  {{#if cliente_nome}}{{cliente_nome}}, ficou algo para trás{{else}}Ficou algo para trás{{/if}}
+</h1>
+
+<p style="margin:0 0 26px; font-size:15px; line-height:1.7; color:#4B5563;">
+  Você montou um pedido na <strong style="color:#0F172A;">{{loja.nome}}</strong> e não chegou a finalizar. Ainda dá tempo — está tudo salvo.
+</p>
+
+{{#if itens}}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #E4EAF2; border-radius:14px; overflow:hidden;">
+  <tr>
+    <td colspan="2" style="background-color:#F7F9FC; padding:12px 20px; font-size:11px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase; color:#8A93A3;">No seu carrinho</td>
+  </tr>
+  {{#each itens}}
+  <tr>
+    <td style="padding:13px 20px; border-top:1px solid #F1F3F7; font-size:14px; color:#374151; line-height:1.45;">
+      <strong style="color:#0F172A;">{{qtd}}&times;</strong>&nbsp; {{nome}}
+    </td>
+    <td align="right" style="padding:13px 20px; border-top:1px solid #F1F3F7; font-size:14px; color:#374151; white-space:nowrap;">R$ {{valor}}</td>
+  </tr>
+  {{/each}}
+</table>
+{{/if}}
+
+{{#if valor_estimado}}
+<p style="margin:18px 0 0; font-size:15px; color:#374151;">
+  Total estimado: <strong style="color:#004198; font-size:18px;">R$ {{valor_estimado}}</strong>
+</p>
+{{/if}}
+
+{{#if cupom_codigo}}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px; background-color:#FFF7F4; border:1px dashed #FFB499; border-radius:14px;">
+  <tr>
+    <td align="center" style="padding:20px;">
+      <div style="font-size:13px; color:#7C2D12; line-height:1.55;">Para facilitar, use o cupom</div>
+      <div style="font-size:24px; font-weight:800; letter-spacing:2px; color:#C2410C; margin:8px 0 4px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">{{cupom_codigo}}</div>
+      <div style="font-size:13px; color:#9A5A3C;">{{cupom_descricao}}</div>
+    </td>
+  </tr>
+</table>
+{{/if}}
+
+{{#if carrinho_url}}
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" class="btn" style="margin:26px 0 0;">
+  <tr>
+    <td align="center" bgcolor="#FC5B24" style="border-radius:12px;">
+      <a href="{{carrinho_url}}" style="display:inline-block; padding:15px 32px; font-size:15px; font-weight:700; color:#FFFFFF; text-decoration:none; border-radius:12px;">Retomar meu pedido</a>
+    </td>
+  </tr>
+</table>
+{{/if}}
+
+<p style="margin:22px 0 0; font-size:13px; line-height:1.65; color:#8A93A3;">
+  Se mudou de ideia, tudo bem — é só ignorar este e-mail.
+</p>

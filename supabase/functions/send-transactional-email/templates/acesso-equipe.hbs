@@ -1,0 +1,56 @@
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px;">
+  <tr>
+    <td style="background-color:#E8F0FE; border-radius:999px; padding:7px 14px;">
+      <span style="font-size:11px; font-weight:800; letter-spacing:1.1px; text-transform:uppercase; color:#004198;">Acesso criado</span>
+    </td>
+  </tr>
+</table>
+
+<h1 class="h1" style="margin:0 0 12px; font-size:26px; line-height:1.22; font-weight:800; color:#0F172A; letter-spacing:-0.6px;">
+  {{#if nome}}{{nome}}, seu acesso está pronto{{else}}Seu acesso está pronto{{/if}}
+</h1>
+
+<p style="margin:0 0 26px; font-size:15px; line-height:1.7; color:#4B5563;">
+  A <strong style="color:#0F172A;">{{loja.nome}}</strong> criou o seu acesso ao sistema como <strong style="color:#0F172A;">{{papel_rotulo}}</strong>.
+  Use os dados abaixo para entrar.
+</p>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F7F9FC; border:1px solid #E4EAF2; border-radius:14px;">
+  <tr>
+    <td style="padding:20px 22px;">
+      <div style="font-size:11px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase; color:#8A93A3;">Seu login</div>
+      <div style="font-size:16px; font-weight:700; color:#0F172A; margin-top:5px; word-break:break-all;">{{email}}</div>
+
+      <div style="border-top:1px solid #E4EAF2; margin:16px 0 0; padding-top:16px;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase; color:#8A93A3;">Endereço de acesso</div>
+        <div style="font-size:14px; color:#0A5CC4; margin-top:5px; word-break:break-all;">{{login_url}}</div>
+      </div>
+    </td>
+  </tr>
+</table>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px; background-color:#FFF7F4; border:1px solid #FFE0D5; border-radius:14px;">
+  <tr>
+    <td style="padding:16px 20px;">
+      <div style="font-size:11px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase; color:#C2410C;">Importante</div>
+      <div style="font-size:14px; color:#7C2D12; margin-top:6px; line-height:1.6;">
+        A senha provisória é entregue pessoalmente pelo responsável da loja — nunca por e-mail.
+        Troque a senha assim que entrar pela primeira vez e não compartilhe o seu acesso com ninguém.
+      </div>
+    </td>
+  </tr>
+</table>
+
+{{#if login_url}}
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" class="btn" style="margin:26px 0 0;">
+  <tr>
+    <td align="center" bgcolor="#FC5B24" style="border-radius:12px;">
+      <a href="{{login_url}}" style="display:inline-block; padding:15px 32px; font-size:15px; font-weight:700; color:#FFFFFF; text-decoration:none; border-radius:12px;">Entrar no sistema</a>
+    </td>
+  </tr>
+</table>
+{{/if}}
+
+<p style="margin:24px 0 0; font-size:13px; line-height:1.65; color:#8A93A3;">
+  Se você não esperava este acesso, avise o responsável pela {{loja.nome}}.
+</p>
