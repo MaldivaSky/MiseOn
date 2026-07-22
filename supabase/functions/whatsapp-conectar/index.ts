@@ -71,18 +71,18 @@ serve(async (req) => {
     if (!acao) return erro("acao é obrigatória");
 
     // ── Autenticação do lojista (JWT no header Authorization) ──────────────
-    const supabaseAuth = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
-    );
-    const { data: { user: caller } } = await supabaseAuth.auth.getUser();
-    if (!caller) return erro("Não autenticado", 401);
-
+    // Valida o JWT do lojista usando a SERVICE ROLE (auth.getUser(token)).
+    // Motivo: validar via cliente anon depende de SUPABASE_ANON_KEY estar
+    // correta no runtime da edge — e ela pode estar desatualizada, o que
+    // derrubava qualquer chamada com 401 mesmo com token válido.
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+    const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+    if (!jwt) return erro("Não autenticado", 401);
+    const { data: { user: caller } } = await admin.auth.getUser(jwt);
+    if (!caller) return erro("Não autenticado", 401);
 
     const { data: acesso } = await admin
       .from("usuarios_loja")
