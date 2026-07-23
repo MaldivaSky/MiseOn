@@ -32,7 +32,7 @@ async function getOrderDetails(orderId: string, token: string) {
 // Envia email de notificação de falha grave usando Resend
 async function sendFailureEmail(orderId: string, lojaNome: string, errorMessage: string) {
   const resendKey = Deno.env.get('RESEND_API_KEY');
-  const alertEmail = Deno.env.get('ALERT_EMAIL') || 'admin@miseon.com.br';
+  const alertEmail = Deno.env.get('ALERT_EMAIL') || 'suporte@miseon.app.br';
   
   if (!resendKey) return;
   
@@ -44,7 +44,7 @@ async function sendFailureEmail(orderId: string, lojaNome: string, errorMessage:
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: 'MiseOn Alerts <alerts@miseon.com.br>',
+        from: 'MiseOn Alertas <suporte@miseon.app.br>',
         to: alertEmail,
         subject: `⚠️ ALERTA: Falha Crítica no Webhook iFood - Loja: ${lojaNome}`,
         html: `

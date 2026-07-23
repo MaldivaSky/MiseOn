@@ -1,7 +1,7 @@
 // Montagem do e-mail: layout + conteúdo do evento + assunto + canal de contato.
 // Isolado do transporte para poder ser testado e para trocar de provedor
-// (Gmail SMTP hoje, Resend quando o domínio próprio estiver configurado)
-// sem tocar em template nenhum.
+// (SMTP transacional no domínio próprio miseon.app.br — provedor vem das
+// secrets SMTP_*; migrar para Resend não toca em template nenhum).
 
 import Handlebars from 'npm:handlebars@4.7.8';
 
@@ -122,13 +122,15 @@ export function resolverContato(loja: Loja, dados: Record<string, any>) {
   return null;
 }
 
+import { TEMPLATES } from './templates/index.ts';
+
 const cache = new Map<string, HandlebarsTemplateDelegate>();
 
 async function compilar(nome: string) {
   const emCache = cache.get(nome);
   if (emCache) return emCache;
-  const url = new URL(`./templates/${nome}.hbs`, import.meta.url);
-  const fonte = await Deno.readTextFile(url);
+  const fonte = TEMPLATES[nome];
+  if (!fonte) throw new Error(`Template não encontrado: ${nome}`);
   const tpl = Handlebars.compile(fonte);
   cache.set(nome, tpl);
   return tpl;

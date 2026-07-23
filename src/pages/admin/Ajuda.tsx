@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   LifeBuoy, ChevronDown, Landmark, QrCode, CreditCard, Check,
   ExternalLink, MessageCircle, ShieldCheck, Wallet, HelpCircle, ClipboardList,
-  Settings, BarChart3, Users, PhoneCall, PlayCircle, MonitorSmartphone, LayoutDashboard
+  Settings, BarChart3, Users, PhoneCall, PlayCircle, MonitorSmartphone, LayoutDashboard, Mail
 } from 'lucide-react';
 import { EFI_TARIFAS, EFI_LINKS } from '../../lib/efiInfo';
 
@@ -480,9 +480,11 @@ export default function Ajuda() {
                    <MessageCircle size={20} />
                    Chamar no WhatsApp agora
                  </a>
-                 <button className="flex items-center justify-center gap-2 rounded-2xl border-2 border-gray-200 bg-white px-8 py-4 font-bold text-gray-700 transition-all hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
-                   Agendar Consultoria (Vídeo)
-                 </button>
+                 <a href="mailto:suporte@miseon.app.br?subject=Suporte%20MiseOn"
+                   className="flex items-center justify-center gap-2 rounded-2xl border-2 border-gray-200 bg-white px-8 py-4 font-bold text-gray-700 transition-all hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
+                   <Mail size={20} />
+                   suporte@miseon.app.br
+                 </a>
               </div>
 
               <div className="mt-12 grid max-w-3xl gap-4 sm:grid-cols-3 text-left">

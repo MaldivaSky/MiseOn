@@ -138,7 +138,7 @@ const handler = async (req: Request, ctx: { user: any, supabase: any }, body: z.
           customer: {
             name: customer.name,
             cpf: String(customer.cpf).replace(/\D/g, ''),
-            email: customer.email ?? 'cliente@miseon.app',
+            email: customer.email ?? 'contato@miseon.app.br',
             phone_number: (String(customer.phone ?? '').replace(/\D/g, '') || String(p.telefone_contato ?? '').replace(/\D/g, '')),
             ...(customer.birth ? { birth: String(customer.birth) } : {}),
           },
