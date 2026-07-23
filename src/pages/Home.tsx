@@ -2,7 +2,8 @@ import { Link } from 'react-router-dom';
 import {
   QrCode, ClipboardList, ChefHat, Bike, Boxes, Wallet,
   MessageCircle, ShieldCheck, ArrowRight, Check, Sparkles,
-  Store, Menu as MenuIcon, X,
+  Store, Menu as MenuIcon, X, UtensilsCrossed, Megaphone, ShoppingBag,
+  Mail, ChevronDown, Headset, Globe, MapPin, BarChart3,
 } from 'lucide-react';
 import { useState } from 'react';
 import MiseOnLogo from '../components/MiseOnLogo';
@@ -42,6 +43,13 @@ const RECURSOS = [
     fundo: 'bg-emerald-500/10',
   },
   {
+    icone: UtensilsCrossed,
+    titulo: 'PDV, mesas e comandas',
+    texto: 'Balcão e salão no mesmo sistema: comanda por mesa, pedido direto na tela da cozinha e fechamento de conta sem confusão.',
+    cor: 'text-amber-500',
+    fundo: 'bg-amber-500/10',
+  },
+  {
     icone: Boxes,
     titulo: 'Estoque com ficha técnica e CMV',
     texto: 'Cada venda baixa os ingredientes automaticamente. Você sabe o custo real de cada prato e nunca vende o que acabou.',
@@ -54,6 +62,63 @@ const RECURSOS = [
     texto: 'Pix cai direto na sua conta, com conciliação automática e taxas transparentes. O MiseOn não segura o seu dinheiro.',
     cor: 'text-teal-500',
     fundo: 'bg-teal-500/10',
+  },
+  {
+    icone: Megaphone,
+    titulo: 'Marketing e fidelização',
+    texto: 'Cupons, promoções e e-mails automáticos de pedido, entrega e carrinho abandonado. O cliente volta sem você empurrar.',
+    cor: 'text-pink-500',
+    fundo: 'bg-pink-500/10',
+  },
+  {
+    icone: ShoppingBag,
+    titulo: 'Integração com iFood',
+    texto: 'Os pedidos do iFood caem no mesmo painel dos pedidos do seu site. Uma fila só, uma cozinha só, um estoque só.',
+    cor: 'text-rose-500',
+    fundo: 'bg-rose-500/10',
+  },
+];
+
+const PLATAFORMA = [
+  {
+    grupo: 'Vender',
+    itens: [
+      'Cardápio digital com link próprio e QR Code',
+      'PDV de balcão e comandas por mesa',
+      'Pedidos em tempo real, com aviso sonoro',
+      'Integração com iFood no mesmo painel',
+      'Pagamento Pix e cartão via Efí',
+    ],
+  },
+  {
+    grupo: 'Operar',
+    itens: [
+      'Cozinha KDS sem papel, com fila de preparo',
+      'Gestão de entregas e entregadores',
+      'Status do pedido que o cliente acompanha',
+      'Impressão de pedido para produção',
+      'Equipe com papéis e permissões',
+    ],
+  },
+  {
+    grupo: 'Gerir',
+    itens: [
+      'Estoque com baixa automática por venda',
+      'Ficha técnica, alergênicos e CMV por prato',
+      'Compras e controle de fornecedores',
+      'Financeiro com conciliação automática',
+      'Relatórios e histórico de vendas',
+    ],
+  },
+  {
+    grupo: 'Fidelizar',
+    itens: [
+      'Cupons e promoções por campanha',
+      'E-mails automáticos de pedido e entrega',
+      'Recuperação de carrinho abandonado',
+      'Chat com IA no site da sua loja',
+      'WhatsApp atendido por IA (oficial Meta)',
+    ],
   },
 ];
 
@@ -75,6 +140,97 @@ const PASSOS = [
   },
 ];
 
+const SUPORTE_CANAIS = [
+  {
+    icone: MessageCircle,
+    titulo: 'WhatsApp',
+    descricao: 'Atendimento humano para dúvidas da operação, planos e implantação.',
+    acao: 'Chamar no WhatsApp',
+    href: zap('Olá! Preciso de ajuda com o MiseOn.'),
+    externo: true,
+    destaque: true,
+  },
+  {
+    icone: Headset,
+    titulo: 'Suporte técnico',
+    descricao: 'Problemas com o sistema, integrações, pagamentos ou acessos.',
+    acao: 'suporte@miseon.app.br',
+    href: 'mailto:suporte@miseon.app.br?subject=Suporte%20MiseOn',
+    externo: false,
+    destaque: false,
+  },
+  {
+    icone: Mail,
+    titulo: 'Comercial e geral',
+    descricao: 'Planos, parcerias, imprensa e qualquer outro assunto.',
+    acao: 'contato@miseon.app.br',
+    href: 'mailto:contato@miseon.app.br?subject=Contato%20MiseOn',
+    externo: false,
+    destaque: false,
+  },
+];
+
+const FAQ = [
+  {
+    pergunta: 'Preciso comprar ou instalar algum equipamento?',
+    resposta:
+      'Não. O MiseOn roda no navegador, no computador e no celular que você já tem. A cozinha usa uma tela comum como KDS e o cardápio digital dispensa impressão.',
+  },
+  {
+    pergunta: 'Como eu recebo o dinheiro das vendas?',
+    resposta:
+      'Os pagamentos são processados pela Efí (Gerencianet) e caem direto na conta da sua loja, com conciliação automática no painel. O MiseOn não retém o seu faturamento em nenhuma etapa.',
+  },
+  {
+    pergunta: 'O atendimento por IA no WhatsApp é oficial?',
+    resposta:
+      'Sim. Usamos a WhatsApp Business Platform oficial da Meta — não é gambiarra com número pessoal nem risco de banimento. Nossa equipe conduz a configuração com você, sem mensalidade de integração.',
+  },
+  {
+    pergunta: 'A IA fecha pedidos sozinha no WhatsApp?',
+    resposta:
+      'Não — e isso é de propósito. Ela tira dúvidas com os dados reais da sua loja (preços, cardápio, horários) e envia o link do cardápio digital. O pedido é montado pelo cliente na plataforma e cai no seu painel para você aceitar. A decisão final é sempre sua.',
+  },
+  {
+    pergunta: 'O MiseOn integra com o iFood?',
+    resposta:
+      'Sim. Os pedidos do iFood entram na mesma fila dos pedidos do seu site, com baixa de estoque unificada. Você opera uma cozinha só, sem alternar entre telas.',
+  },
+  {
+    pergunta: 'Posso cancelar quando quiser?',
+    resposta:
+      'Pode. Não há fidelidade nem multa: o cancelamento é feito direto no painel e seus dados continuam disponíveis para exportação conforme os Termos de Uso.',
+  },
+];
+
+/* ─────────────────────── Componentes locais ─────────────────────── */
+
+function FaqItem({ pergunta, resposta }: { pergunta: string; resposta: string }) {
+  const [aberto, setAberto] = useState(false);
+  return (
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md dark:border-white/10 dark:bg-white/5 dark:backdrop-blur-md">
+      <button
+        onClick={() => setAberto((a) => !a)}
+        aria-expanded={aberto}
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-gray-50 dark:hover:bg-white/5"
+      >
+        <span className="font-['Sora'] text-sm font-bold text-gray-900 sm:text-base dark:text-white">
+          {pergunta}
+        </span>
+        <ChevronDown
+          size={18}
+          className={`shrink-0 text-[var(--cor-primaria)] transition-transform duration-300 ${aberto ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {aberto && (
+        <p className="border-t border-gray-100 px-5 py-4 text-sm leading-relaxed text-gray-600 dark:border-white/10 dark:text-slate-300">
+          {resposta}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /* ───────────────────────────── Página ───────────────────────────── */
 
 export default function Home() {
@@ -82,9 +238,11 @@ export default function Home() {
 
   const links = [
     { href: '#recursos', rotulo: 'Recursos' },
+    { href: '#plataforma', rotulo: 'Plataforma' },
     { href: '#como-funciona', rotulo: 'Como funciona' },
     { href: '#whatsapp-ia', rotulo: 'WhatsApp IA' },
     { href: '#planos', rotulo: 'Planos' },
+    { href: '#suporte', rotulo: 'Suporte' },
   ];
 
   return (
@@ -98,7 +256,7 @@ export default function Home() {
           </Link>
 
           {/* Links âncora — desktop */}
-          <div className="hidden items-center gap-7 md:flex">
+          <div className="hidden items-center gap-6 lg:flex">
             {links.map((l) => (
               <a
                 key={l.href}
@@ -110,7 +268,7 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="hidden items-center gap-3 md:flex">
+          <div className="hidden items-center gap-3 lg:flex">
             <Link
               to="/acesso"
               className="rounded-full px-4 py-2 text-sm font-bold text-gray-700 transition hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/10"
@@ -129,7 +287,7 @@ export default function Home() {
           <button
             onClick={() => setMenuAberto((a) => !a)}
             aria-label={menuAberto ? 'Fechar menu' : 'Abrir menu'}
-            className="rounded-lg p-2 text-gray-600 transition hover:bg-gray-100 md:hidden dark:text-gray-300 dark:hover:bg-white/10"
+            className="rounded-lg p-2 text-gray-600 transition hover:bg-gray-100 lg:hidden dark:text-gray-300 dark:hover:bg-white/10"
           >
             {menuAberto ? <X size={22} /> : <MenuIcon size={22} />}
           </button>
@@ -137,7 +295,7 @@ export default function Home() {
 
         {/* Menu mobile */}
         {menuAberto && (
-          <div className="border-t border-gray-200/70 bg-white/95 px-4 pb-5 pt-3 backdrop-blur-xl md:hidden dark:border-white/10 dark:bg-[#070C18]/95">
+          <div className="border-t border-gray-200/70 bg-white/95 px-4 pb-5 pt-3 backdrop-blur-xl lg:hidden dark:border-white/10 dark:bg-[#070C18]/95">
             <div className="flex flex-col gap-1">
               {links.map((l) => (
                 <a
@@ -290,7 +448,49 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ══════════ 5. WHATSAPP IA (ESCURO, GLASS) ══════════ */}
+      {/* ══════════ 5. PLATAFORMA COMPLETA (ESCURO, GLASS) ══════════ */}
+      <section id="plataforma" className="relative scroll-mt-24 overflow-hidden bg-gradient-to-br from-[#0B1120] via-[#0D1830] to-[#070C18] py-20 sm:py-24">
+        <div className="pointer-events-none absolute -left-20 top-0 h-80 w-80 rounded-full bg-[#0A5CC4]/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 right-[-6%] h-80 w-80 rounded-full bg-[#FC5B24]/15 blur-3xl" />
+
+        <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-blue-200 backdrop-blur-md">
+              <BarChart3 size={13} className="text-orange-400" /> Plataforma completa
+            </span>
+            <h2 className="mt-5 font-['Sora'] text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+              Tudo incluso. Sem módulo escondido, sem surpresa na fatura
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-slate-300">
+              Do primeiro clique do cliente ao relatório de fechamento do mês —
+              é isto que entra na sua conta quando você assina o MiseOn.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {PLATAFORMA.map((g) => (
+              <div
+                key={g.grupo}
+                className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur-md transition-colors hover:bg-white/15"
+              >
+                <h3 className="font-['Sora'] text-base font-extrabold uppercase tracking-widest text-orange-300">
+                  {g.grupo}
+                </h3>
+                <ul className="mt-4 space-y-2.5">
+                  {g.itens.map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-sm leading-snug text-slate-200">
+                      <Check size={15} className="mt-0.5 shrink-0 text-emerald-400" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════ 6. WHATSAPP IA (ESCURO, GLASS) ══════════ */}
       <section id="whatsapp-ia" className="relative scroll-mt-24 overflow-hidden bg-gradient-to-br from-[#022c22] via-[#064e3b] to-[#052e16] py-20 sm:py-24">
         <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 -left-10 h-64 w-64 rounded-full bg-teal-300/10 blur-3xl" />
@@ -365,7 +565,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ══════════ 6. COMO FUNCIONA ══════════ */}
+      {/* ══════════ 7. COMO FUNCIONA ══════════ */}
       <section id="como-funciona" className="scroll-mt-24 py-20 sm:py-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mx-auto max-w-2xl text-center">
@@ -395,7 +595,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ══════════ 7. PLANOS / CTA FINAL ══════════ */}
+      {/* ══════════ 8. PLANOS / CTA FINAL ══════════ */}
       <section id="planos" className="scroll-mt-24 pb-24">
         <div className="mx-auto max-w-4xl px-4 sm:px-6">
           <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-[#0B1120] via-[#0C1730] to-[#111a33] p-8 text-center shadow-2xl sm:p-14">
@@ -445,43 +645,141 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ══════════ 8. FOOTER INSTITUCIONAL ══════════ */}
+      {/* ══════════ 9. SUPORTE + FAQ ══════════ */}
+      <section id="suporte" className="scroll-mt-24 border-t border-gray-200/70 bg-white py-20 sm:py-24 dark:border-white/10 dark:bg-transparent">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="text-xs font-black uppercase tracking-widest text-[var(--cor-primaria)]">Suporte</span>
+            <h2 className="mt-3 font-['Sora'] text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl dark:text-white">
+              Gente de verdade do outro lado
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-gray-600 dark:text-slate-300">
+              Nada de ticket perdido em fila infinita. Você fala com o time que constrói
+              o MiseOn — no WhatsApp ou por e-mail, no canal que preferir.
+            </p>
+          </div>
+
+          {/* Canais de atendimento */}
+          <div className="mt-12 grid gap-5 md:grid-cols-3">
+            {SUPORTE_CANAIS.map((c) => (
+              <div
+                key={c.titulo}
+                className={`flex flex-col rounded-3xl border p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl ${
+                  c.destaque
+                    ? 'border-emerald-500/40 bg-gradient-to-br from-emerald-600 to-emerald-800 text-white'
+                    : 'border-gray-200 bg-white dark:border-white/10 dark:bg-white/5 dark:backdrop-blur-md'
+                }`}
+              >
+                <div
+                  className={`inline-flex w-fit rounded-2xl p-3 ${
+                    c.destaque ? 'bg-white/15 text-white' : 'bg-[var(--cor-primaria)]/10 text-[var(--cor-primaria)]'
+                  }`}
+                >
+                  <c.icone size={24} />
+                </div>
+                <h3 className={`mt-4 font-['Sora'] text-lg font-bold ${c.destaque ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
+                  {c.titulo}
+                </h3>
+                <p className={`mt-2 flex-1 text-sm leading-relaxed ${c.destaque ? 'text-emerald-100/90' : 'text-gray-600 dark:text-slate-300'}`}>
+                  {c.descricao}
+                </p>
+                <a
+                  href={c.href}
+                  {...(c.externo ? { target: '_blank', rel: 'noreferrer' } : {})}
+                  className={`mt-5 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold transition hover:scale-[1.02] ${
+                    c.destaque
+                      ? 'bg-white text-emerald-900 shadow-lg hover:bg-emerald-50'
+                      : 'border border-gray-300 text-gray-800 hover:bg-gray-50 dark:border-white/20 dark:text-white dark:hover:bg-white/10'
+                  }`}
+                >
+                  {c.acao} <ArrowRight size={15} />
+                </a>
+              </div>
+            ))}
+          </div>
+
+          {/* FAQ */}
+          <div className="mx-auto mt-16 max-w-3xl">
+            <h3 className="text-center font-['Sora'] text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+              Perguntas frequentes
+            </h3>
+            <div className="mt-8 grid gap-3">
+              {FAQ.map((f) => (
+                <FaqItem key={f.pergunta} pergunta={f.pergunta} resposta={f.resposta} />
+              ))}
+            </div>
+            <p className="mt-8 text-center text-sm text-gray-500 dark:text-slate-400">
+              Não achou a sua dúvida?{' '}
+              <a
+                href={zap('Olá! Tenho uma dúvida sobre o MiseOn.')}
+                target="_blank"
+                rel="noreferrer"
+                className="font-bold text-[var(--cor-primaria)] underline-offset-2 transition hover:underline"
+              >
+                Chama no WhatsApp
+              </a>{' '}
+              ou escreva para{' '}
+              <a
+                href="mailto:suporte@miseon.app.br?subject=D%C3%BAvida%20MiseOn"
+                className="font-bold text-[var(--cor-primaria)] underline-offset-2 transition hover:underline"
+              >
+                suporte@miseon.app.br
+              </a>
+              .
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════ 10. FOOTER — MAPA DO SITE ══════════ */}
       <footer className="border-t border-white/10 bg-[#070C18]">
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
-          <div className="grid gap-10 md:grid-cols-4">
+          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
             {/* Marca */}
-            <div className="md:col-span-1">
+            <div className="sm:col-span-2 lg:col-span-1">
               <MiseOnLogo size={140} />
               <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-400">
                 O sistema de gestão que coloca o seu restaurante para vender no automático —
                 do cardápio digital ao WhatsApp com IA.
               </p>
+              <p className="mt-5 flex items-start gap-2 text-xs leading-relaxed text-slate-500">
+                <MapPin size={13} className="mt-0.5 shrink-0 text-slate-500" />
+                Manaus/AM, Brasil · CNPJ 63.310.253/0001-81
+              </p>
             </div>
 
             {/* Produto */}
-            <div>
+            <nav aria-label="Mapa do site — Produto">
               <h4 className="font-['Sora'] text-sm font-bold uppercase tracking-widest text-slate-300">Produto</h4>
               <ul className="mt-4 space-y-2.5 text-sm text-slate-400">
                 <li><a href="#recursos" className="transition hover:text-white">Recursos</a></li>
-                <li><a href="#como-funciona" className="transition hover:text-white">Como funciona</a></li>
+                <li><a href="#plataforma" className="transition hover:text-white">Plataforma completa</a></li>
                 <li><a href="#whatsapp-ia" className="transition hover:text-white">WhatsApp com IA</a></li>
+                <li><a href="#como-funciona" className="transition hover:text-white">Como funciona</a></li>
                 <li><a href="#planos" className="transition hover:text-white">Planos</a></li>
                 <li><Link to="/cadastre-se" className="transition hover:text-white">Cadastrar minha loja</Link></li>
+                <li><Link to="/acesso" className="transition hover:text-white">Entrar no painel</Link></li>
               </ul>
-            </div>
+            </nav>
 
-            {/* Legal */}
-            <div>
-              <h4 className="font-['Sora'] text-sm font-bold uppercase tracking-widest text-slate-300">Legal</h4>
+            {/* Módulos */}
+            <nav aria-label="Mapa do site — Módulos">
+              <h4 className="font-['Sora'] text-sm font-bold uppercase tracking-widest text-slate-300">Módulos</h4>
               <ul className="mt-4 space-y-2.5 text-sm text-slate-400">
-                <li><Link to="/termos" className="transition hover:text-white">Termos de Uso</Link></li>
-                <li><Link to="/privacidade" className="transition hover:text-white">Política de Privacidade</Link></li>
+                <li><a href="#recursos" className="transition hover:text-white">Cardápio digital e QR Code</a></li>
+                <li><a href="#recursos" className="transition hover:text-white">PDV, mesas e comandas</a></li>
+                <li><a href="#recursos" className="transition hover:text-white">Cozinha (KDS)</a></li>
+                <li><a href="#recursos" className="transition hover:text-white">Entregas e entregadores</a></li>
+                <li><a href="#recursos" className="transition hover:text-white">Estoque, ficha técnica e CMV</a></li>
+                <li><a href="#recursos" className="transition hover:text-white">Financeiro com Pix</a></li>
+                <li><a href="#recursos" className="transition hover:text-white">Marketing e fidelização</a></li>
+                <li><a href="#recursos" className="transition hover:text-white">Integração iFood</a></li>
               </ul>
-            </div>
+            </nav>
 
-            {/* Contato */}
-            <div>
-              <h4 className="font-['Sora'] text-sm font-bold uppercase tracking-widest text-slate-300">Contato</h4>
+            {/* Suporte */}
+            <nav aria-label="Mapa do site — Suporte">
+              <h4 className="font-['Sora'] text-sm font-bold uppercase tracking-widest text-slate-300">Suporte</h4>
               <ul className="mt-4 space-y-2.5 text-sm text-slate-400">
                 <li>
                   <a
@@ -494,17 +792,40 @@ export default function Home() {
                   </a>
                 </li>
                 <li>
-                  <a href="mailto:contato@miseon.app.br" className="transition hover:text-white">
-                    contato@miseon.app.br
+                  <a href="mailto:suporte@miseon.app.br" className="inline-flex items-center gap-2 transition hover:text-white">
+                    <Headset size={15} className="text-slate-500" /> suporte@miseon.app.br
+                  </a>
+                </li>
+                <li>
+                  <a href="mailto:contato@miseon.app.br" className="inline-flex items-center gap-2 transition hover:text-white">
+                    <Mail size={15} className="text-slate-500" /> contato@miseon.app.br
+                  </a>
+                </li>
+                <li><a href="#suporte" className="transition hover:text-white">Perguntas frequentes</a></li>
+              </ul>
+            </nav>
+
+            {/* Legal */}
+            <nav aria-label="Mapa do site — Legal">
+              <h4 className="font-['Sora'] text-sm font-bold uppercase tracking-widest text-slate-300">Legal</h4>
+              <ul className="mt-4 space-y-2.5 text-sm text-slate-400">
+                <li><Link to="/termos" className="transition hover:text-white">Termos de Uso</Link></li>
+                <li><Link to="/privacidade" className="transition hover:text-white">Política de Privacidade</Link></li>
+                <li>
+                  <a href="/sitemap.xml" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 transition hover:text-white">
+                    <Globe size={15} className="text-slate-500" /> Sitemap
                   </a>
                 </li>
               </ul>
-            </div>
+            </nav>
           </div>
 
-          <div className="mt-12 border-t border-white/10 pt-6 text-center">
+          <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 sm:flex-row">
             <p className="text-xs text-slate-500">
               © 2026 MiseOn · CNPJ 63.310.253/0001-81 · Manaus/AM, Brasil
+            </p>
+            <p className="text-xs text-slate-600">
+              Pagamentos processados por Efí · WhatsApp Business Platform oficial
             </p>
           </div>
         </div>

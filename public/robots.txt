@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /pedido
+Disallow: /email/descadastro
+
+Sitemap: https://miseon.app.br/sitemap.xml
