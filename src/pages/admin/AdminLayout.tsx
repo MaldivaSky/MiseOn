@@ -1,11 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History, CreditCard, ShoppingCart, Flame, ChevronLeft, Menu, UserCircle, LifeBuoy, LayoutDashboard, Calculator, ChefHat, LayoutGrid, MessageSquare, MessageCircle, Plug } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { avaliarAssinatura } from '../../lib/assinatura';
 import ThemeToggle from '../../components/ThemeToggle';
 import { useLedgerAlerts } from '../../hooks/useLedgerAlerts';
+import { BrandLoader } from '../../components/BrandLoader';
 import { podeAcessar, HOME_POR_PAPEL, type Papel } from '../../lib/permissoes';
+
+export interface RouteDef {
+  to: string;
+  icon: React.ReactNode;
+  label: string;
+  colorHex: string;
+}
 
 export interface CtxLoja {
   lojaId: string;
@@ -23,14 +31,55 @@ export default function AdminLayout() {
   const [semLoja, setSemLoja] = useState(false);
   const [erroConexao, setErroConexao] = useState(false);
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
+  
+  // Intelligent transition state
+  const prevPathRef = useRef(loc.pathname);
+  const [transitionClass, setTransitionClass] = useState('mo-screen');
+
+  // Splash Screen session control
+  const [isMinLoadingDone, setIsMinLoadingDone] = useState(() => {
+    return sessionStorage.getItem('miseon_splash_done') === 'true';
+  });
+
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem('miseon_sidebar_collapsed') === 'true';
+  });
+
+  const toggleSidebar = () => {
+    const newState = !isCollapsed;
+    setIsCollapsed(newState);
+    localStorage.setItem('miseon_sidebar_collapsed', String(newState));
+  };
 
   // Monitoramento financeiro em tempo real — alertas de estorno suspeito,
   // cancelamento com estoque comprometido e erros de webhook
   useLedgerAlerts({ lojaId: ctx?.lojaId ?? '' });
   
-  // Controle de menu interno no mobile
+  // Regras Inteligentes de Transição (Forward / Backward)
+  useEffect(() => {
+    const prevDepth = prevPathRef.current.split('/').filter(Boolean).length;
+    const currDepth = loc.pathname.split('/').filter(Boolean).length;
+    
+    // Se está voltando para uma rota mais rasa (ex: /admin/pedidos/123 -> /admin/pedidos)
+    if (currDepth < prevDepth) {
+      setTransitionClass('mo-screen-back');
+    } 
+    // Se está indo para uma rota mais profunda ou navegando no mesmo nível
+    else {
+      setTransitionClass('mo-screen');
+    }
+    prevPathRef.current = loc.pathname;
+  }, [loc.pathname]);
 
   useEffect(() => {
+    let minLoadTimer: NodeJS.Timeout;
+    if (!isMinLoadingDone) {
+      minLoadTimer = setTimeout(() => {
+        setIsMinLoadingDone(true);
+        sessionStorage.setItem('miseon_splash_done', 'true');
+      }, 3600);
+    }
+    
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return nav('/admin/login');
@@ -70,7 +119,9 @@ export default function AdminLayout() {
         nav(HOME_POR_PAPEL[papel as Papel] ?? '/admin/inicio', { replace: true });
       }
     })();
-  }, [nav, loc.pathname]);
+    
+    return () => { if (minLoadTimer) clearTimeout(minLoadTimer); };
+  }, [nav, loc.pathname, isMinLoadingDone]);
 
   // O agendador externo roda 1x/dia (limite do plano) — serve de rede de
   // segurança, não de entrega: "seu pedido saiu para entrega" chegando no
@@ -117,12 +168,8 @@ export default function AdminLayout() {
     );
   }
 
-  if (!ctx) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[#F8FAFC] dark:bg-[#0B1120]">
-        <div className="w-8 h-8 border-4 border-[#004198] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+  if (!ctx || !isMinLoadingDone) {
+    return <BrandLoader />;
   }
 
   // Se bloqueado e for admin, a UI morre e força a tela de assinatura
@@ -138,46 +185,68 @@ export default function AdminLayout() {
     );
   }
 
-  const principal = ctx.papel === 'entregador'
-    ? [{ to: '/admin/entregas', icon: <Bike size={20} />, label: 'Entregas' }]
+  // Semantic colors: 
+  // blue for general (Início, Chat, Ajuda)
+  // orange/amber for PDV, Mesas
+  // green for Pedidos, Entregas
+  // red/flame for Cozinha, Producao
+  // indigo/purple for Configs (Cardápio, Equipe, Loja)
+  // emerald for Finance, Assinatura
+
+  // Semantic colors in HEX for guaranteed application
+  const C = {
+    blue: '#3b82f6',
+    orange: '#f97316',
+    amber: '#f59e0b',
+    green: '#22c55e',
+    red: '#ef4444',
+    indigo: '#6366f1',
+    emerald: '#10b981',
+    purple: '#a855f7',
+    pink: '#ec4899',
+    gray: '#6b7280'
+  };
+
+  const principal: RouteDef[] = ctx.papel === 'entregador'
+    ? [{ to: '/admin/entregas', icon: <Bike size={20} />, label: 'Entregas', colorHex: C.emerald }]
     : ctx.papel === 'garcom'
     ? [
-        { to: '/admin/mesas', icon: <LayoutGrid size={20} />, label: 'Mapa de Mesas' },
-        { to: '/admin/pdv', icon: <Calculator size={20} />, label: 'Lançar Pedido' },
+        { to: '/admin/mesas', icon: <LayoutGrid size={20} />, label: 'Mapa de Mesas', colorHex: C.amber },
+        { to: '/admin/pdv', icon: <Calculator size={20} />, label: 'Lançar Pedido', colorHex: C.orange },
       ]
     : ctx.papel === 'operador'
     ? [
-        { to: '/admin/pdv', icon: <Calculator size={20} />, label: 'PDV Balcão' },
-        { to: '/admin/mesas', icon: <LayoutGrid size={20} />, label: 'Mapa de Mesas' },
-        { to: '/admin/pedidos', icon: <ClipboardList size={20} />, label: 'Pedidos' },
-        { to: '/admin/kds', icon: <ChefHat size={20} />, label: 'Cozinha (KDS)' },
-        { to: '/admin/producao', icon: <Flame size={20} />, label: 'Produção' },
-        { to: '/admin/entregas', icon: <Bike size={20} />, label: 'Entregas' },
+        { to: '/admin/pdv', icon: <Calculator size={20} />, label: 'PDV Balcão', colorHex: C.orange },
+        { to: '/admin/mesas', icon: <LayoutGrid size={20} />, label: 'Mapa de Mesas', colorHex: C.amber },
+        { to: '/admin/pedidos', icon: <ClipboardList size={20} />, label: 'Pedidos', colorHex: C.green },
+        { to: '/admin/kds', icon: <ChefHat size={20} />, label: 'Cozinha (KDS)', colorHex: C.red },
+        { to: '/admin/producao', icon: <Flame size={20} />, label: 'Produção', colorHex: C.orange },
+        { to: '/admin/entregas', icon: <Bike size={20} />, label: 'Entregas', colorHex: C.emerald },
       ]
     : [
-        { to: '/admin/inicio', icon: <LayoutDashboard size={20} />, label: 'Início' },
-        { to: '/admin/pdv', icon: <Calculator size={20} />, label: 'PDV Balcão' },
-        { to: '/admin/mesas', icon: <LayoutGrid size={20} />, label: 'Mapa de Mesas' },
-        { to: '/admin/pedidos', icon: <ClipboardList size={20} />, label: 'Pedidos' },
-        { to: '/admin/kds', icon: <ChefHat size={20} />, label: 'Cozinha (KDS)' },
-        { to: '/admin/cardapio', icon: <UtensilsCrossed size={20} />, label: 'Cardápio' },
-        { to: '/admin/estoque', icon: <Boxes size={20} />, label: 'Estoque' },
-        { to: '/admin/producao', icon: <Flame size={20} />, label: 'Produção' },
-        { to: '/admin/entregas', icon: <Bike size={20} />, label: 'Entregas' },
+        { to: '/admin/inicio', icon: <LayoutDashboard size={20} />, label: 'Início', colorHex: C.blue },
+        { to: '/admin/pdv', icon: <Calculator size={20} />, label: 'PDV Balcão', colorHex: C.orange },
+        { to: '/admin/mesas', icon: <LayoutGrid size={20} />, label: 'Mapa de Mesas', colorHex: C.amber },
+        { to: '/admin/pedidos', icon: <ClipboardList size={20} />, label: 'Pedidos', colorHex: C.green },
+        { to: '/admin/kds', icon: <ChefHat size={20} />, label: 'Cozinha (KDS)', colorHex: C.red },
+        { to: '/admin/cardapio', icon: <UtensilsCrossed size={20} />, label: 'Cardápio', colorHex: C.indigo },
+        { to: '/admin/estoque', icon: <Boxes size={20} />, label: 'Estoque', colorHex: C.indigo },
+        { to: '/admin/producao', icon: <Flame size={20} />, label: 'Produção', colorHex: C.orange },
+        { to: '/admin/entregas', icon: <Bike size={20} />, label: 'Entregas', colorHex: C.emerald },
       ];
 
-  const mais = [
-    { to: '/admin/chat', icon: <MessageSquare size={20} />, label: 'Central de Atendimento (Chat)' },
-    { to: '/admin/ifood', icon: <Plug size={20} />, label: 'Integração iFood' },
-    { to: '/admin/whatsapp', icon: <MessageCircle size={20} />, label: 'Integração WhatsApp' },
-    { to: '/admin/compras', icon: <ShoppingCart size={20} />, label: 'Central de Compras' },
-    { to: '/admin/financeiro', icon: <TrendingUp size={20} />, label: 'Financeiro' },
-    { to: '/admin/historico', icon: <History size={20} />, label: 'Histórico' },
-    { to: '/admin/marketing', icon: <Megaphone size={20} />, label: 'Marketing' },
-    { to: '/admin/equipe', icon: <Users size={20} />, label: 'Equipe e Acessos' },
-    { to: '/admin/assinatura', icon: <CreditCard size={20} />, label: 'Assinatura SaaS' },
-    { to: '/admin/loja', icon: <Store size={20} />, label: 'Configurações da Loja' },
-    { to: '/admin/ajuda', icon: <LifeBuoy size={20} />, label: 'Central de Ajuda' },
+  const mais: RouteDef[] = [
+    { to: '/admin/chat', icon: <MessageSquare size={20} />, label: 'Central de Atendimento (Chat)', colorHex: C.blue },
+    { to: '/admin/ifood', icon: <Plug size={20} />, label: 'Integração iFood', colorHex: C.red },
+    { to: '/admin/whatsapp', icon: <MessageCircle size={20} />, label: 'Integração WhatsApp', colorHex: C.green },
+    { to: '/admin/compras', icon: <ShoppingCart size={20} />, label: 'Central de Compras', colorHex: C.indigo },
+    { to: '/admin/financeiro', icon: <TrendingUp size={20} />, label: 'Financeiro', colorHex: C.emerald },
+    { to: '/admin/historico', icon: <History size={20} />, label: 'Histórico', colorHex: C.gray },
+    { to: '/admin/marketing', icon: <Megaphone size={20} />, label: 'Marketing', colorHex: C.purple },
+    { to: '/admin/equipe', icon: <Users size={20} />, label: 'Equipe e Acessos', colorHex: C.pink },
+    { to: '/admin/assinatura', icon: <CreditCard size={20} />, label: 'Assinatura SaaS', colorHex: C.emerald },
+    { to: '/admin/loja', icon: <Store size={20} />, label: 'Configurações da Loja', colorHex: C.indigo },
+    { to: '/admin/ajuda', icon: <LifeBuoy size={20} />, label: 'Central de Ajuda', colorHex: C.blue },
   ];
 
   // Barra inferior do mobile: só os destinos de uso constante durante o turno
@@ -192,6 +261,7 @@ export default function AdminLayout() {
   const bottomNav = (ROTAS_BOTTOM_NAV[ctx.papel] ?? [])
     .map((to) => principal.find((p) => p.to === to))
     .filter((p): p is (typeof principal)[number] => !!p);
+
   // "Mais" acende quando a rota atual é algo que só existe fora da barra curada
   const emRotaSoDoMenu = !bottomNav.some((p) => p.to === loc.pathname)
     && (principal.some((p) => p.to === loc.pathname) || mais.some((p) => p.to === loc.pathname));
@@ -199,49 +269,98 @@ export default function AdminLayout() {
   const isMainRoute = principal.some(p => p.to === loc.pathname) || loc.pathname === '/admin';
   const innerRouteTitle = mais.find(m => m.to === loc.pathname)?.label;
 
-  // Renderiza um link da sidebar
-  const renderSidebarLink = (to: string, icon: any, label: string, onClick?: () => void) => (
-    <NavLink 
-      key={to} 
-      to={to}
-      onClick={onClick}
-      className={({ isActive }) => `
-        flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 group
-        ${isActive 
-          ? 'bg-[#004198]/10 dark:bg-[#004198]/20 text-[#004198] dark:text-[#6B9EFF]' 
-          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-gray-200'}
-      `}
-    >
-      {({ isActive }) => (
-        <>
-          <div className={`${isActive ? 'text-[#004198] dark:text-[#6B9EFF]' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'} transition-colors`}>
-            {icon}
-          </div>
-          {label}
-        </>
-      )}
-    </NavLink>
-  );
+  const renderSidebarLink = (r: RouteDef, onClick?: () => void) => {
+    return (
+      <NavLink 
+        key={r.to} 
+        to={r.to}
+        onClick={onClick}
+        style={{ '--route-color': r.colorHex } as React.CSSProperties}
+        className={({ isActive }) => `
+          group relative flex items-center gap-3 px-3.5 py-3 mx-3 my-1 rounded-2xl text-sm font-semibold transition-all duration-500 overflow-hidden
+          nav-link-premium ${isActive ? 'is-active' : ''}
+        `}
+      >
+        {({ isActive }) => (
+          <>
+            <div className="nav-link-bg absolute inset-0 opacity-0 transition-all duration-500 pointer-events-none rounded-2xl" />
+
+            <div className={`nav-link-icon relative z-10 flex-shrink-0 transition-transform duration-500 ease-out ${isActive ? 'scale-110 drop-shadow-md' : 'group-hover:scale-110'}`}>
+              {r.icon}
+            </div>
+            
+            <span 
+              className={`nav-link-text relative z-10 whitespace-nowrap transition-all duration-300 ease-in-out ${
+                isCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100 w-auto'
+              }`}
+            >
+              {r.label}
+            </span>
+
+            {isCollapsed && (
+              <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-bold rounded-lg opacity-0 -translate-x-2 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 shadow-xl z-50 whitespace-nowrap">
+                {r.label}
+                {/* Arrow */}
+                <div className="absolute top-1/2 -left-1 -translate-y-1/2 border-4 border-transparent border-r-gray-900 dark:border-r-white" />
+              </div>
+            )}
+          </>
+        )}
+      </NavLink>
+    );
+  };
 
   return (
-    <div className="flex h-screen bg-[#F4F7FA] dark:bg-[#0B1120] text-gray-900 dark:text-gray-100 font-sans overflow-hidden selection:bg-[#004198] selection:text-white">
+    <div className="flex h-screen bg-transparent text-gray-900 dark:text-gray-100 font-sans overflow-hidden selection:bg-[#FC5B24] selection:text-white">
+      <style>{`
+        .nav-link-premium { color: var(--cor-texto-suave); border: 1px solid transparent; }
+        .dark .nav-link-premium { color: var(--cor-texto-fraco); }
+        .nav-link-premium:hover, .nav-link-premium.is-active { color: var(--route-color) !important; }
+        .nav-link-premium.is-active { 
+          box-shadow: 0 8px 32px -8px color-mix(in srgb, var(--route-color) 50%, transparent); 
+          border-color: color-mix(in srgb, var(--route-color) 40%, transparent); 
+          background: linear-gradient(135deg, color-mix(in srgb, var(--route-color) 10%, transparent), transparent);
+        }
+        .nav-link-premium .nav-link-bg { background: linear-gradient(90deg, color-mix(in srgb, var(--route-color) 15%, transparent), transparent); }
+        .dark .nav-link-premium .nav-link-bg { background: linear-gradient(90deg, color-mix(in srgb, var(--route-color) 25%, transparent), transparent); }
+        .nav-link-premium:hover .nav-link-bg { opacity: 0.6; }
+        .nav-link-premium.is-active .nav-link-bg { opacity: 1; }
+        .nav-link-premium:hover .nav-link-icon, .nav-link-premium.is-active .nav-link-icon { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--route-color) 80%, transparent)); transform: scale(1.15); }
+      `}</style>
       
-      {/* ── SIDEBAR (DESKTOP) ── */}
-      <aside className="hidden lg:flex flex-col w-[280px] bg-white dark:bg-[#111827] border-r border-gray-200 dark:border-gray-800 z-40 print:hidden h-full">
+      {/* ── SIDEBAR FLOATING GLASS (DESKTOP) ── */}
+      <aside 
+        className={`hidden lg:flex flex-col relative my-3 ml-3 rounded-3xl bg-white/70 dark:bg-[#070C18]/40 backdrop-blur-3xl border border-white/40 dark:border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.05)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] z-40 print:hidden h-[calc(100vh-1.5rem)] transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${
+          isCollapsed ? 'w-[88px]' : 'w-[280px]'
+        }`}
+      >
         {/* Header da Sidebar (Logo MiseOn) */}
-        <div className="h-16 flex items-center px-6 border-b border-gray-100 dark:border-gray-800">
-          <div className="flex items-center gap-2">
-            <div className="bg-[#004198] p-1.5 rounded-lg shadow-sm">
-              <img src="/brand/icon-white.png" alt="" className="h-5 w-5 object-contain" onError={(e) => { e.currentTarget.style.display='none' }} />
-            </div>
-            <span className="font-extrabold text-xl tracking-tight text-gray-900 dark:text-white">MiseOn</span>
+        <div className="h-[88px] flex items-center justify-between px-5 border-b border-gray-200/30 dark:border-white/10 shrink-0 relative">
+          {/* Brilho da logo sutil contido no próprio container isolado */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-t-[2rem]">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#0A5CC4]/20 to-[#FC5B24]/20 opacity-80 mix-blend-screen pointer-events-none blur-2xl" />
           </div>
+          
+          <div className={`flex items-center justify-start overflow-hidden transition-all duration-500 ${isCollapsed ? 'w-12 justify-center' : 'w-full px-2'} relative z-10`}>
+            {isCollapsed ? (
+              <img src="/brand/icon.png" alt="MiseOn" className="h-10 w-10 shrink-0 object-contain drop-shadow-[0_4px_12px_rgba(252,91,36,0.6)] animate-in fade-in zoom-in duration-500" onError={(e) => { e.currentTarget.style.display='none' }} />
+            ) : (
+              <img src="/brand/logo-horizontal.png" alt="MiseOn" className="w-[170px] h-auto shrink-0 object-contain drop-shadow-[0_4px_16px_rgba(10,92,196,0.6)] animate-in fade-in duration-500" onError={(e) => { e.currentTarget.style.display='none' }} />
+            )}
+          </div>
+          {/* Toggle Button Luxuoso */}
+          <button 
+            onClick={toggleSidebar} 
+            className={`absolute -right-4 top-1/2 -translate-y-1/2 bg-white/80 dark:bg-[#0A101D]/90 backdrop-blur-md border border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-300 rounded-full p-2 shadow-[0_4px_20px_rgba(0,0,0,0.15)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.6)] transition-all duration-500 z-50 hover:scale-110 hover:text-[#FC5B24] ring-4 ring-[#F4F7FA] dark:ring-[#070C18] ${isCollapsed ? 'rotate-180' : ''}`}
+          >
+            <ChevronLeft size={16} strokeWidth={3} />
+          </button>
         </div>
 
         {/* Informações da Loja */}
-        <div className="px-6 py-5 flex flex-col gap-1">
-          <span className="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Loja Atual</span>
-          <h2 className="font-bold text-base truncate text-gray-900 dark:text-white">{ctx.lojaNome}</h2>
+        <div className={`px-4 py-5 flex flex-col gap-1 overflow-hidden transition-all duration-300 shrink-0 ${isCollapsed ? 'items-center opacity-0 h-0 p-0 m-0 border-0' : 'opacity-100'}`}>
+          <span className="text-[10px] font-bold tracking-wider text-gray-400 uppercase whitespace-nowrap">Loja Atual</span>
+          <h2 className="font-bold text-base truncate text-gray-900 dark:text-white whitespace-nowrap">{ctx.lojaNome}</h2>
           {ctx.papel !== 'admin' && (
             <span className="inline-block mt-1 self-start rounded-md bg-[#004198]/10 px-2 py-0.5 text-[10px] font-bold text-[#004198] dark:text-[#6B9EFF] uppercase">
               {ctx.papel}
@@ -250,42 +369,120 @@ export default function AdminLayout() {
         </div>
 
         {/* Navegação Scrollável */}
-        <div className="flex-1 overflow-y-auto px-4 py-2 space-y-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto py-2 space-y-6 custom-scrollbar overflow-x-hidden">
           
-          <div className="space-y-1">
-            <p className="px-2 mb-2 text-[10px] font-bold tracking-widest text-gray-400 uppercase">Operação</p>
-            {principal.map(p => renderSidebarLink(p.to, p.icon, p.label))}
-          </div>
+          {ctx.papel === 'admin' ? (
+            <>
+              {/* Visão Geral */}
+              <div className="space-y-1">
+                <p className={`px-5 mb-2 text-[10px] font-bold tracking-widest text-gray-400 uppercase transition-all duration-300 ${isCollapsed ? 'text-center text-[8px]' : ''}`}>
+                  {isCollapsed ? '---' : 'Visão Geral'}
+                </p>
+                {[...principal, ...mais].filter(p => ['/admin/inicio'].includes(p.to)).map(p => renderSidebarLink(p))}
+              </div>
 
-          {ctx.papel === 'admin' && (
+              {/* Operação */}
+              <div className="space-y-1">
+                <p className={`px-5 mb-2 mt-4 text-[10px] font-bold tracking-widest text-gray-400 uppercase transition-all duration-300 ${isCollapsed ? 'text-center text-[8px]' : ''}`}>
+                  {isCollapsed ? '---' : 'Operação'}
+                </p>
+                {[...principal, ...mais].filter(p => ['/admin/pdv', '/admin/mesas', '/admin/pedidos', '/admin/kds', '/admin/producao', '/admin/entregas'].includes(p.to)).map(p => renderSidebarLink(p))}
+              </div>
+
+              {/* Atendimento e Canais */}
+              <div className="space-y-1">
+                <p className={`px-5 mb-2 mt-4 text-[10px] font-bold tracking-widest text-gray-400 uppercase transition-all duration-300 ${isCollapsed ? 'text-center text-[8px]' : ''}`}>
+                  {isCollapsed ? '---' : 'Atendimento e Canais'}
+                </p>
+                {[...principal, ...mais].filter(p => ['/admin/chat', '/admin/ifood', '/admin/whatsapp'].includes(p.to)).map(p => renderSidebarLink(p))}
+              </div>
+
+              {/* Catálogo & Suprimentos */}
+              <div className="space-y-1">
+                <p className={`px-5 mb-2 mt-4 text-[10px] font-bold tracking-widest text-gray-400 uppercase transition-all duration-300 ${isCollapsed ? 'text-center text-[8px]' : ''}`}>
+                  {isCollapsed ? '---' : 'Catálogo e Estoque'}
+                </p>
+                {[...principal, ...mais].filter(p => ['/admin/cardapio', '/admin/estoque', '/admin/compras'].includes(p.to)).map(p => renderSidebarLink(p))}
+              </div>
+
+              {/* Gestão Estratégica */}
+              <div className="space-y-1">
+                <p className={`px-5 mb-2 mt-4 text-[10px] font-bold tracking-widest text-gray-400 uppercase transition-all duration-300 ${isCollapsed ? 'text-center text-[8px]' : ''}`}>
+                  {isCollapsed ? '---' : 'Gestão e Relatórios'}
+                </p>
+                {[...principal, ...mais].filter(p => ['/admin/financeiro', '/admin/historico', '/admin/marketing'].includes(p.to)).map(p => renderSidebarLink(p))}
+              </div>
+
+              {/* Administração */}
+              <div className="space-y-1">
+                <p className={`px-5 mb-2 mt-4 text-[10px] font-bold tracking-widest text-gray-400 uppercase transition-all duration-300 ${isCollapsed ? 'text-center text-[8px]' : ''}`}>
+                  {isCollapsed ? '---' : 'Configurações'}
+                </p>
+                {[...principal, ...mais].filter(p => ['/admin/equipe', '/admin/loja', '/admin/assinatura'].includes(p.to)).map(p => renderSidebarLink(p))}
+              </div>
+
+              {/* Suporte */}
+              <div className="space-y-1">
+                <p className={`px-5 mb-2 mt-4 text-[10px] font-bold tracking-widest text-gray-400 uppercase transition-all duration-300 ${isCollapsed ? 'text-center text-[8px]' : ''}`}>
+                  {isCollapsed ? '---' : 'Ajuda'}
+                </p>
+                {[...principal, ...mais].filter(p => ['/admin/ajuda'].includes(p.to)).map(p => renderSidebarLink(p))}
+              </div>
+            </>
+          ) : (
             <div className="space-y-1">
-              <p className="px-2 mb-2 text-[10px] font-bold tracking-widest text-gray-400 uppercase">Gestão & Mais</p>
-              {mais.map(p => renderSidebarLink(p.to, p.icon, p.label))}
+              <p className={`px-5 mb-2 text-[10px] font-bold tracking-widest text-gray-400 uppercase transition-all duration-300 ${isCollapsed ? 'text-center text-[8px]' : ''}`}>
+                {isCollapsed ? '---' : 'Operação'}
+              </p>
+              {principal.map(p => renderSidebarLink(p))}
             </div>
           )}
         </div>
 
+
+
         {/* Footer da Sidebar (Usuário) */}
-        <div className="p-4 border-t border-gray-100 dark:border-gray-800 space-y-2">
-          <a href={`/${ctx.lojaSlug}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-            <Store size={16} /> Ver Loja Online
+        <div className={`p-4 border-t border-gray-200/30 dark:border-white/10 space-y-2 shrink-0 transition-all duration-300 overflow-hidden bg-white/20 dark:bg-black/10 backdrop-blur-md rounded-b-[2rem]`}>
+          <a 
+            href={`/${ctx.lojaSlug}`} 
+            target="_blank" 
+            rel="noreferrer" 
+            style={{ '--route-color': '#0A5CC4' } as React.CSSProperties}
+            className={`nav-link-premium relative flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-semibold transition-colors group ${isCollapsed ? 'justify-center' : ''}`}
+          >
+            <div className="nav-link-bg absolute inset-0 opacity-0 transition-opacity duration-500 pointer-events-none rounded-2xl" />
+            <Store size={20} className="nav-link-icon shrink-0 transition-transform duration-300" /> 
+            <span className={`nav-link-text whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>Ver Loja Online</span>
+            {isCollapsed && <div className="absolute left-full ml-4 px-3 py-2 bg-gray-900/90 backdrop-blur-sm dark:bg-white/90 text-white dark:text-gray-900 text-sm font-bold rounded-xl opacity-0 -translate-x-2 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 shadow-xl z-50 whitespace-nowrap">Ver Loja Online</div>}
           </a>
-          <NavLink to="/admin/conta" className={({isActive}) => `flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${isActive ? 'bg-[var(--cor-primaria)] text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
-            <UserCircle size={16} /> Minha Conta
+          <NavLink 
+            to="/admin/conta" 
+            style={{ '--route-color': '#FC5B24' } as React.CSSProperties}
+            className={({isActive}) => `nav-link-premium relative flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-semibold transition-colors group ${isActive ? 'is-active' : ''} ${isCollapsed ? 'justify-center' : ''}`}
+          >
+            <div className="nav-link-bg absolute inset-0 opacity-0 transition-opacity duration-500 pointer-events-none rounded-2xl" />
+            <UserCircle size={20} className="nav-link-icon shrink-0 transition-transform duration-300" />
+            <span className={`nav-link-text whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>Minha Conta</span>
+            {isCollapsed && <div className="absolute left-full ml-4 px-3 py-2 bg-gray-900/90 backdrop-blur-sm dark:bg-white/90 text-white dark:text-gray-900 text-sm font-bold rounded-xl opacity-0 -translate-x-2 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 shadow-xl z-50 whitespace-nowrap">Minha Conta</div>}
           </NavLink>
-          <button onClick={sair} className="flex items-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-colors">
-            <LogOut size={16} /> Sair do Sistema
+          <button 
+            onClick={sair} 
+            className={`relative flex items-center gap-3 w-full px-3.5 py-3 rounded-2xl text-sm font-semibold text-gray-500 dark:text-gray-400 hover:bg-red-500/15 hover:text-red-500 dark:hover:bg-red-500/20 dark:hover:text-red-400 transition-colors group ${isCollapsed ? 'justify-center' : ''}`}
+          >
+            <LogOut size={20} className="shrink-0 group-hover:scale-110 transition-transform duration-300" /> 
+            <span className={`whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>Sair do Sistema</span>
+            {isCollapsed && <div className="absolute left-full ml-4 px-3 py-2 bg-red-600/90 backdrop-blur-sm text-white text-sm font-bold rounded-xl opacity-0 -translate-x-2 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 shadow-xl z-50 whitespace-nowrap">Sair</div>}
           </button>
         </div>
       </aside>
 
       {/* ── ÁREA DE CONTEÚDO (MAIN) ── */}
-      <div className="flex-1 flex flex-col min-w-0 h-full relative">
+      <div className="flex-1 flex flex-col min-w-0 h-full relative bg-transparent">
         
         {/* ── TOP HEADER GLOBAL ── */}
-        <header className="h-16 flex-shrink-0 bg-white/80 dark:bg-[#111827]/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 sm:px-6 z-30 print:hidden">
+        <header className="h-[88px] flex-shrink-0 bg-transparent flex items-center justify-between px-6 sm:px-10 z-30 print:hidden relative">
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             {/* Mobile Menu Toggle */}
             <button onClick={() => setMenuMobileAberto(true)} className="lg:hidden p-2 -ml-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
               <Menu size={24} />
@@ -303,25 +500,25 @@ export default function AdminLayout() {
             </div>
 
             {/* Desktop Page Title (Optional) */}
-            <div className="hidden lg:flex items-center gap-2">
+            <div className="hidden lg:flex items-center gap-3">
               {!isMainRoute && (
-                <button onClick={() => nav(-1)} className="mr-2 p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                <button onClick={() => nav(-1)} className="mr-2 p-2 rounded-xl text-gray-400 hover:bg-white/50 dark:hover:bg-white/10 transition-colors shadow-sm">
                   <ChevronLeft size={20} />
                 </button>
               )}
-              <h1 className="font-bold text-lg text-gray-900 dark:text-white">
+              <h1 className="font-['Sora'] font-bold text-2xl text-gray-900 dark:text-white tracking-tight drop-shadow-sm">
                 {!isMainRoute ? innerRouteTitle : 'Painel de Controle'}
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <ThemeToggle />
           </div>
         </header>
 
         {/* ── CONTEÚDO DA PÁGINA (SCROLLÁVEL) ── */}
-        <main className="flex-1 overflow-y-auto pb-20 lg:pb-0 relative custom-scrollbar">
+        <main className="flex-1 overflow-y-auto pb-20 lg:pb-0 relative custom-scrollbar px-6 sm:px-10 pt-2">
           
           {/* BANNER DE CARÊNCIA INFECHÁVEL (DIAS 1 A 5) */}
           {ctx.diasAtraso > 0 && ctx.diasAtraso <= 5 && (
@@ -341,7 +538,8 @@ export default function AdminLayout() {
             </div>
           )}
 
-          <div className="mx-auto max-w-6xl w-full">
+          {/* Container com transição inteligente (mo-screen ou mo-screen-back) baseada na profundidade */}
+          <div key={loc.pathname} className={`mx-auto max-w-6xl w-full h-full ${transitionClass}`}>
             <Outlet context={ctx} />
           </div>
         </main>
@@ -355,8 +553,8 @@ export default function AdminLayout() {
           <div className="relative w-[280px] max-w-[80vw] bg-white dark:bg-[#111827] h-full shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
             <div className="p-4 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
               <div className="flex items-center gap-2">
-                <div className="bg-[#004198] p-1 rounded-md">
-                  <img src="/brand/icon-white.png" alt="" className="h-4 w-4" />
+                <div className="p-1 rounded-md">
+                  <img src="/brand/icon.png" alt="" className="h-5 w-5" />
                 </div>
                 <span className="font-bold">MiseOn</span>
               </div>
@@ -367,12 +565,12 @@ export default function AdminLayout() {
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
               <div className="space-y-1">
                 <p className="px-2 mb-2 text-[10px] font-bold text-gray-400 uppercase">Operação</p>
-                {principal.map(p => renderSidebarLink(p.to, p.icon, p.label, () => setMenuMobileAberto(false)))}
+                {principal.map(p => renderSidebarLink(p, () => setMenuMobileAberto(false)))}
               </div>
               {ctx.papel === 'admin' && (
                 <div className="space-y-1">
                   <p className="px-2 mb-2 text-[10px] font-bold text-gray-400 uppercase">Gestão</p>
-                  {mais.map(p => renderSidebarLink(p.to, p.icon, p.label, () => setMenuMobileAberto(false)))}
+                  {mais.map(p => renderSidebarLink(p, () => setMenuMobileAberto(false)))}
                 </div>
               )}
             </div>

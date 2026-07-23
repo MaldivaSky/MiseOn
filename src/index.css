@@ -332,3 +332,41 @@ html { -webkit-tap-highlight-color: transparent; }
     0 22px 44px color-mix(in srgb, var(--cor-primaria) 28%, transparent),
     0 8px 18px rgba(15, 23, 42, 0.18);
 }
+
+/* ── Premium Sidebar Navigation (Admin) ── */
+.nav-link-premium {
+  color: var(--cor-texto-suave);
+  border: 1px solid transparent;
+}
+.dark .nav-link-premium {
+  color: var(--cor-texto-fraco);
+}
+
+.nav-link-premium:hover {
+  color: var(--route-color) !important;
+}
+.nav-link-premium.is-active {
+  color: var(--route-color) !important;
+  box-shadow: 0 4px 20px -4px color-mix(in srgb, var(--route-color) 35%, transparent);
+  border-color: color-mix(in srgb, var(--route-color) 30%, transparent);
+}
+
+/* O fundo transparente colorido (glassmorphism) */
+.nav-link-premium .nav-link-bg {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--route-color) 12%, transparent), color-mix(in srgb, var(--route-color) 5%, transparent));
+}
+.dark .nav-link-premium .nav-link-bg {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--route-color) 20%, transparent), color-mix(in srgb, var(--route-color) 8%, transparent));
+}
+
+.nav-link-premium:hover .nav-link-bg {
+  opacity: 0.7;
+}
+.nav-link-premium.is-active .nav-link-bg {
+  opacity: 1;
+}
+
+.nav-link-premium:hover .nav-link-icon,
+.nav-link-premium.is-active .nav-link-icon {
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--route-color) 60%, transparent));
+}
