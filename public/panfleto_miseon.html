@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panfleto MiseOn - Frente e Verso</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Sora:wght@700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0d1117;
+  padding: 20px;
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.panfleto {
+  width: 420px;
+  min-height: 594px;
+  background: #070C18;
+  color: #EAF1FB;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+
+/* ========== FRENTE ========== */
+.frente { border: 2px solid #FC5B24; }
+
+.top-bar {
+  background: linear-gradient(90deg, #FC5B24, #E03A0A);
+  padding: 6px 16px;
+  text-align: center;
+}
+.top-bar span {
+  font-size: 10px;
+  font-weight: 800;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.logo-area {
+  padding: 16px 20px 8px;
+  text-align: center;
+}
+.logo-area img {
+  height: 48px;
+  width: auto;
+  max-width: 90%;
+}
+
+.headline {
+  padding: 0 24px 16px;
+  text-align: center;
+}
+.headline h1 {
+  font-family: 'Sora', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.15;
+  margin: 0;
+}
+.headline h1 span { color: #FC5B24; }
+.headline .sub {
+  font-size: 12px;
+  color: rgba(234,241,251,0.6);
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+.targets {
+  padding: 0 20px 12px;
+}
+.target-row {
+  display: flex;
+  gap: 8px;
+}
+.target-badge {
+  background: rgba(252,91,36,0.12);
+  border: 1px solid rgba(252,91,36,0.3);
+  border-radius: 6px;
+  padding: 10px 8px;
+  flex: 1;
+  text-align: center;
+}
+.target-badge .icon { font-size: 20px; margin-bottom: 2px; }
+.target-badge .label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #FC5B24;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.target-badge .desc {
+  font-size: 9px;
+  color: rgba(234,241,251,0.55);
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+.pain-block {
+  background: linear-gradient(180deg, rgba(252,91,36,0.08), transparent);
+  padding: 14px 20px;
+  margin: 0 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(252,91,36,0.15);
+}
+.pain-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #FC5B24;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+.pain-list { display: flex; flex-direction: column; gap: 6px; }
+.pain-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(234,241,251,0.75);
+}
+.pain-x {
+  color: #FC5B24;
+  font-weight: 800;
+  font-size: 12px;
+  min-width: 14px;
+}
+
+.urgency-strip {
+  background: #FC5B24;
+  margin: 14px 16px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  text-align: center;
+}
+.urgency-strip p {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.4;
+}
+.urgency-strip .small {
+  font-size: 9px;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-top: 3px;
+}
+
+.price-teaser {
+  padding: 0 20px 16px;
+  text-align: center;
+}
+.price-teaser .from {
+  font-size: 10px;
+  color: rgba(234,241,251,0.4);
+  text-decoration: line-through;
+}
+.price-teaser .value {
+  font-family: 'Sora', sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  color: #FC5B24;
+  line-height: 1;
+}
+.price-teaser .value small { font-size: 13px; font-weight: 600; }
+.price-teaser .period {
+  font-size: 11px;
+  color: rgba(234,241,251,0.6);
+  font-weight: 600;
+}
+.price-teaser .annual {
+  font-size: 10px;
+  color: rgba(234,241,251,0.45);
+  margin-top: 4px;
+}
+
+.cta-front {
+  padding: 0 20px 20px;
+  text-align: center;
+}
+.cta-front .btn {
+  display: block;
+  background: linear-gradient(135deg, #25D366, #128C7E);
+  color: #fff;
+  font-family: 'Sora', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 14px;
+  border-radius: 50px;
+  text-decoration: none;
+  box-shadow: 0 4px 16px rgba(37,211,102,0.3);
+}
+.cta-front .note {
+  font-size: 9px;
+  color: rgba(234,241,251,0.4);
+  margin-top: 8px;
+}
+
+/* ========== VERSO ========== */
+.verso { border: 2px solid #0A5CC4; }
+
+.verso-header {
+  background: linear-gradient(135deg, #0A5CC4, #073d85);
+  padding: 16px 20px;
+  text-align: center;
+}
+.verso-header h2 {
+  font-family: 'Sora', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+}
+.verso-header p {
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  margin: 4px 0 0;
+}
+
+.features-verso {
+  padding: 14px 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.feature-card {
+  background: rgba(10,92,196,0.08);
+  border: 1px solid rgba(10,92,196,0.18);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+.feature-card .emoji { font-size: 20px; margin-bottom: 4px; }
+.feature-card .name {
+  font-size: 10px;
+  font-weight: 700;
+  color: #EAF1FB;
+}
+.feature-card .detail {
+  font-size: 9px;
+  color: rgba(234,241,251,0.5);
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+.compare-section { padding: 0 16px 12px; }
+.compare-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #FC5B24;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: center;
+  margin-bottom: 10px;
+}
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+.compare-table th {
+  background: rgba(10,92,196,0.15);
+  color: #0A5CC4;
+  font-weight: 700;
+  padding: 6px 4px;
+  text-align: center;
+}
+.compare-table td {
+  padding: 5px 4px;
+  text-align: center;
+  border-bottom: 1px solid rgba(10,92,196,0.08);
+  color: rgba(234,241,251,0.7);
+}
+.compare-table td:first-child {
+  text-align: left;
+  color: rgba(234,241,251,0.85);
+  font-weight: 600;
+}
+.compare-table .check { color: #25D366; font-weight: 800; }
+.compare-table .cross { color: #FC5B24; font-weight: 800; }
+.compare-table .miseon-col { background: rgba(252,91,36,0.06); }
+
+.price-verso { padding: 12px 16px; text-align: center; }
+.price-box {
+  background: linear-gradient(135deg, rgba(252,91,36,0.1), rgba(10,92,196,0.06));
+  border: 1px solid rgba(252,91,36,0.2);
+  border-radius: 12px;
+  padding: 14px;
+}
+.price-box .plan { display: flex; justify-content: center; gap: 24px; }
+.plan-option { text-align: center; }
+.plan-option .tag {
+  font-size: 9px;
+  font-weight: 700;
+  color: #FC5B24;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.plan-option .val {
+  font-family: 'Sora', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+}
+.plan-option .val small { font-size: 11px; }
+.plan-option .period {
+  font-size: 9px;
+  color: rgba(234,241,251,0.5);
+}
+.plan-option .save {
+  font-size: 9px;
+  color: #25D366;
+  font-weight: 700;
+}
+.price-box .divider-v {
+  width: 1px;
+  background: rgba(234,241,251,0.1);
+}
+
+.final-cta { padding: 0 16px 16px; text-align: center; }
+.final-cta .btn-wa {
+  display: block;
+  background: linear-gradient(135deg, #25D366, #128C7E);
+  color: #fff;
+  font-family: 'Sora', sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 14px;
+  border-radius: 50px;
+  text-decoration: none;
+  box-shadow: 0 4px 20px rgba(37,211,102,0.35);
+  margin-bottom: 10px;
+}
+.qr-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.qr-box {
+  background: #fff;
+  padding: 6px;
+  border-radius: 8px;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.qr-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.qr-text { text-align: left; }
+.qr-text .num {
+  font-size: 14px;
+  font-weight: 800;
+  color: #25D366;
+}
+.qr-text .hint {
+  font-size: 9px;
+  color: rgba(234,241,251,0.5);
+  line-height: 1.4;
+}
+
+.verso-footer {
+  background: #050812;
+  padding: 10px;
+  text-align: center;
+  border-top: 1px solid rgba(10,92,196,0.1);
+}
+.verso-footer img { height: 28px; opacity: 0.6; }
+.verso-footer p {
+  font-size: 8px;
+  color: rgba(234,241,251,0.3);
+  margin: 4px 0 0;
+}
+
+.print-wrap {
+  text-align: center;
+  margin-top: 16px;
+}
+.print-btn {
+  background: #0A5CC4;
+  color: #fff;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.print-btn:hover { background: #0B6DE0; }
+
+@media print {
+  body { background: #fff; padding: 0; }
+  .print-wrap { display: none !important; }
+  .panfleto { box-shadow: none; border-radius: 0; page-break-after: always; }
+  .verso { page-break-after: auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- ========== FRENTE ========== -->
+<div class="panfleto frente">
+  <div class="top-bar">
+    <span>🔥 Vagas limitadas — Primeiros 20 da região</span>
+  </div>
+
+  <div class="logo-area">
+    <img src="logo-horizontal.png" alt="MiseOn - Sistema Inteligente para sua Cozinha">
+  </div>
+
+  <div class="headline">
+    <h1>Seu restaurante<br><span>ainda perde dinheiro</span><br>com planilha e papel?</h1>
+    <p class="sub">Sistema completo de ponta a ponta — do pedido à nota fiscal</p>
+  </div>
+
+  <div class="targets">
+    <div class="target-row">
+      <div class="target-badge">
+        <div class="icon">😤</div>
+        <div class="label">Sistema ruim</div>
+        <div class="desc">Trava, buga, perde pedido. Você odeia usar.</div>
+      </div>
+      <div class="target-badge">
+        <div class="icon">💸</div>
+        <div class="label">Sistema caro</div>
+        <div class="desc">Paga 3x por módulos separados. Não aguenta mais.</div>
+      </div>
+      <div class="target-badge">
+        <div class="icon">😰</div>
+        <div class="label">Sem sistema</div>
+        <div class="desc">Anota no papel. Caixa nunca bate. No escuro.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pain-block">
+    <div class="pain-title">💀 As 5 dores que te custam TODO MÊS</div>
+    <div class="pain-list">
+      <div class="pain-item"><span class="pain-x">✕</span> Pedido anotado errado → cliente irritado, comida no lixo</div>
+      <div class="pain-item"><span class="pain-x">✕</span> Fechamento de caixa que NUNCA bate → dorme sem saber se lucrou</div>
+      <div class="pain-item"><span class="pain-x">✕</span> Estoque no "olhômetro" → falta ingrediente no rush, compra caro na emergência</div>
+      <div class="pain-item"><span class="pain-x">✕</span> iFood, WhatsApp e balcão SEPARADOS → caos na cozinha, cliente esperando</div>
+      <div class="pain-item"><span class="pain-x">✕</span> Nota fiscal na mão ou sistema caro → fiscalização chegando, você despreparado</div>
+    </div>
+  </div>
+
+  <div class="urgency-strip">
+    <p>⚡ 30 DIAS GRÁTIS — Implantação sem custo</p>
+    <p class="small">Depois dos 20 primeiros, o valor volta ao normal. Não perca sua vaga.</p>
+  </div>
+
+  <div class="price-teaser">
+    <div class="from">Concorrentes cobram R$300~500+ com módulos separados</div>
+    <div class="value">R$129,90<small>/mês</small></div>
+    <div class="period">Plano completo. Sem surpresa. Sem módulo escondido.</div>
+    <div class="annual">🎯 No anual: R$99,90/mês — Economia de R$360/ano</div>
+  </div>
+
+  <div class="cta-front">
+    <a href="https://wa.me/5511919889233?text=Ol%C3%A1%21%20Vi%20o%20panfleto%20e%20quero%20os%2030%20dias%20gr%C3%A1tis%20do%20MiseOn" class="btn" target="_blank">
+      💬 QUERO TESTAR 30 DIAS GRÁTIS
+    </a>
+    <p class="note">Sem cartão de crédito • Suporte humano • Implantação gratuita</p>
+  </div>
+</div>
+
+<!-- ========== VERSO ========== -->
+<div class="panfleto verso">
+  <div class="verso-header">
+    <h2>✅ Tudo que seu restaurante precisa. Em um só lugar.</h2>
+    <p>Automático. Integrado. Sem dor de cabeça.</p>
+  </div>
+
+  <div class="features-verso">
+    <div class="feature-card">
+      <div class="emoji">📱</div>
+      <div class="name">Cardápio Digital</div>
+      <div class="detail">QR Code na mesa. Cliente pede sozinho.</div>
+    </div>
+    <div class="feature-card">
+      <div class="emoji">🧾</div>
+      <div class="name">NF-e / NFC-e</div>
+      <div class="detail">Emissão automática. Fiscalização tranquila.</div>
+    </div>
+    <div class="feature-card">
+      <div class="emoji">🛵</div>
+      <div class="name">iFood Integrado</div>
+      <div class="detail">Pedidos caem direto no seu PDV. Uma tela só.</div>
+    </div>
+    <div class="feature-card">
+      <div class="emoji">📋</div>
+      <div class="name">Comanda Digital</div>
+      <div class="detail">Garçom pelo celular. Sem papel, sem erro.</div>
+    </div>
+    <div class="feature-card">
+      <div class="emoji">👨‍🍳</div>
+      <div class="name">Pedido p/ Cozinha</div>
+      <div class="detail">Em tempo real. Cozinha nunca perde pedido.</div>
+    </div>
+    <div class="feature-card">
+      <div class="emoji">📦</div>
+      <div class="name">Estoque + Ficha Técnica</div>
+      <div class="detail">Baixa automática. Controle absoluto.</div>
+    </div>
+    <div class="feature-card">
+      <div class="emoji">💬</div>
+      <div class="name">WhatsApp + Chat</div>
+      <div class="detail">Atendimento integrado. Automatizado.</div>
+    </div>
+    <div class="feature-card">
+      <div class="emoji">📊</div>
+      <div class="name">Dashboard em Tempo Real</div>
+      <div class="detail">Vendas, estoque, lucro. Tudo ao vivo.</div>
+    </div>
+  </div>
+
+  <div class="compare-section">
+    <div class="compare-title">MiseOn vs. Concorrência</div>
+    <table class="compare-table">
+      <tr>
+        <th style="text-align:left;border-radius:4px 0 0 0">Funcionalidade</th>
+        <th class="miseon-col">MiseOn</th>
+        <th style="border-radius:0 4px 0 0">Outros</th>
+      </tr>
+      <tr>
+        <td>iFood integrado</td>
+        <td class="miseon-col"><span class="check">✓</span> Incluso</td>
+        <td><span class="cross">✕</span> Paga extra</td>
+      </tr>
+      <tr>
+        <td>NF-e / NFC-e</td>
+        <td class="miseon-col"><span class="check">✓</span> Incluso</td>
+        <td><span class="cross">✕</span> Paga extra</td>
+      </tr>
+      <tr>
+        <td>Cardápio Digital</td>
+        <td class="miseon-col"><span class="check">✓</span> Incluso</td>
+        <td><span class="cross">✕</span> Paga extra</td>
+      </tr>
+      <tr>
+        <td>Estoque + Ficha Técnica</td>
+        <td class="miseon-col"><span class="check">✓</span> Incluso</td>
+        <td><span class="cross">✕</span> Paga extra</td>
+      </tr>
+      <tr>
+        <td>WhatsApp integrado</td>
+        <td class="miseon-col"><span class="check">✓</span> Incluso</td>
+        <td><span class="cross">✕</span> Não tem</td>
+      </tr>
+      <tr>
+        <td>Preço mensal</td>
+        <td class="miseon-col" style="color:#FC5B24;font-weight:800">R$129,90</td>
+        <td style="text-decoration:line-through;color:rgba(234,241,251,0.4)">R$300~500+</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="price-verso">
+    <div class="price-box">
+      <div class="plan">
+        <div class="plan-option">
+          <div class="tag">Plano Mensal</div>
+          <div class="val">R$129,90<small>/mês</small></div>
+          <div class="period">Sem fidelidade</div>
+        </div>
+        <div class="divider-v"></div>
+        <div class="plan-option">
+          <div class="tag">Plano Anual</div>
+          <div class="val">R$99,90<small>/mês</small></div>
+          <div class="period">Economia de R$360/ano</div>
+          <div class="save">🔥 MAIS VANTAJOSO</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="final-cta">
+    <a href="https://wa.me/5511919889233?text=Ol%C3%A1%21%20Vi%20o%20panfleto%20e%20quero%20os%2030%20dias%20gr%C3%A1tis%20do%20MiseOn" class="btn-wa" target="_blank">
+      💬 CHAMA NO WHATSAPP — 30 DIAS GRÁTIS
+    </a>
+    <div class="qr-wrap">
+      <div class="qr-box">
+        <img src="QRcode_of.png" alt="QR Code WhatsApp MiseOn">
+      </div>
+      <div class="qr-text">
+        <div class="num">(11) 91988-9233</div>
+        <div class="hint">Escaneie ou clique no botão acima<br>para falar direto com a gente</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="verso-footer">
+    <img src="logo-horizontal.png" alt="MiseOn">
+    <p>© 2026 MiseOn — Sistema Inteligente para sua Cozinha<br>Seu restaurante. Seu controle. Sua lucratividade.</p>
+  </div>
+</div>
+
+<div class="print-wrap">
+  <button class="print-btn" onclick="window.print()">🖨️ Imprimir Frente e Verso</button>
+</div>
+
+</body>
+</html>
