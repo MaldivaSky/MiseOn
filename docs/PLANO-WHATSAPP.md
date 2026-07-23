@@ -194,6 +194,8 @@ Cliente manda msg ──► webhook (valida HMAC, dedup, 200 em <5s)
 | RN-13 | Kill switch por loja (`whatsapp_ia_ativo`) e global (superadmin). Desligar a IA **não** desliga o recebimento: as mensagens continuam chegando no ChatAdmin para atendimento humano. |
 | RN-14 | LGPD: conversa contém nome, telefone e endereço. Retenção padrão 12 meses, purga por rotina. Base legal: execução de contrato. Exige o hardening de RLS do E1 (§6.1). |
 | RN-15 | Token e app secret do lojista são **credenciais**: nunca retornados ao front-end. A tela mostra apenas máscara (`••••1234`) e status da conexão. |
+| RN-16 | **A IA nunca fecha pedido.** Ela atende, tira dúvidas (preço, cardápio, ficha técnica, alergênicos com disclaimer — RN-07) e direciona o cliente para a página do tenant no MiseOn. O pedido é **sempre** criado e enviado pelo cliente na plataforma — nunca pela conversa do WhatsApp. Sem exceção, sem modo "fecha pedido por mim". |
+| RN-17 | **Número de teste da Meta (+1 555-xxx) nunca é conectado** quando a WABA tem número real. O Embedded Signup ignora números de teste na seleção automática — a loja sempre opera no número real do lojista. |
 
 ---
 

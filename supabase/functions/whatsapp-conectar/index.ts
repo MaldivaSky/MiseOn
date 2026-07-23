@@ -359,11 +359,22 @@ serve(async (req) => {
         { headers: { Authorization: `Bearer ${token}` } },
       );
       const tel = await telRes.json().catch(() => ({}));
-      const numero = tel?.data?.[0];
-      if (!numero?.id) {
+      const numeros: Array<{ id: string; display_phone_number?: string; verified_name?: string }> =
+        tel?.data ?? [];
+      if (!numeros.length) {
         console.error("trocar_codigo: WABA sem números:", JSON.stringify(tel));
         return erro("Sua conta do WhatsApp Business não tem um número registrado. Adicione um número e tente novamente.");
       }
+
+      // RN: nunca conectar o NÚMERO DE TESTE da Meta (+1 555-xxx) quando a WABA
+      // já tem um número real — o teste só existe no console de desenvolvedor.
+      const ehNumeroTeste = (n: { display_phone_number?: string }) =>
+        String(n.display_phone_number ?? "").replace(/\D/g, "").startsWith("1555");
+      const reais = numeros.filter((n) => !ehNumeroTeste(n));
+      if (reais.length > 1) {
+        console.warn("trocar_codigo: WABA com vários números reais — usando o primeiro:", JSON.stringify(reais));
+      }
+      const numero = reais[0] ?? numeros[0];
 
       // (d) o número não pode estar conectado a outra loja (RN: 1 número = 1 loja)
       const { data: emUso } = await admin
