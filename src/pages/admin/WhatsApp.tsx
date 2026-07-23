@@ -43,6 +43,18 @@ interface StatusResponse {
 
 const FORM_VAZIO = { app_id: '', phone_number_id: '', waba_id: '', access_token: '', app_secret: '' };
 
+// Embedded Signup (Meta): fluxo self-service — o lojista conecta o WhatsApp
+// da loja SEM criar conta de desenvolvedor. config_id vem do app MiseOn
+// (App Dashboard → WhatsApp → Cadastro incorporado).
+const META_ONBOARD_URL =
+  'https://business.facebook.com/messaging/whatsapp/onboard/?' +
+  new URLSearchParams({
+    app_id: '1409543307655107',
+    config_id: '1810926466545925',
+    extras: JSON.stringify({ version: 'v4', sessionInfoVersion: '3', featureType: 'whatsapp_business_app_onboarding' }),
+    redirect_uri: 'https://miseon.app.br/admin/whatsapp',
+  }).toString();
+
 // Mascara o número para exibição: "+1 555 ••••-1792"
 function mascararTelefone(tel: string | null): string {
   if (!tel) return '—';
@@ -64,6 +76,7 @@ export default function WhatsApp() {
   const [conectando, setConectando] = useState(false);
   const [testando, setTestando] = useState(false);
   const [desconectando, setDesconectando] = useState(false);
+  const [finalizando, setFinalizando] = useState(false);
 
   const [iaAtivo, setIaAtivo] = useState(false);
   const [templatesAtivo, setTemplatesAtivo] = useState(false);
@@ -100,6 +113,31 @@ export default function WhatsApp() {
   }, [chamar, lojaId, toast]);
 
   useEffect(() => { setTimeout(carregar, 0); }, [carregar]);
+
+  // Retorno do Embedded Signup: a Meta redireciona para /admin/whatsapp?code=...
+  // O code é de uso único e expira rápido — trocamos por token imediatamente.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const erroMeta = params.get('error_message') ?? params.get('error_description') ?? params.get('error');
+    if (!code && !erroMeta) return;
+    // limpa a URL em qualquer cenário (o code não pode ser reutilizado)
+    window.history.replaceState({}, '', window.location.pathname);
+    if (erroMeta) {
+      toast('A Meta não concluiu a conexão: ' + erroMeta, 'erro');
+      return;
+    }
+    setFinalizando(true);
+    chamar({ acao: 'trocar_codigo', loja_id: lojaId, code })
+      .then((data) => {
+        toast(`WhatsApp conectado: ${data.verified_name ?? data.display_phone ?? 'número verificado'} 🎉`, 'sucesso');
+      })
+      .catch((e) => toast((e as Error).message, 'erro'))
+      .finally(async () => {
+        setFinalizando(false);
+        await carregar();
+      });
+  }, [chamar, lojaId, carregar, toast]);
 
   const conectar = async () => {
     if (Object.values(form).some((v) => !v.trim())) {
@@ -258,7 +296,7 @@ export default function WhatsApp() {
           </p>
         </div>
 
-        {/* ── Conexão principal: Embedded Signup (em breve) ── */}
+        {/* ── Conexão principal: Embedded Signup (Meta) ── */}
         {status !== 'CONECTADO' && (
           <div className="relative overflow-hidden rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-[#022c22] via-[#064e3b] to-[#052e16] p-6 shadow-lg">
             <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-emerald-400/20 blur-3xl" />
@@ -268,12 +306,19 @@ export default function WhatsApp() {
               </div>
               <h3 className="font-['Sora'] text-lg font-black text-white">Conectar com Facebook</h3>
               <p className="max-w-md text-sm leading-relaxed text-emerald-100/85">
-                Em breve: conexão em poucos cliques, direto com sua conta do Facebook —
+                A forma mais fácil: a Meta abre uma janela segura, você entra com a sua conta,
+                escolhe o número de WhatsApp da sua loja e pronto —
                 <b className="text-white"> sem criar conta de desenvolvedor e sem colar código nenhum</b>.
-                Estamos finalizando a homologação da MiseOn junto à Meta para liberar este botão.
               </p>
-              <span className="rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-bold text-emerald-200 backdrop-blur-md">
-                🔒 Homologação com a Meta em andamento
+              <a
+                href={META_ONBOARD_URL}
+                className="mt-1 inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 font-['Sora'] text-sm font-black text-emerald-950 shadow-xl transition hover:scale-105 hover:bg-emerald-50"
+              >
+                {finalizando ? <Loader2 size={17} className="animate-spin" /> : <MessageCircle size={17} />}
+                {finalizando ? 'Finalizando conexão…' : 'Conectar com Facebook'}
+              </a>
+              <span className="text-[11px] text-emerald-200/70">
+                Processo oficial da Meta · leva menos de 2 minutos
               </span>
             </div>
           </div>
@@ -285,11 +330,11 @@ export default function WhatsApp() {
             <div className="mb-4 flex items-center gap-2">
               <Plug size={18} className="text-emerald-600 dark:text-emerald-400" />
               <div>
-                <h3 className="font-['Sora'] text-base font-bold text-gray-900 dark:text-white">Conexão assistida (antecipada)</h3>
+                <h3 className="font-['Sora'] text-base font-bold text-gray-900 dark:text-white">Conexão assistida (alternativa)</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Para quem quer começar <b>antes</b> da conexão com Facebook: exige uma conta de
-                  desenvolvedor na Meta. <b>Nossa equipe faz esse processo junto com você</b> —
-                  não é necessário conhecimento técnico, apenas seguir o passo a passo guiado.
+                  Para quem prefere conectar com as credenciais do próprio app da Meta:
+                  <b> nossa equipe faz esse processo junto com você</b> — não é necessário
+                  conhecimento técnico, apenas seguir o passo a passo guiado.
                 </p>
               </div>
             </div>

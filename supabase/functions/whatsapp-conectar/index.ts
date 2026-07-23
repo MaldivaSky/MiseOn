@@ -15,6 +15,11 @@ const GRAPH = "https://graph.facebook.com/v21.0";
 const WEBHOOK_URL =
   "https://zzuxklwhaoisuuvndtfw.supabase.co/functions/v1/whatsapp-webhook";
 
+// App MiseOn na Meta — usado no Embedded Signup (troca do `code` por token).
+// São segredos da PLATAFORMA (não do lojista): ficam nos secrets da function.
+const META_APP_ID = Deno.env.get("META_APP_ID") ?? "";
+const META_APP_SECRET = Deno.env.get("META_APP_SECRET") ?? "";
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -93,7 +98,7 @@ serve(async (req) => {
     if (!acesso) return erro("Você não tem acesso a esta loja", 403);
 
     // ações que alteram a conexão exigem admin da loja
-    if (["conectar", "desconectar", "testar"].includes(acao) && acesso.papel !== "admin") {
+    if (["conectar", "desconectar", "testar", "trocar_codigo"].includes(acao) && acesso.papel !== "admin") {
       return erro("Só o admin da loja pode gerenciar a conexão do WhatsApp", 403);
     }
 
@@ -297,6 +302,113 @@ serve(async (req) => {
       if (eDel) throw eDel;
 
       return json({ ok: true });
+    }
+
+    // ── trocar_codigo (Embedded Signup — lojista clicou "Conectar com Facebook") ──
+    // O webhook já existe no nível do APP MiseOn (configurado uma vez no painel
+    // da Meta); aqui só descobrimos WABA + número, inscrevemos o app na WABA
+    // e gravamos a conexão da loja.
+    if (acao === "trocar_codigo") {
+      const { code } = body;
+      if (!code) return erro("Código de autorização ausente.");
+      if (!META_APP_ID || !META_APP_SECRET) {
+        console.error("trocar_codigo: META_APP_ID/META_APP_SECRET ausentes nos secrets.");
+        return erro("A conexão com Facebook ainda não está habilitada. Fale com o suporte MiseOn.", 503);
+      }
+
+      // (a) troca o code pelo access token da Meta
+      const trocaRes = await fetch(
+        `${GRAPH}/oauth/access_token?` + new URLSearchParams({
+          client_id: META_APP_ID,
+          client_secret: META_APP_SECRET,
+          code: String(code),
+        }),
+      );
+      const troca = await trocaRes.json().catch(() => ({}));
+      if (!trocaRes.ok || !troca.access_token) {
+        const detalhe = msgGraph(troca);
+        console.error("trocar_codigo: falha na troca do código:", detalhe);
+        return erro(
+          "A Meta recusou a autorização. Tente conectar novamente — se persistir, fale com o suporte. " +
+          `(Detalhe da Meta: ${detalhe})`,
+        );
+      }
+      const token = String(troca.access_token);
+
+      // (b) descobre a WABA autorizada via debug_token (granular scopes)
+      const dbgRes = await fetch(
+        `${GRAPH}/debug_token?input_token=${encodeURIComponent(token)}`,
+        { headers: { Authorization: `Bearer ${META_APP_ID}|${META_APP_SECRET}` } },
+      );
+      const dbg = await dbgRes.json().catch(() => ({}));
+      const scopes: Array<{ scope?: string; target_ids?: string[] }> = dbg?.data?.granular_scopes ?? [];
+      const wabaId = scopes
+        .filter((s) => String(s.scope ?? "").startsWith("whatsapp_business"))
+        .flatMap((s) => s.target_ids ?? [])[0];
+      if (!wabaId) {
+        console.error("trocar_codigo: nenhuma WABA nos granular_scopes:", JSON.stringify(scopes));
+        return erro(
+          "Não encontrei uma conta do WhatsApp Business autorizada. " +
+          "Refaça a conexão e autorize o acesso ao WhatsApp Business.",
+        );
+      }
+
+      // (c) pega o número de telefone da WABA
+      const telRes = await fetch(
+        `${GRAPH}/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const tel = await telRes.json().catch(() => ({}));
+      const numero = tel?.data?.[0];
+      if (!numero?.id) {
+        console.error("trocar_codigo: WABA sem números:", JSON.stringify(tel));
+        return erro("Sua conta do WhatsApp Business não tem um número registrado. Adicione um número e tente novamente.");
+      }
+
+      // (d) o número não pode estar conectado a outra loja (RN: 1 número = 1 loja)
+      const { data: emUso } = await admin
+        .from("whatsapp_conexoes")
+        .select("loja_id")
+        .eq("phone_number_id", String(numero.id))
+        .maybeSingle();
+      if (emUso && emUso.loja_id !== loja_id) {
+        return erro("Este número já está conectado a outra loja.");
+      }
+
+      // (e) inscreve o app na WABA — OBRIGATÓRIO: sem isto a Meta não entrega mensagens
+      const wabaRes = await fetch(`${GRAPH}/${wabaId}/subscribed_apps`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const wabaData = await wabaRes.json().catch(() => ({}));
+      if (!wabaRes.ok || wabaData?.success !== true) {
+        const detalhe = msgGraph(wabaData);
+        console.error("trocar_codigo: falha ao inscrever app na WABA:", detalhe);
+        return erro(`A Meta não ativou o recebimento de mensagens. Tente novamente. (Detalhe da Meta: ${detalhe})`);
+      }
+
+      // (f) grava a conexão já como CONECTADO
+      //     app_secret = segredo do app MiseOn: é ele que valida a assinatura
+      //     X-Hub-Signature-256 dos webhooks (RN-04), pois o webhook é do nosso app.
+      const { error: eUpsert } = await admin.from("whatsapp_conexoes").upsert({
+        loja_id,
+        phone_number_id: String(numero.id),
+        waba_id: String(wabaId),
+        display_phone: numero.display_phone_number ?? null,
+        access_token: token,
+        app_secret: META_APP_SECRET,
+        verify_token: gerarVerifyToken(), // compat: handshake já ocorre no nível do app
+        status: "CONECTADO",
+        conectado_em: new Date().toISOString(),
+        ultimo_erro: null,
+      });
+      if (eUpsert) throw eUpsert;
+
+      return json({
+        ok: true,
+        display_phone: numero.display_phone_number ?? null,
+        verified_name: numero.verified_name ?? null,
+      });
     }
 
     return erro(`Ação desconhecida: ${acao}`);
