@@ -72,14 +72,36 @@ export default function ChatAdmin() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!draft.trim()) return;
+    if (!draft.trim() || !activeConversationId) return;
     const text = draft;
     setDraft('');
+    
+    // Se for whatsapp, precisaremos mandar pela Graph API
+    const ativa = conversations.find(c => c.id === activeConversationId);
+    
     await sendMessage(text, 'LOJA');
+    
+    // Se foi envio da LOJA e a conversa é WHATSAPP, despacha pra Meta
+    if (ativa?.canal === 'WHATSAPP' && ativa.telefone) {
+      await supabase.functions.invoke('whatsapp-send', {
+        body: {
+          loja_id: ctx.lojaId,
+          telefone: ativa.telefone,
+          texto: text,
+          conversation_id: activeConversationId
+        }
+      });
+      // Desativa IA já que o humano assumiu
+      if (ativa.ia_ativa) {
+        await supabase.from('chat_conversations').update({ ia_ativa: false }).eq('id', activeConversationId);
+      }
+    }
+
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
   };
+
 
   const termo = searchTerm.toLowerCase();
   const filteredConversations = conversations.filter(c =>
@@ -188,12 +210,32 @@ export default function ChatAdmin() {
                           {ativa ? nomeContato(ativa) : 'Atendimento ao Cliente'}
                         </h3>
                         <BadgeCanal canal={ativa?.canal} />
+                        {ativa && (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            ativa.ia_ativa 
+                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                              : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                          }`}>
+                            {ativa.ia_ativa ? '🤖 IA Respondendo' : '👤 Você Assumiu'}
+                          </span>
+                        )}
                       </div>
-                      <p className="text-xs text-gray-500 truncate">
-                        {ativa?.canal === 'WHATSAPP'
-                          ? formatarTelefone(ativa.telefone)
-                          : `Sessão: ${activeConversationId}`}
-                      </p>
+                      <div className="flex items-center gap-2 text-xs text-gray-500 truncate mt-1">
+                        <span>
+                          {ativa?.canal === 'WHATSAPP'
+                            ? formatarTelefone(ativa.telefone)
+                            : `Sessão: ${activeConversationId}`}
+                        </span>
+                        {ativa?.canal === 'WHATSAPP' && ativa.wa_janela_expira_em && (
+                          <span className={`${
+                            new Date(ativa.wa_janela_expira_em).getTime() - Date.now() < 2 * 3600 * 1000 
+                              ? 'text-red-500 font-bold' 
+                              : ''
+                          }`}>
+                            (Janela expira: {new Date(ativa.wa_janela_expira_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </>
                 );

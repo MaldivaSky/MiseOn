@@ -170,8 +170,24 @@ export default function PainelPedidos() {
   // valida a transição (trigger) e devolve o erro em PT, traduzido para o
   // usuário leigo pelo ErroAmigavel (lib/erros).
   const avancarStatus = async (p: Pedido, status: StatusPedido) => {
+    const statusAntigo = p.status;
     const { error } = await supabase.rpc('fn_avancar_status_pedido', { p_pedido_id: p.id, p_novo_status: status });
     if (error) throw error;
+    
+    // Notificação real no WhatsApp com o link de rastreio em tempo real
+    if (statusAntigo === 'NOVO' && status === 'ACEITO' && p.origem === 'whatsapp' && p.chat_conversation_id) {
+      const trackingLink = `https://app.miseon.com.br/menu/${lojaId}`;
+      const texto = `✅ Seu pedido #${p.numero} foi aceito e já está em preparação!\n\nAcompanhe o status em tempo real pelo link:\n${trackingLink}`;
+      
+      supabase.from('chat_conversations').select('telefone').eq('id', p.chat_conversation_id).single()
+        .then(({ data }) => {
+          if (data?.telefone) {
+            supabase.functions.invoke('whatsapp-send', {
+              body: { loja_id: lojaId, telefone: data.telefone, texto, conversation_id: p.chat_conversation_id }
+            }).catch(e => console.error('Erro ao enviar tracking WA:', e));
+          }
+        });
+    }
     carregar();
   };
 

@@ -13,6 +13,9 @@ interface DadosDia {
   pedidosHoje: Pedido[];
   insumosBaixos: { id: string; nome: string; quantidade_atual: number; estoque_minimo: number; unidade_medida: string }[];
   lotesVencendo: (ProducaoPreparo & { nomePreparo: string })[];
+  waConversas: number;
+  waHandoffs: number;
+  waPedidos: number;
 }
 
 interface Onboarding {
@@ -84,6 +87,8 @@ export default function Dashboard() {
       { count: qtdHorarios },
       { count: qtdPedidosTotal },
       { data: preparosNomes },
+      waConversasResult,
+      { count: waPedidosCount }
     ] = await Promise.all([
       supabase.from('pedidos').select('id, numero, status, valor_total, criado_em, tipo_pedido, identificador_cliente')
         .eq('loja_id', lojaId).gte('criado_em', inicioHoje.toISOString()).order('criado_em', { ascending: false }),
@@ -100,15 +105,23 @@ export default function Dashboard() {
       supabase.from('horarios_funcionamento').select('id', { count: 'exact', head: true }).eq('loja_id', lojaId),
       supabase.from('pedidos').select('id', { count: 'exact', head: true }).eq('loja_id', lojaId),
       supabase.from('insumos').select('id, nome').eq('loja_id', lojaId).eq('is_preparo', true),
+      // WA Metrics
+      supabase.from('chat_conversations').select('id, ia_ativa').eq('loja_id', lojaId).eq('canal', 'WHATSAPP').gte('criado_em', inicioHoje.toISOString()),
+      supabase.from('pedidos').select('id', { count: 'exact', head: true }).eq('loja_id', lojaId).eq('origem', 'whatsapp').gte('criado_em', inicioHoje.toISOString()),
     ]);
 
     const nomes = new Map((preparosNomes ?? []).map((p) => [p.id, p.nome]));
+    const waConvs = (waConversasResult.data || []) as any[];
+    
     setDados({
       pedidosHoje: (pedidosHoje as Pedido[]) ?? [],
       insumosBaixos: ((insumosBaixos as DadosDia['insumosBaixos']) ?? [])
         .filter((i) => Number(i.quantidade_atual) <= Number(i.estoque_minimo))
         .slice(0, 50),
       lotesVencendo: ((lotes as ProducaoPreparo[]) ?? []).map((l) => ({ ...l, nomePreparo: nomes.get(l.preparo_id) ?? 'Preparo' })),
+      waConversas: waConvs.length,
+      waHandoffs: waConvs.filter(c => !c.ia_ativa).length,
+      waPedidos: waPedidosCount ?? 0,
     });
 
     const pagamentosOk = !(loja?.aceita_online ?? true)
@@ -256,6 +269,34 @@ export default function Dashboard() {
           </p>
         </Link>
       </div>
+
+      {/* ── WhatsApp Hoje ── */}
+      {(dados.waConversas > 0 || dados.waPedidos > 0) && (
+        <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 shadow-sm dark:border-green-900/50 dark:bg-green-900/15">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#25D366] text-white">
+              <svg viewBox="0 0 24 24" className="h-6 w-6 fill-current"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.87 9.87 0 0 0 4.79 1.22h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.14-2.9-7.01A9.83 9.83 0 0 0 12.04 2m0 18.15h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.82 2.42a8.18 8.18 0 0 1 2.41 5.83c0 4.54-3.7 8.23-8.23 8.23m4.52-6.16c-.25-.13-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.16.24-.64.8-.78.97-.14.16-.29.18-.54.06-.25-.13-1.05-.39-2-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.01-.38.11-.51.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43-.06-.13-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.14-1.18-.06-.1-.22-.16-.47-.28"/></svg>
+            </div>
+            <div>
+              <p className="flex items-center gap-1.5 text-sm font-black text-green-900 dark:text-green-100">
+                WhatsApp Hoje
+                {dados.waConversas > 0 && (
+                  <span className="flex items-center gap-0.5 rounded-full bg-green-200/50 px-1.5 py-0.5 text-[10px] font-black text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                    {Math.round((dados.waPedidos / dados.waConversas) * 100)}% de conversão
+                  </span>
+                )}
+              </p>
+              <p className="text-xs text-green-800/70 dark:text-green-100/60">
+                {dados.waConversas} conversas · {dados.waConversas - dados.waHandoffs} resolvidas por IA · {dados.waPedidos} pedidos gerados
+              </p>
+            </div>
+          </div>
+          <Link to="/admin/chat" className="shrink-0 text-sm font-bold text-green-700 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300">
+            Abrir Chat
+          </Link>
+        </div>
+      )}
+
 
       {/* ── Alertas de operação ── */}
       {(dados.insumosBaixos.length > 0 || dados.lotesVencendo.length > 0) && (
