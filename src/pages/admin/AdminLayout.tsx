@@ -31,7 +31,7 @@ export default function AdminLayout() {
   const [semLoja, setSemLoja] = useState(false);
   const [erroConexao, setErroConexao] = useState(false);
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
-  
+
   // Intelligent transition state
   const prevPathRef = useRef(loc.pathname);
   const [transitionClass, setTransitionClass] = useState('mo-screen');
@@ -54,16 +54,16 @@ export default function AdminLayout() {
   // Monitoramento financeiro em tempo real — alertas de estorno suspeito,
   // cancelamento com estoque comprometido e erros de webhook
   useLedgerAlerts({ lojaId: ctx?.lojaId ?? '' });
-  
+
   // Regras Inteligentes de Transição (Forward / Backward)
   useEffect(() => {
     const prevDepth = prevPathRef.current.split('/').filter(Boolean).length;
     const currDepth = loc.pathname.split('/').filter(Boolean).length;
-    
+
     // Se está voltando para uma rota mais rasa (ex: /admin/pedidos/123 -> /admin/pedidos)
     if (currDepth < prevDepth) {
       setTransitionClass('mo-screen-back');
-    } 
+    }
     // Se está indo para uma rota mais profunda ou navegando no mesmo nível
     else {
       setTransitionClass('mo-screen');
@@ -79,7 +79,7 @@ export default function AdminLayout() {
         sessionStorage.setItem('miseon_splash_done', 'true');
       }, 3600);
     }
-    
+
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return nav('/admin/login');
@@ -100,10 +100,10 @@ export default function AdminLayout() {
       // Fonte única: helper canônico (vocabulário minúsculo + trial_termina_em).
       const { diasAtraso } = avaliarAssinatura(lojaInfo);
 
-      setCtx({ 
-        lojaId: data.loja_id, 
-        lojaNome: lojaInfo?.nome ?? 'Minha loja', 
-        lojaSlug: lojaInfo?.slug ?? '', 
+      setCtx({
+        lojaId: data.loja_id,
+        lojaNome: lojaInfo?.nome ?? 'Minha loja',
+        lojaSlug: lojaInfo?.slug ?? '',
         papel,
         status_assinatura: lojaInfo?.status_assinatura,
         diasAtraso
@@ -111,7 +111,7 @@ export default function AdminLayout() {
 
       if (lojaInfo?.cor_primaria) document.documentElement.style.setProperty('--cor-primaria', lojaInfo.cor_primaria);
       if (lojaInfo?.cor_secundaria) document.documentElement.style.setProperty('--cor-secundaria', lojaInfo.cor_secundaria);
-      
+
       // Motor de Bloqueio Seco (Lockdown)
       if (diasAtraso > 5 && papel === 'admin' && !loc.pathname.includes('/assinatura')) {
         nav('/admin/assinatura');
@@ -119,7 +119,7 @@ export default function AdminLayout() {
         nav(HOME_POR_PAPEL[papel as Papel] ?? '/admin/inicio', { replace: true });
       }
     })();
-    
+
     return () => { if (minLoadTimer) clearTimeout(minLoadTimer); };
   }, [nav, loc.pathname, isMinLoadingDone]);
 
@@ -137,7 +137,7 @@ export default function AdminLayout() {
       if (!vivo || document.hidden) return;
       supabase.functions
         .invoke('send-transactional-email', { body: { acao: 'drenar', loja_id: ctx.lojaId } })
-        .catch(() => {});
+        .catch(() => { });
     };
 
     cutucar();
@@ -210,30 +210,30 @@ export default function AdminLayout() {
   const principal: RouteDef[] = ctx.papel === 'entregador'
     ? [{ to: '/admin/entregas', icon: <Bike size={20} />, label: 'Entregas', colorHex: C.emerald }]
     : ctx.papel === 'garcom'
-    ? [
+      ? [
         { to: '/admin/mesas', icon: <LayoutGrid size={20} />, label: 'Mapa de Mesas', colorHex: C.amber },
         { to: '/admin/pdv', icon: <Calculator size={20} />, label: 'Lançar Pedido', colorHex: C.orange },
       ]
-    : ctx.papel === 'operador'
-    ? [
-        { to: '/admin/pdv', icon: <Calculator size={20} />, label: 'PDV Balcão', colorHex: C.orange },
-        { to: '/admin/mesas', icon: <LayoutGrid size={20} />, label: 'Mapa de Mesas', colorHex: C.amber },
-        { to: '/admin/pedidos', icon: <ClipboardList size={20} />, label: 'Pedidos', colorHex: C.green },
-        { to: '/admin/kds', icon: <ChefHat size={20} />, label: 'Cozinha (KDS)', colorHex: C.red },
-        { to: '/admin/producao', icon: <Flame size={20} />, label: 'Produção', colorHex: C.orange },
-        { to: '/admin/entregas', icon: <Bike size={20} />, label: 'Entregas', colorHex: C.emerald },
-      ]
-    : [
-        { to: '/admin/inicio', icon: <LayoutDashboard size={20} />, label: 'Início', colorHex: C.blue },
-        { to: '/admin/pdv', icon: <Calculator size={20} />, label: 'PDV Balcão', colorHex: C.orange },
-        { to: '/admin/mesas', icon: <LayoutGrid size={20} />, label: 'Mapa de Mesas', colorHex: C.amber },
-        { to: '/admin/pedidos', icon: <ClipboardList size={20} />, label: 'Pedidos', colorHex: C.green },
-        { to: '/admin/kds', icon: <ChefHat size={20} />, label: 'Cozinha (KDS)', colorHex: C.red },
-        { to: '/admin/cardapio', icon: <UtensilsCrossed size={20} />, label: 'Cardápio', colorHex: C.indigo },
-        { to: '/admin/estoque', icon: <Boxes size={20} />, label: 'Estoque', colorHex: C.indigo },
-        { to: '/admin/producao', icon: <Flame size={20} />, label: 'Produção', colorHex: C.orange },
-        { to: '/admin/entregas', icon: <Bike size={20} />, label: 'Entregas', colorHex: C.emerald },
-      ];
+      : ctx.papel === 'operador'
+        ? [
+          { to: '/admin/pdv', icon: <Calculator size={20} />, label: 'PDV Balcão', colorHex: C.orange },
+          { to: '/admin/mesas', icon: <LayoutGrid size={20} />, label: 'Mapa de Mesas', colorHex: C.amber },
+          { to: '/admin/pedidos', icon: <ClipboardList size={20} />, label: 'Pedidos', colorHex: C.green },
+          { to: '/admin/kds', icon: <ChefHat size={20} />, label: 'Cozinha (KDS)', colorHex: C.red },
+          { to: '/admin/producao', icon: <Flame size={20} />, label: 'Produção', colorHex: C.orange },
+          { to: '/admin/entregas', icon: <Bike size={20} />, label: 'Entregas', colorHex: C.emerald },
+        ]
+        : [
+          { to: '/admin/inicio', icon: <LayoutDashboard size={20} />, label: 'Início', colorHex: C.blue },
+          { to: '/admin/pdv', icon: <Calculator size={20} />, label: 'PDV Balcão', colorHex: C.orange },
+          { to: '/admin/mesas', icon: <LayoutGrid size={20} />, label: 'Mapa de Mesas', colorHex: C.amber },
+          { to: '/admin/pedidos', icon: <ClipboardList size={20} />, label: 'Pedidos', colorHex: C.green },
+          { to: '/admin/kds', icon: <ChefHat size={20} />, label: 'Cozinha (KDS)', colorHex: C.red },
+          { to: '/admin/cardapio', icon: <UtensilsCrossed size={20} />, label: 'Cardápio', colorHex: C.indigo },
+          { to: '/admin/estoque', icon: <Boxes size={20} />, label: 'Estoque', colorHex: C.indigo },
+          { to: '/admin/producao', icon: <Flame size={20} />, label: 'Produção', colorHex: C.orange },
+          { to: '/admin/entregas', icon: <Bike size={20} />, label: 'Entregas', colorHex: C.emerald },
+        ];
 
   const mais: RouteDef[] = [
     { to: '/admin/chat', icon: <MessageSquare size={20} />, label: 'Central de Atendimento (Chat)', colorHex: C.blue },
@@ -253,9 +253,9 @@ export default function AdminLayout() {
   // (não a lista inteira — isso é o que o menu "Mais" resolve). Derivado de
   // `principal` por rota, então rótulo/ícone nunca ficam fora de sincronia.
   const ROTAS_BOTTOM_NAV: Record<string, string[]> = {
-    admin:      ['/admin/inicio', '/admin/pedidos', '/admin/kds', '/admin/pdv'],
-    operador:   ['/admin/pdv', '/admin/pedidos', '/admin/kds', '/admin/entregas'],
-    garcom:     ['/admin/mesas', '/admin/pdv'],
+    admin: ['/admin/inicio', '/admin/pedidos', '/admin/kds', '/admin/pdv'],
+    operador: ['/admin/pdv', '/admin/pedidos', '/admin/kds', '/admin/entregas'],
+    garcom: ['/admin/mesas', '/admin/pdv'],
     entregador: ['/admin/entregas'],
   };
   const bottomNav = (ROTAS_BOTTOM_NAV[ctx.papel] ?? [])
@@ -271,8 +271,8 @@ export default function AdminLayout() {
 
   const renderSidebarLink = (r: RouteDef, onClick?: () => void) => {
     return (
-      <NavLink 
-        key={r.to} 
+      <NavLink
+        key={r.to}
         to={r.to}
         onClick={onClick}
         style={{ '--route-color': r.colorHex } as React.CSSProperties}
@@ -288,11 +288,10 @@ export default function AdminLayout() {
             <div className={`nav-link-icon relative z-10 flex-shrink-0 transition-transform duration-500 ease-out ${isActive ? 'scale-110 drop-shadow-md' : 'group-hover:scale-110'}`}>
               {r.icon}
             </div>
-            
-            <span 
-              className={`nav-link-text relative z-10 whitespace-nowrap transition-all duration-300 ease-in-out ${
-                isCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100 w-auto'
-              }`}
+
+            <span
+              className={`nav-link-text relative z-10 whitespace-nowrap transition-all duration-300 ease-in-out ${isCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100 w-auto'
+                }`}
             >
               {r.label}
             </span>
@@ -327,12 +326,11 @@ export default function AdminLayout() {
         .nav-link-premium.is-active .nav-link-bg { opacity: 1; }
         .nav-link-premium:hover .nav-link-icon, .nav-link-premium.is-active .nav-link-icon { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--route-color) 80%, transparent)); transform: scale(1.15); }
       `}</style>
-      
+
       {/* ── SIDEBAR FLOATING GLASS (DESKTOP) ── */}
-      <aside 
-        className={`hidden lg:flex flex-col relative my-3 ml-3 rounded-3xl bg-white/70 dark:bg-[#070C18]/40 backdrop-blur-3xl border border-white/40 dark:border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.05)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] z-40 print:hidden h-[calc(100vh-1.5rem)] transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${
-          isCollapsed ? 'w-[88px]' : 'w-[280px]'
-        }`}
+      <aside
+        className={`hidden lg:flex flex-col relative my-3 ml-3 rounded-3xl bg-white/70 dark:bg-[#070C18]/40 backdrop-blur-3xl border border-white/40 dark:border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.05)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] z-40 print:hidden h-[calc(100vh-1.5rem)] transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isCollapsed ? 'w-[88px]' : 'w-[280px]'
+          }`}
       >
         {/* Header da Sidebar (Logo MiseOn) */}
         <div className="h-[88px] flex items-center justify-between px-5 border-b border-gray-200/30 dark:border-white/10 shrink-0 relative">
@@ -340,17 +338,17 @@ export default function AdminLayout() {
           <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-t-[2rem]">
             <div className="absolute inset-0 bg-gradient-to-r from-[#0A5CC4]/20 to-[#FC5B24]/20 opacity-80 mix-blend-screen pointer-events-none blur-2xl" />
           </div>
-          
+
           <div className={`flex items-center justify-start overflow-hidden transition-all duration-500 ${isCollapsed ? 'w-12 justify-center' : 'w-full px-2'} relative z-10`}>
             {isCollapsed ? (
-              <img src="/brand/icon.png" alt="MiseOn" className="h-10 w-10 shrink-0 object-contain drop-shadow-[0_4px_12px_rgba(252,91,36,0.6)] animate-in fade-in zoom-in duration-500" onError={(e) => { e.currentTarget.style.display='none' }} />
+              <img src="/brand/icon.png" alt="MiseOn" className="h-10 w-10 shrink-0 object-contain drop-shadow-[0_4px_12px_rgba(252,91,36,0.6)] animate-in fade-in zoom-in duration-500" onError={(e) => { e.currentTarget.style.display = 'none' }} />
             ) : (
-              <img src="/brand/logo-horizontal.png" alt="MiseOn" className="w-[170px] h-auto shrink-0 object-contain drop-shadow-[0_4px_16px_rgba(10,92,196,0.6)] animate-in fade-in duration-500" onError={(e) => { e.currentTarget.style.display='none' }} />
+              <img src="/brand/logo-horizontal.png" alt="MiseOn" className="w-[170px] h-auto shrink-0 object-contain drop-shadow-[0_4px_16px_rgba(10,92,196,0.6)] animate-in fade-in duration-500" onError={(e) => { e.currentTarget.style.display = 'none' }} />
             )}
           </div>
           {/* Toggle Button Luxuoso */}
-          <button 
-            onClick={toggleSidebar} 
+          <button
+            onClick={toggleSidebar}
             className={`absolute -right-4 top-1/2 -translate-y-1/2 bg-white/80 dark:bg-[#0A101D]/90 backdrop-blur-md border border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-300 rounded-full p-2 shadow-[0_4px_20px_rgba(0,0,0,0.15)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.6)] transition-all duration-500 z-50 hover:scale-110 hover:text-[#FC5B24] ring-4 ring-[#F4F7FA] dark:ring-[#070C18] ${isCollapsed ? 'rotate-180' : ''}`}
           >
             <ChevronLeft size={16} strokeWidth={3} />
@@ -370,7 +368,7 @@ export default function AdminLayout() {
 
         {/* Navegação Scrollável */}
         <div className="flex-1 overflow-y-auto py-2 space-y-6 custom-scrollbar overflow-x-hidden">
-          
+
           {ctx.papel === 'admin' ? (
             <>
               {/* Visão Geral */}
@@ -400,7 +398,7 @@ export default function AdminLayout() {
               {/* Catálogo & Suprimentos */}
               <div className="space-y-1">
                 <p className={`px-5 mb-2 mt-4 text-[10px] font-bold tracking-widest text-gray-400 uppercase transition-all duration-300 ${isCollapsed ? 'text-center text-[8px]' : ''}`}>
-                  {isCollapsed ? '---' : 'Catálogo e Estoque'}
+                  {isCollapsed ? '---' : 'Cardápio e Estoque'}
                 </p>
                 {[...principal, ...mais].filter(p => ['/admin/cardapio', '/admin/estoque', '/admin/compras'].includes(p.to)).map(p => renderSidebarLink(p))}
               </div>
@@ -443,33 +441,33 @@ export default function AdminLayout() {
 
         {/* Footer da Sidebar (Usuário) */}
         <div className={`p-4 border-t border-gray-200/30 dark:border-white/10 space-y-2 shrink-0 transition-all duration-300 overflow-hidden bg-white/20 dark:bg-black/10 backdrop-blur-md rounded-b-[2rem]`}>
-          <a 
-            href={`/${ctx.lojaSlug}`} 
-            target="_blank" 
-            rel="noreferrer" 
+          <a
+            href={`/${ctx.lojaSlug}`}
+            target="_blank"
+            rel="noreferrer"
             style={{ '--route-color': '#0A5CC4' } as React.CSSProperties}
             className={`nav-link-premium relative flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-semibold transition-colors group ${isCollapsed ? 'justify-center' : ''}`}
           >
             <div className="nav-link-bg absolute inset-0 opacity-0 transition-opacity duration-500 pointer-events-none rounded-2xl" />
-            <Store size={20} className="nav-link-icon shrink-0 transition-transform duration-300" /> 
+            <Store size={20} className="nav-link-icon shrink-0 transition-transform duration-300" />
             <span className={`nav-link-text whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>Ver Loja Online</span>
             {isCollapsed && <div className="absolute left-full ml-4 px-3 py-2 bg-gray-900/90 backdrop-blur-sm dark:bg-white/90 text-white dark:text-gray-900 text-sm font-bold rounded-xl opacity-0 -translate-x-2 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 shadow-xl z-50 whitespace-nowrap">Ver Loja Online</div>}
           </a>
-          <NavLink 
-            to="/admin/conta" 
+          <NavLink
+            to="/admin/conta"
             style={{ '--route-color': '#FC5B24' } as React.CSSProperties}
-            className={({isActive}) => `nav-link-premium relative flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-semibold transition-colors group ${isActive ? 'is-active' : ''} ${isCollapsed ? 'justify-center' : ''}`}
+            className={({ isActive }) => `nav-link-premium relative flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-semibold transition-colors group ${isActive ? 'is-active' : ''} ${isCollapsed ? 'justify-center' : ''}`}
           >
             <div className="nav-link-bg absolute inset-0 opacity-0 transition-opacity duration-500 pointer-events-none rounded-2xl" />
             <UserCircle size={20} className="nav-link-icon shrink-0 transition-transform duration-300" />
             <span className={`nav-link-text whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>Minha Conta</span>
             {isCollapsed && <div className="absolute left-full ml-4 px-3 py-2 bg-gray-900/90 backdrop-blur-sm dark:bg-white/90 text-white dark:text-gray-900 text-sm font-bold rounded-xl opacity-0 -translate-x-2 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 shadow-xl z-50 whitespace-nowrap">Minha Conta</div>}
           </NavLink>
-          <button 
-            onClick={sair} 
+          <button
+            onClick={sair}
             className={`relative flex items-center gap-3 w-full px-3.5 py-3 rounded-2xl text-sm font-semibold text-gray-500 dark:text-gray-400 hover:bg-red-500/15 hover:text-red-500 dark:hover:bg-red-500/20 dark:hover:text-red-400 transition-colors group ${isCollapsed ? 'justify-center' : ''}`}
           >
-            <LogOut size={20} className="shrink-0 group-hover:scale-110 transition-transform duration-300" /> 
+            <LogOut size={20} className="shrink-0 group-hover:scale-110 transition-transform duration-300" />
             <span className={`whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>Sair do Sistema</span>
             {isCollapsed && <div className="absolute left-full ml-4 px-3 py-2 bg-red-600/90 backdrop-blur-sm text-white text-sm font-bold rounded-xl opacity-0 -translate-x-2 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 shadow-xl z-50 whitespace-nowrap">Sair</div>}
           </button>
@@ -478,16 +476,16 @@ export default function AdminLayout() {
 
       {/* ── ÁREA DE CONTEÚDO (MAIN) ── */}
       <div className="flex-1 flex flex-col min-w-0 h-full relative bg-transparent">
-        
+
         {/* ── TOP HEADER GLOBAL ── */}
         <header className="h-[88px] flex-shrink-0 bg-transparent flex items-center justify-between px-6 sm:px-10 z-30 print:hidden relative">
-          
+
           <div className="flex items-center gap-4">
             {/* Mobile Menu Toggle */}
             <button onClick={() => setMenuMobileAberto(true)} className="lg:hidden p-2 -ml-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
               <Menu size={24} />
             </button>
-            
+
             {/* Mobile Brand / Back Button */}
             <div className="flex lg:hidden items-center gap-2">
               {!isMainRoute ? (
@@ -519,7 +517,7 @@ export default function AdminLayout() {
 
         {/* ── CONTEÚDO DA PÁGINA (SCROLLÁVEL) ── */}
         <main className="flex-1 overflow-y-auto pb-20 lg:pb-0 relative custom-scrollbar px-6 sm:px-10 pt-2">
-          
+
           {/* BANNER DE CARÊNCIA INFECHÁVEL (DIAS 1 A 5) */}
           {ctx.diasAtraso > 0 && ctx.diasAtraso <= 5 && (
             <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-3 sm:px-6 flex items-center justify-between shadow-inner">
