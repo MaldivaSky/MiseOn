@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
-import { AlertTriangle, Plus, Pencil, Calculator, Trash2, ArrowRight, ArchiveRestore, Loader2 } from 'lucide-react';
+import { AlertTriangle, Plus, Pencil, Calculator, Trash2, ArrowRight, ArchiveRestore, Loader2, Search } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Insumo, fmt, InsumoRendimentoJSON } from '../../types';
 import { UNIDADES, destinosPermitidos, validarConversao } from '../../lib/unidades';
@@ -29,6 +29,7 @@ export default function Estoque() {
   const [isNovaCategoria, setIsNovaCategoria] = useState(false);
   const [nomeNovaCategoria, setNomeNovaCategoria] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState<string | null>(null);
+  const [busca, setBusca] = useState('');
   
   // Compra
   const [unidadeCompra, setUnidadeCompra] = useState('pct');
@@ -271,8 +272,16 @@ export default function Estoque() {
   };
 
   const criticos = insumos.filter((i) => !i.is_preparo && Number(i.quantidade_atual) <= Number(i.estoque_minimo));
-  const insumosBrutos = insumos.filter(i => !i.is_preparo && (!filtroCategoria || i.categoria_insumo === filtroCategoria || (filtroCategoria === 'Ingrediente' && !i.categoria_insumo)));
-  const inativosBrutos = inativos.filter(i => !i.is_preparo && (!filtroCategoria || i.categoria_insumo === filtroCategoria || (filtroCategoria === 'Ingrediente' && !i.categoria_insumo)));
+  const insumosBrutos = insumos.filter(i => 
+    !i.is_preparo && 
+    (!filtroCategoria || i.categoria_insumo === filtroCategoria || (filtroCategoria === 'Ingrediente' && !i.categoria_insumo)) &&
+    (!busca.trim() || i.nome.toLowerCase().includes(busca.trim().toLowerCase()))
+  );
+  const inativosBrutos = inativos.filter(i => 
+    !i.is_preparo && 
+    (!filtroCategoria || i.categoria_insumo === filtroCategoria || (filtroCategoria === 'Ingrediente' && !i.categoria_insumo)) &&
+    (!busca.trim() || i.nome.toLowerCase().includes(busca.trim().toLowerCase()))
+  );
 
   const categoriasDoBanco = Array.from(new Set([...insumos, ...inativos].map(i => i.categoria_insumo).filter(Boolean))) as string[];
   const categoriasUnicas = Array.from(new Set(['Ingrediente', 'Revenda Direta', 'Embalagem', 'Limpeza', ...categoriasDoBanco]));
@@ -523,12 +532,26 @@ export default function Estoque() {
         </button>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-4 mb-2 hide-scrollbar">
-         {['Tudo', ...categoriasUnicas].map(cat => (
-           <button key={cat} onClick={() => setFiltroCategoria(cat === 'Tudo' ? null : cat)} className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${filtroCategoria === cat || (!filtroCategoria && cat === 'Tudo') ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400'}`}>
-             {cat}
-           </button>
-         ))}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 pb-4 mb-2">
+         {/* Barra de Pesquisa */}
+         <div className="relative flex-1 sm:max-w-md">
+           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+           <input 
+             value={busca} 
+             onChange={(e) => setBusca(e.target.value)} 
+             placeholder="Buscar no estoque..."
+             className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-4 text-sm outline-none focus:border-[var(--cor-primaria)] dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 shadow-sm transition-colors" 
+           />
+         </div>
+
+         {/* Filtros de Categoria */}
+         <div className="flex gap-2 overflow-x-auto hide-scrollbar">
+            {['Tudo', ...categoriasUnicas].map(cat => (
+              <button key={cat} onClick={() => setFiltroCategoria(cat === 'Tudo' ? null : cat)} className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-colors ${filtroCategoria === cat || (!filtroCategoria && cat === 'Tudo') ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 shadow-md' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 shadow-sm'}`}>
+                {cat}
+              </button>
+            ))}
+         </div>
       </div>
 
       <div className="space-y-3">
