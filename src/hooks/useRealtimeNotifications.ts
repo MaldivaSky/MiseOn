@@ -99,15 +99,29 @@ export function useRealtimeNotifications({ lojaId, pedidoId, contexto, entregado
         .on('broadcast', { event: 'chat_ia_answered' }, (payload) => {
           const msg = payload.payload.message || 'O Assistente IA atendeu um cliente!';
           toast(msg, 'info');
-          tocarSom();
           
           if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('Assistente MiseOn', {
-              body: msg,
-              icon: '/icon-192.png' // Ícone padrão do PWA
-            });
+            new Notification('Assistente MiseOn', { body: msg, icon: '/icon-192.png' });
+          }
+        })
+        .on('broadcast', { event: 'new_chat_message' }, (payload) => {
+          const msg = `Nova mensagem de ${payload.payload.cliente_nome || 'Cliente'}: ${payload.payload.message}`;
+          toast(msg, 'info');
+          tocarSom(); // Tocar som quando chega mensagem real!
+          
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Nova Mensagem', { body: msg, icon: '/icon-192.png' });
           } else if ('Notification' in window && Notification.permission !== 'denied') {
             Notification.requestPermission();
+          }
+        })
+        .on('broadcast', { event: 'chat_handoff' }, (payload) => {
+          const msg = payload.payload.message || '🚨 Cliente solicitou atendimento humano!';
+          toast(msg, 'alerta');
+          tocarSom(); // Tocar som para alertar o lojista
+          
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Atenção Necessária', { body: msg, icon: '/icon-192.png' });
           }
         })
         .subscribe();

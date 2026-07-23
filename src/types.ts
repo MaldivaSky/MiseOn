@@ -282,6 +282,7 @@ export interface Pedido {
   nfe_numero?: string | null;
   nfe_url?: string | null;
   nfe_erros?: any;
+  chat_conversation_id?: string | null;
 }
 
 export interface Cliente {

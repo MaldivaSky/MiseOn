@@ -226,7 +226,32 @@ serve(async (req) => {
       });
       if (msgErr) throw new Error("gravar mensagem: " + msgErr.message);
 
-      // E3: aqui entra a chamada da IA (chat-ai-reception) + whatsapp-send
+      // E3: Chama a IA (chat-ai-reception) que fará o roteamento para whatsapp-send
+      const aiUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/chat-ai-reception";
+      // Disparamos sem aguardar a resposta (fire-and-forget) para liberar o worker mais rápido
+      fetch(aiUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${supabaseServiceKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ conversation_id: conversationId })
+      }).catch(e => console.error("Erro ao chamar chat-ai-reception:", e));
+
+      // Notificação em tempo real para o painel (nova mensagem do cliente)
+      const channel = supabase.channel(`admin-alerts-${evento.loja_id}`);
+      await channel.send({
+        type: 'broadcast',
+        event: 'new_chat_message',
+        payload: { 
+          conversation_id: conversationId, 
+          loja_id: evento.loja_id, 
+          canal: "WHATSAPP",
+          cliente_nome: nomeContato || telefone,
+          message: textoDaMensagem(msg)
+        }
+      });
+      supabase.removeChannel(channel);
 
       await supabase
         .from("whatsapp_eventos")
