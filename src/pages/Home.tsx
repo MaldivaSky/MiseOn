@@ -2,8 +2,8 @@ import { Link } from 'react-router-dom';
 import {
   QrCode, ClipboardList, ChefHat, Bike, Boxes, Wallet,
   MessageCircle, ShieldCheck, ArrowRight, Check, Sparkles,
-  Store, Menu as MenuIcon, X, UtensilsCrossed, Megaphone, ShoppingBag,
-  Mail, ChevronDown, Headset, Globe, MapPin, BarChart3,
+  Menu as MenuIcon, X, UtensilsCrossed, Megaphone, ShoppingBag,
+  Mail, ChevronDown, Headset, Globe, MapPin, BarChart3, Star, Quote, BadgeCheck,
 } from 'lucide-react';
 import { useState } from 'react';
 import MiseOnLogo from '../components/MiseOnLogo';
@@ -140,6 +140,27 @@ const PASSOS = [
   },
 ];
 
+const DEPOIMENTOS = [
+  {
+    nome: 'Carlos M.',
+    negocio: 'Hamburgueria',
+    texto: 'Antes eu pagava 3 sistemas diferentes que não se conversavam e custavam uma fortuna. Com o MiseOn, centralizei PDV, entregas e a IA do WhatsApp. Economizei R$ 400/mês e a operação voa.',
+    perfil: 'Tinha sistema caro e complexo',
+  },
+  {
+    nome: 'Juliana T.',
+    negocio: 'Pizzaria Delivery',
+    texto: 'Eu usava caderninho e WhatsApp manual. Perdia pedido toda sexta-feira. Agora a IA atende e envia o cardápio, os pedidos caem direto na tela. Nunca mais perdi venda.',
+    perfil: 'Não tinha sistema',
+  },
+  {
+    nome: 'Roberto S.',
+    negocio: 'Restaurante e Bar',
+    texto: 'O sistema antigo não tinha tela na cozinha (KDS) nem ficha técnica decente. O MiseOn resolveu isso. Cada venda na mesa já dá baixa no estoque. Controle total, sem gambiarra.',
+    perfil: 'Tinha sistema incompleto',
+  },
+];
+
 const SUPORTE_CANAIS = [
   {
     icone: MessageCircle,
@@ -235,6 +256,7 @@ function FaqItem({ pergunta, resposta }: { pergunta: string; resposta: string })
 
 export default function Home() {
   const [menuAberto, setMenuAberto] = useState(false);
+  const [planoAnual, setPlanoAnual] = useState(true);
 
   const links = [
     { href: '#recursos', rotulo: 'Recursos' },
@@ -401,18 +423,21 @@ export default function Home() {
       </header>
 
       {/* ══════════ 3. FAIXA DE CREDIBILIDADE ══════════ */}
-      <section className="border-y border-white/10 bg-[#0B1120] py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 sm:px-6 lg:flex-row lg:justify-between">
-          <p className="max-w-md text-center font-['Sora'] text-sm font-bold uppercase tracking-widest text-slate-400 lg:text-left">
-            Tudo que a sua operação precisa, em um só painel
+      <section className="border-y border-white/10 bg-[#0B1120] py-8 relative overflow-hidden">
+        <div className="pointer-events-none absolute left-1/2 top-0 h-full w-[800px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/10 via-[#0B1120]/0 to-transparent" />
+        <div className="relative mx-auto flex max-w-7xl flex-col items-center gap-6 px-4 sm:px-6">
+          <p className="text-center font-['Sora'] text-xs font-bold uppercase tracking-widest text-slate-500">
+            Tudo o que a sua operação precisa, em um só painel
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm font-semibold text-slate-200">
-            <span className="flex items-center gap-2"><Check size={15} className="text-emerald-400" /> Cardápio digital</span>
-            <span className="flex items-center gap-2"><Check size={15} className="text-emerald-400" /> Pedidos</span>
-            <span className="flex items-center gap-2"><Check size={15} className="text-emerald-400" /> Cozinha KDS</span>
-            <span className="flex items-center gap-2"><Check size={15} className="text-emerald-400" /> Entregas</span>
-            <span className="flex items-center gap-2"><Check size={15} className="text-emerald-400" /> Estoque</span>
-            <span className="flex items-center gap-2"><Check size={15} className="text-emerald-400" /> Financeiro</span>
+          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-sm font-semibold text-slate-300">
+            <span className="flex items-center gap-2 transition hover:text-white"><Check size={16} className="text-emerald-400" /> Cardápio & QR Code</span>
+            <span className="flex items-center gap-2 transition hover:text-white"><Check size={16} className="text-emerald-400" /> WhatsApp com IA</span>
+            <span className="flex items-center gap-2 transition hover:text-white"><Check size={16} className="text-emerald-400" /> Integração iFood</span>
+            <span className="flex items-center gap-2 transition hover:text-white"><Check size={16} className="text-emerald-400" /> PDV & Comandas</span>
+            <span className="flex items-center gap-2 transition hover:text-white"><Check size={16} className="text-emerald-400" /> Cozinha KDS</span>
+            <span className="flex items-center gap-2 transition hover:text-white"><Check size={16} className="text-emerald-400" /> Rotas & Entregas</span>
+            <span className="flex items-center gap-2 transition hover:text-white"><Check size={16} className="text-emerald-400" /> Estoque & Ficha Técnica</span>
+            <span className="flex items-center gap-2 transition hover:text-white"><Check size={16} className="text-emerald-400" /> Pix Automático</span>
           </div>
         </div>
       </section>
@@ -510,9 +535,14 @@ export default function Home() {
                 do seu cardápio digital e o pedido cai direto no seu painel, com selo de origem.
               </p>
               <p className="mt-4 text-base leading-relaxed text-emerald-100/85">
-                A integração usa a <b className="text-white">WhatsApp Business Platform oficial da Meta</b>,
-                sem mensalidade de integração. E o controle continua seu: assumiu a conversa, a IA silencia na hora.
+                A integração não tem mensalidade oculta. E o controle continua totalmente seu: assumiu a conversa, a IA silencia na hora.
               </p>
+
+              <div className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-[#1877F2]/20 bg-[#1877F2]/10 px-3 py-1.5 shadow-[0_0_15px_rgba(24,119,242,0.15)] backdrop-blur-sm">
+                <BadgeCheck size={18} fill="#1877F2" stroke="white" strokeWidth={1.5} />
+                <span className="font-['Sora'] text-[13px] font-extrabold text-white">Meta Verified</span>
+                <span className="text-[11px] font-medium text-emerald-100/60 ml-1">— Parceiro Oficial</span>
+              </div>
               <div className="mt-8">
                 <Link
                   to="/cadastre-se"
@@ -595,52 +625,216 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ══════════ 8. PLANOS / CTA FINAL ══════════ */}
+      {/* ══════════ 8. DEPOIMENTOS ══════════ */}
+      <section className="bg-white py-20 sm:py-24 dark:bg-transparent">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="text-xs font-black uppercase tracking-widest text-[var(--cor-primaria)]">Histórias reais</span>
+            <h2 className="mt-3 font-['Sora'] text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl dark:text-white">
+              De quem já tentou de tudo, ou estava apenas começando
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-gray-600 dark:text-slate-300">
+              Não importa se você usa um sistema caro, um sistema incompleto ou se ainda está no papel.
+              O MiseOn se adapta à sua realidade e transforma sua gestão.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-6 md:grid-cols-3">
+            {DEPOIMENTOS.map((d, i) => (
+              <div key={i} className="relative flex flex-col justify-between rounded-3xl border border-gray-200 bg-white p-8 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl dark:border-white/10 dark:bg-white/5 dark:backdrop-blur-md">
+                <Quote className="absolute right-6 top-6 text-gray-100 dark:text-white/5" size={60} />
+                <div className="relative">
+                  <div className="flex items-center gap-1 text-amber-400">
+                    <Star size={16} fill="currentColor" />
+                    <Star size={16} fill="currentColor" />
+                    <Star size={16} fill="currentColor" />
+                    <Star size={16} fill="currentColor" />
+                    <Star size={16} fill="currentColor" />
+                  </div>
+                  <p className="mt-5 text-sm leading-relaxed text-gray-700 dark:text-slate-300 italic">
+                    "{d.texto}"
+                  </p>
+                </div>
+                <div className="relative mt-8 flex items-center justify-between border-t border-gray-100 pt-5 dark:border-white/10">
+                  <div>
+                    <p className="font-['Sora'] text-sm font-bold text-gray-900 dark:text-white">{d.nome}</p>
+                    <p className="text-xs font-medium text-[var(--cor-primaria)]">{d.negocio}</p>
+                  </div>
+                  <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:bg-white/10 dark:text-gray-400 max-w-[120px] text-right">
+                    {d.perfil}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════ 9. PLANOS / CTA FINAL ══════════ */}
       <section id="planos" className="scroll-mt-24 pb-24">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6">
-          <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-[#0B1120] via-[#0C1730] to-[#111a33] p-8 text-center shadow-2xl sm:p-14">
-            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#FC5B24]/20 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-[#0A5CC4]/25 blur-3xl" />
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="mx-auto max-w-2xl text-center mb-14">
+            <span className="text-xs font-black uppercase tracking-widest text-[var(--cor-primaria)]">Planos</span>
+            <h2 className="mt-3 font-['Sora'] text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl dark:text-white">
+              Um valor justo, sem taxa por pedido
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-gray-600 dark:text-slate-300">
+              Escolha a melhor opção para o seu momento. Todos os recursos liberados em ambos os planos,
+              sem fidelidade forçada: cancele quando quiser, direto no painel.
+            </p>
+          </div>
 
-            <div className="relative">
-              <span className="text-xs font-black uppercase tracking-widest text-orange-300">Planos</span>
-              <h2 className="mx-auto mt-4 max-w-xl font-['Sora'] text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-                Um valor justo, sem taxa por pedido
-              </h2>
-              <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-slate-300">
-                Planos mensais pensados para o tamanho da sua operação — do delivery de bairro ao
-                restaurante completo. Sem taxa por pedido, sem fidelidade forçada: cancele quando quiser,
-                direto no painel.
-              </p>
+          <div className="mx-auto mt-8 flex max-w-sm items-center justify-center rounded-full border border-gray-200 bg-white p-1 shadow-sm dark:border-white/10 dark:bg-white/5">
+            <button
+              onClick={() => setPlanoAnual(false)}
+              className={`flex-1 rounded-full py-2.5 text-sm font-bold transition-all ${
+                !planoAnual
+                  ? 'bg-gray-100 text-gray-900 shadow-sm dark:bg-white/15 dark:text-white'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-white'
+              }`}
+            >
+              Mensal
+            </button>
+            <button
+              onClick={() => setPlanoAnual(true)}
+              className={`flex-1 rounded-full py-2.5 text-sm font-bold transition-all ${
+                planoAnual
+                  ? 'bg-[var(--cor-primaria)] text-white shadow-lg shadow-[var(--cor-primaria)]/30'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-white'
+              }`}
+            >
+              Anual (2 meses grátis)
+            </button>
+          </div>
 
-              <ul className="mx-auto mt-8 grid max-w-lg gap-3 text-left text-sm text-slate-200 sm:grid-cols-2">
-                <li className="flex items-start gap-2"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> Cardápio, pedidos, KDS e entregas inclusos</li>
-                <li className="flex items-start gap-2"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> WhatsApp com IA sem mensalidade de integração</li>
-                <li className="flex items-start gap-2"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> Pix direto na sua conta via Efí</li>
-                <li className="flex items-start gap-2"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> Suporte humano por WhatsApp</li>
-              </ul>
+          <div className="mx-auto mt-10 max-w-5xl">
+            <div className="flex flex-col lg:flex-row rounded-3xl border border-orange-500/30 bg-[#0B1120] shadow-2xl overflow-hidden transition-all duration-500 hover:shadow-orange-500/10">
+              
+              {/* Esquerda: Preço e CTA */}
+              <div className="relative flex flex-col justify-between p-8 lg:w-[42%] lg:p-10 bg-gradient-to-br from-[#0B1120] via-[#0C1730] to-[#111a33] border-b border-white/10 lg:border-b-0 lg:border-r">
+                {planoAnual && (
+                  <div className="absolute -left-10 -top-10 h-40 w-40 rounded-full bg-[#FC5B24]/20 blur-3xl pointer-events-none transition-opacity duration-500" />
+                )}
+                
+                <div>
+                  {planoAnual && (
+                    <div className="inline-flex rounded-full bg-gradient-to-r from-[#FC5B24] to-[#E34A1B] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg mb-6">
+                      Mais Popular
+                    </div>
+                  )}
+                  <h3 className="font-['Sora'] text-3xl font-extrabold text-white">Plano Único</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                    {planoAnual ? 'A escolha inteligente: economia garantida e previsibilidade total para a sua operação.' : 'Flexibilidade absoluta: acesso total ao sistema e cancele a qualquer momento.'}
+                  </p>
+                </div>
 
-              <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <Link
-                  to="/cadastre-se"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#FC5B24] to-[#E34A1B] px-9 py-4 font-['Sora'] text-base font-bold text-white shadow-xl shadow-[#FC5B24]/30 transition hover:scale-105 hover:brightness-110 sm:w-auto"
-                >
-                  Cadastrar minha loja <Store size={18} />
-                </Link>
-                <a
-                  href={zap('Olá! Quero conhecer os planos do MiseOn para o meu restaurante.')}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-9 py-4 font-['Sora'] text-base font-bold text-white backdrop-blur-md transition hover:bg-white/15 sm:w-auto"
-                >
-                  <MessageCircle size={18} /> Falar com o time
-                </a>
+                <div className="mt-8 flex flex-col">
+                  {planoAnual ? (
+                    <div className="flex items-center gap-3 mb-1">
+                      <span className="text-sm font-medium text-slate-500 line-through">De R$ 129,90</span>
+                      <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold tracking-wider text-emerald-400 uppercase">2 meses grátis</span>
+                    </div>
+                  ) : (
+                    <div className="h-5" /> 
+                  )}
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-5xl font-extrabold tracking-tight text-white transition-all">
+                      R$ {planoAnual ? '99,90' : '129,90'}
+                    </span>
+                    <span className="text-base font-medium text-slate-400">/mês</span>
+                  </div>
+                  <span className="mt-2 text-xs text-orange-300/80 font-medium h-4 transition-all">
+                    {planoAnual ? '*Faturado R$ 1.198,80 anualmente' : 'Sem fidelidade contratual'}
+                  </span>
+                </div>
+
+                <div className="mt-10">
+                  <Link
+                    to="/cadastre-se"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#FC5B24] to-[#E34A1B] px-6 py-4 font-['Sora'] text-base font-bold text-white shadow-lg shadow-[#FC5B24]/30 transition hover:scale-105 hover:brightness-110"
+                  >
+                    Começar Agora <ArrowRight size={18} />
+                  </Link>
+                  <p className="mt-4 text-center text-[11px] font-medium text-slate-500">
+                    <strong className="text-slate-300">Zero taxas de setup.</strong> Suporte e implantação VIP grátis.
+                  </p>
+                </div>
               </div>
 
-              <p className="mt-6 text-xs text-slate-400">
-                Valores e condições são apresentados no cadastro, sem compromisso.
-              </p>
+              {/* Direita: Features Detalhadas */}
+              <div className="p-8 lg:w-[58%] lg:p-10 bg-[#060a14]">
+                <h4 className="font-['Sora'] text-base font-bold text-white mb-8 flex items-center gap-2">
+                  <Sparkles size={18} className="text-orange-400" />
+                  O sistema completo, sem surpresas:
+                </h4>
+                
+                <div className="grid gap-x-8 gap-y-8 sm:grid-cols-2">
+                  {/* Categoria 1 */}
+                  <div>
+                    <h5 className="flex items-center gap-2 text-sm font-bold text-slate-200 mb-3 border-b border-white/5 pb-2">
+                      <ChefHat size={16} className="text-emerald-400" /> Operação e Vendas
+                    </h5>
+                    <ul className="space-y-2.5 text-xs text-slate-400">
+                      <li className="flex items-start gap-2"><Check size={14} className="shrink-0 text-emerald-500/70 mt-0.5" /> <span><strong className="text-slate-300">PDV Frente de Caixa</strong> inteligente</span></li>
+                      <li className="flex items-start gap-2"><Check size={14} className="shrink-0 text-emerald-500/70 mt-0.5" /> <span><strong className="text-slate-300">Cardápio QR Code</strong> p/ mesas</span></li>
+                      <li className="flex items-start gap-2"><Check size={14} className="shrink-0 text-emerald-500/70 mt-0.5" /> <span><strong className="text-slate-300">Integração iFood</strong> nativa</span></li>
+                      <li className="flex items-start gap-2"><Check size={14} className="shrink-0 text-emerald-500/70 mt-0.5" /> <span><strong className="text-slate-300">Gestão de Comandas</strong> na palma</span></li>
+                    </ul>
+                  </div>
+
+                  {/* Categoria 2 */}
+                  <div>
+                    <h5 className="flex items-center gap-2 text-sm font-bold text-slate-200 mb-3 border-b border-white/5 pb-2">
+                      <MessageCircle size={16} className="text-blue-400" /> IA e Delivery
+                    </h5>
+                    <ul className="space-y-2.5 text-xs text-slate-400">
+                      <li className="flex items-start gap-2"><Check size={14} className="shrink-0 text-blue-500/70 mt-0.5" /> <span><strong className="text-slate-300">Robô WhatsApp</strong> (API Oficial Meta)</span></li>
+                      <li className="flex items-start gap-2"><Check size={14} className="shrink-0 text-blue-500/70 mt-0.5" /> <span><strong className="text-slate-300">Cardápio Online</strong> livre de taxas</span></li>
+                      <li className="flex items-start gap-2"><Check size={14} className="shrink-0 text-blue-500/70 mt-0.5" /> <span><strong className="text-slate-300">Impressão Automática</strong> de pedidos</span></li>
+                      <li className="flex items-start gap-2"><Check size={14} className="shrink-0 text-blue-500/70 mt-0.5" /> <span><strong className="text-slate-300">Cozinha KDS</strong> em telas</span></li>
+                    </ul>
+                  </div>
+
+                  {/* Categoria 3 */}
+                  <div>
+                    <h5 className="flex items-center gap-2 text-sm font-bold text-slate-200 mb-3 border-b border-white/5 pb-2">
+                      <Boxes size={16} className="text-orange-400" /> Estoque e Precisão
+                    </h5>
+                    <ul className="space-y-2.5 text-xs text-slate-400">
+                      <li className="flex items-start gap-2"><Check size={14} className="shrink-0 text-orange-500/70 mt-0.5" /> <span><strong className="text-slate-300">Ficha Técnica</strong> avançada (CMV)</span></li>
+                      <li className="flex items-start gap-2"><Check size={14} className="shrink-0 text-orange-500/70 mt-0.5" /> <span><strong className="text-slate-300">Baixa automática</strong> por venda</span></li>
+                      <li className="flex items-start gap-2"><Check size={14} className="shrink-0 text-orange-500/70 mt-0.5" /> <span><strong className="text-slate-300">Controle de Lotes</strong> e PEPs</span></li>
+                      <li className="flex items-start gap-2"><Check size={14} className="shrink-0 text-orange-500/70 mt-0.5" /> <span><strong className="text-slate-300">Visualização 3D</strong> do espaço</span></li>
+                    </ul>
+                  </div>
+
+                  {/* Categoria 4 */}
+                  <div>
+                    <h5 className="flex items-center gap-2 text-sm font-bold text-slate-200 mb-3 border-b border-white/5 pb-2">
+                      <Wallet size={16} className="text-indigo-400" /> Controle e Equipe
+                    </h5>
+                    <ul className="space-y-2.5 text-xs text-slate-400">
+                      <li className="flex items-start gap-2"><Check size={14} className="shrink-0 text-indigo-500/70 mt-0.5" /> <span><strong className="text-slate-300">Pix Automático (Efí)</strong> direto na conta</span></li>
+                      <li className="flex items-start gap-2"><Check size={14} className="shrink-0 text-indigo-500/70 mt-0.5" /> <span><strong className="text-slate-300">Caixa e Relatórios</strong> analíticos</span></li>
+                      <li className="flex items-start gap-2"><Check size={14} className="shrink-0 text-indigo-500/70 mt-0.5" /> <span><strong className="text-slate-300">Usuários Ilimitados</strong> com permissões</span></li>
+                      <li className="flex items-start gap-2"><Check size={14} className="shrink-0 text-indigo-500/70 mt-0.5" /> <span><strong className="text-slate-300">Atendimento Humano</strong> prioritário</span></li>
+                    </ul>
+                  </div>
+                </div>
+                
+              </div>
             </div>
+          </div>
+          
+          <div className="mt-12 flex justify-center">
+            <a
+              href={zap('Olá! Quero conhecer os planos do MiseOn para o meu restaurante.')}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-bold text-gray-500 transition hover:text-[var(--cor-primaria)] dark:text-slate-400 dark:hover:text-orange-400"
+            >
+              <MessageCircle size={18} /> Ainda com dúvidas? Fale com nosso time
+            </a>
           </div>
         </div>
       </section>

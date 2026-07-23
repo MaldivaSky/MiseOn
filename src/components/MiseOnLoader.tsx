@@ -33,7 +33,7 @@ export function MiseOnLoader({
             strokeDashoffset={offset}
           />
         </svg>
-        <img className="mo-ring-mark" src="/brand/icon.png" alt="" />
+        <img className="mo-ring-mark" src="/icon.png" alt="" />
         {!indeterminado && (
           <div className="mo-pct">
             {Math.round(p)}

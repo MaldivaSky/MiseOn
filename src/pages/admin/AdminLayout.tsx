@@ -341,9 +341,9 @@ export default function AdminLayout() {
 
           <div className={`flex items-center justify-start overflow-hidden transition-all duration-500 ${isCollapsed ? 'w-12 justify-center' : 'w-full px-2'} relative z-10`}>
             {isCollapsed ? (
-              <img src="/brand/icon.png" alt="MiseOn" className="h-10 w-10 shrink-0 object-contain drop-shadow-[0_4px_12px_rgba(252,91,36,0.6)] animate-in fade-in zoom-in duration-500" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+              <img src="/icon.png" alt="MiseOn" className="h-10 w-10 shrink-0 object-contain drop-shadow-[0_4px_12px_rgba(252,91,36,0.6)] animate-in fade-in zoom-in duration-500" onError={(e) => { e.currentTarget.style.display = 'none' }} />
             ) : (
-              <img src="/brand/logo-horizontal.png" alt="MiseOn" className="w-[170px] h-auto shrink-0 object-contain drop-shadow-[0_4px_16px_rgba(10,92,196,0.6)] animate-in fade-in duration-500" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+              <img src="/MiseOn-repagina-removebg-preview.png" alt="MiseOn" className="w-[180px] h-auto shrink-0 object-contain drop-shadow-[0_4px_16px_rgba(10,92,196,0.6)] animate-in fade-in duration-500" onError={(e) => { e.currentTarget.style.display = 'none' }} />
             )}
           </div>
           {/* Toggle Button Luxuoso */}
@@ -552,7 +552,7 @@ export default function AdminLayout() {
             <div className="p-4 flex items-center justify-between border-b border-gray-100 dark:border-gray-800">
               <div className="flex items-center gap-2">
                 <div className="p-1 rounded-md">
-                  <img src="/brand/icon.png" alt="" className="h-5 w-5" />
+                  <img src="/icon.png" alt="" className="h-5 w-5" />
                 </div>
                 <span className="font-bold">MiseOn</span>
               </div>

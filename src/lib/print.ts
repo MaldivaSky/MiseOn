@@ -152,7 +152,7 @@ function rodapeMiseOn(nota?: string): string {
     <div class="divider"></div>
     <div class="text-center">
       ${nota ? `<div class="xs uppercase">${esc(nota)}</div>` : ''}
-      <img class="logo-mini" src="/brand/icon.png" alt="" />
+      <img class="logo-mini" src="/icon.png" alt="" />
       <div class="font-bold sm" style="letter-spacing:3px;">MISEON</div>
       <div class="xs uppercase">Sistema Inteligente para sua Cozinha</div>
     </div>`;

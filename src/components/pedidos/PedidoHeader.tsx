@@ -13,7 +13,7 @@ export function PedidoHeader({ pedido: p }: PedidoHeaderProps) {
       <div style={{ background: '#004198', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ background: '#fff', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-            <img src="/brand/icon.png" alt="MiseOn" style={{ width: 22, height: 22, objectFit: 'contain' }} />
+            <img src="/icon.png" alt="MiseOn" style={{ width: 22, height: 22, objectFit: 'contain' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

@@ -327,7 +327,7 @@ export default function PainelPedidos() {
           ))}
           {visiveis.length === 0 && (
             <div className="col-span-full pt-16 text-center">
-              <img src="/brand/icon.png" alt="" className="mx-auto mb-4 w-14 opacity-30 dark:opacity-20" />
+              <img src="/icon.png" alt="" className="mx-auto mb-4 w-14 opacity-30 dark:opacity-20" />
               <p className="font-['JetBrains_Mono'] text-[13px] tracking-wider text-gray-500 dark:text-[#6C7A96]">
                 {pedidos.length === 0 ? 'NENHUM PEDIDO AINDA.' : `NENHUM PEDIDO EM "${filtroAtivo.label.toUpperCase()}".`}
               </p>

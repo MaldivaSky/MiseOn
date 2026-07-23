@@ -1,10 +1,14 @@
 export default function MiseOnLogo({ size = 160, className = '' }: { size?: number, className?: string }) {
-  // Retorna a imagem oficial transparente para evitar falhas no SVG
   return (
     <img 
-      src="/brand/logo-horizontal.png" 
+      src="/MiseOn-repagina-removebg-preview.png" 
       alt="MiseOn" 
-      style={{ width: size, objectFit: 'contain' }} 
+      style={{ 
+        width: size,
+        maxWidth: '100%',
+        height: 'auto',
+        objectFit: 'contain' 
+      }} 
       className={className} 
     />
   );

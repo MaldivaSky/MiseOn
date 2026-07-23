@@ -9,10 +9,7 @@ export function BrandLoader({ fullscreen = true, title = 'SISTEMA INTELIGENTE PA
         <div className="mo-mark">
           <div className="mo-spot" />
           <div className="mo-parts">
-            <img src="/brand/part-mbase.png" alt="" />
-            <img src="/brand/part-arrowshaft.png" alt="" />
-            <img src="/brand/part-hat.png" alt="" />
-            <img src="/brand/part-arrowhead.png" alt="" />
+            <img src="/icon.png" alt="" style={{ animation: 'popIn 1s cubic-bezier(0.2, 0.8, 0.2, 1) both' }} />
           </div>
           <div className="mo-shine"><span /></div>
         </div>
