@@ -1,0 +1,156 @@
+Ran command: `git status`
+Ran command: `npm run typecheck && npm test -- --reporter=verbose src/lib/custeio.test.ts src/lib/unidades.test.ts src/lib/estoque3d/carregarGrafo.test.ts`
+Ran command: `npm run typecheck`
+Used tool: manage_task
+
+内存: [Task b40300ef-c708-46cd-acda-4ed0c2147cc3/task-229 finished]
+
+Ran command: `npm test -- --reporter=verbose src/lib/custeio.test.ts src/lib/unidades.test.ts src/lib/estoque3d/carregarGrafo.test.ts`
+
+# Documentação de Arquitetura de Módulos — Sistema de Custeio MiseOn (v0.1.0)
+
+Abaixo está o detalhamento técnico em nível Sênior da arquitetura por módulos, padrões de design, contratos de API, fluxo de dados e mecanismos de blindagem matemática e concorrência implementados no sistema.
+
+---
+
+## 🗺️ Visão Geral da Arquitetura em Módulos
+
+```
+                                  ┌────────────────────────┐
+                                  │   Interface do Usuário │
+                                  │   (Vite / React 19)    │
+                                  └───────────┬────────────┘
+                                              │
+                    ┌─────────────────────────┴─────────────────────────┐
+                    │                                                   │
+          (Leitura / UI ao vivo)                               (Operações / Backend)
+                    ▼                                                   ▼
+ ┌──────────────────────────────────────┐            ┌──────────────────────────────────────┐
+ │       Motor Local de Custeio         │            │      Serviço Remoto Edge (Deno)       │
+ │   src/lib/custeio.ts & unidades.ts   │            │ supabase/functions/custeio-calcular/ │
+ └──────────────────┬───────────────────┘            └──────────────────┬───────────────────┘
+                    │                                                   │
+                    │   ┌───────────────────────────────────────────┐   │
+                    └──►│ Componentes de UI (Simulador/Caminho)  │◄──┘
+                        │        src/components/custeio/            │
+                        └─────────────────────┬─────────────────────┘
+                                              │
+                                              ▼
+                        ┌───────────────────────────────────────────┐
+                        │      Camada de Dados & Persistência       │
+                        │           Supabase PostgreSQL             │
+                        │ (lotes_estoque, fatores_conversao, views) │
+                        └─────────────────────────────────────────--┘
+```
+
+---
+
+## 📦 Módulo 1: Motor Canônico de Conversão e Conservação (`src/lib/unidades.ts`)
+
+### Responsabilidade
+Ancoragem de grandezas físicas e validação de invariantes de conservação de massa e volume ($Q_{destino} \cdot F_{destino} \le Q_{origem} \cdot F_{origem}$).
+
+### Contrato de Dados & Funções
+- **`UNIDADES`**: Matriz canônica de grandezas (`massa`, `volume`, `contagem`, `semantico`, `agrupador`).
+- **`validarConversao(origem, destino, qOrigem, qDestino)`**:
+  - Trava de identidade: Impede conversão $A \to A$.
+  - Trava de incompatibilidade: Impede conversões inter-dimensional sem densidade ($kg \to L$).
+  - Trava de conservação: Permite perda por limpeza/descarte ($\le 1.0001$ tolerância), mas bloqueia multiplicação espontânea de massa/volume.
+- **`destinosPermitidos(codigoOrigem)`**: Alimenta a UX preventiva no cadastro de insumos (só expõe conversões fisicamente legais).
+
+---
+
+## 📦 Módulo 2: Motor de Custeio e Resolução de Grafos (`src/lib/custeio.ts`)
+
+### Responsabilidade
+Resolução de custos na unidade atômica através de **Busca em Largura (BFS)** no grafo de conversão de unidades e consumo FIFO/PEPS de lotes de estoque.
+
+### Estrutura de Grafos & Resolução
+- **`resolverFator(item, de, para)`**:
+  - Combina arestas universais (físicas: $kg \leftrightarrow g$) com arestas dinâmicas por item ($1 \text{ kg de tomate} \to 5 \text{ un} \to 3,5 \text{ fatias}$).
+  - BFS garante o caminho de menor profundidade para minimizar o acúmulo de erro numérico por ponto flutuante.
+- **`custoUnitarioBase(item, metodo)`**:
+  - `PEPS`: Custo unitário do lote mais antigo com saldo remanescente ($Q_{restante} > 0$).
+  - `MEDIO`: Média ponderada $(\sum \text{CustoTotal}) / (\sum \text{QuantidadeRestante})$.
+- **`custoDeUso(item, quantidade, unidade, metodo)`**:
+  - Multiplica a quantidade convertida para a unidade base pelo custo unitário atômico.
+- **`custoBOM(receita, itensMap, metodo)`**:
+  - Calcula a composição do CMV sem arredondamentos intermediários para evitar vazamento contábil.
+
+---
+
+## 📦 Módulo 3: Edge Function & Adapter Backend (`supabase/functions/custeio-calcular/` & `src/lib/custeio-service.ts`)
+
+### Responsabilidade
+Camada de serviço remota desacoplada, idempotente e segura para operações autoritativas e gravação no banco de dados.
+
+### Estrutura & Dependências
+- **`index.ts`** (Edge Function runtime Deno):
+  - Middleware de autenticação JWT/Service Role.
+  - Endpoints expostos:
+    - `CALCULAR_CUSTO`: Resolução rápida via Edge.
+    - `CALCULAR_BOM`: Custo de fichas técnicas para persistência.
+    - `BAIXAR_PEPS`: Preview e auditoria de simulação de baixa.
+- **Isolamento de Código**: Copia integralmente a lógica de `custeio.ts` e `unidades.ts` sem transpilers adicionais, garantindo **paridade 100% determinística** entre frontend e backend.
+- **`src/lib/custeio-service.ts`** (Adapter Client):
+  - Interface TypeScript tipada para comunicação via Supabase RPC/Functions.
+
+---
+
+## 📦 Módulo 4: Visualizador 3D & Reconstrução Histórica (`src/lib/estoque3d/`)
+
+### Responsabilidade
+Reconstrução genealógica e renderização tridimensional interativa (WebGL via Three.js / `InstancedMesh`) da ramificação de custos a partir dos lotes de compra.
+
+### Componentes Chave
+- **`types.ts` (`construirGrafoCusto`)**: Aplica o princípio da conservação de valor e gera o Grafo de Transformação de Insumos ($N\text{ô s}$, $A\text{restas}$, $P\text{rofundidade}$).
+- **`carregarGrafo.ts` (`reconstruirCadeia`)**:
+  - Converte dados relacionais planos (`lotes_estoque`, `fatores_conversao`) na árvore genealógica do insumo.
+  - Proteção contra ciclos infinitos e tratamento de compra direta sem quebras.
+- **`CostGraphEngine.ts` & `CostGraph3D.tsx`**:
+  - Renderizador com raycasting para hover/clique e mapa de calor por densidade de custo.
+
+---
+
+## 📦 Módulo 5: Componentes de UI e UX em Tempo Real (`src/components/custeio/`)
+
+### Responsabilidade
+Componentes React modulares com estilização CSS isolada para simulação ao vivo de custos durante o cadastro de insumos.
+
+- **`VisualizadorCaminho.tsx` / `VisualizadorCaminho.css`**:
+  - Renderiza visualmente o fluxo linear de conversão ($Compra \to Armazenamento \to Uso$).
+  - Distinção visual via badges: ⚛️ **Física** (Imutável, azul) vs 👤 **Humana** (Declarada por item, laranja).
+- **`SimuladorCusto.tsx` / `SimuladorCusto.css`**:
+  - Card de métricas instantâneas em tempo real.
+  - Comparativo Custo Real PEPS vs. Custo Estimado com alerta de desvio ($\ge 15\%$).
+  - Impacto marginal na Ficha Técnica (BOM).
+- **Integração na Tela de Estoque (`src/pages/admin/Estoque.tsx`)**:
+  - Injetado no formulário de cadastro/edição através de um modelo virtual em memória (`itemVirtual`) atualizado reativamente a cada digitação.
+
+---
+
+## 📦 Módulo 6: Observabilidade & Schema SQL (`supabase/migrations/`)
+
+### Migrações Versionadas
+1. **`20260721240000_unidades_grandezas.sql`**:
+   - Criação do `ENUM grandeza_medida`, tabela `unidades_medida` e função de validação `conversao_valida()`.
+   - Constraints rigorosas e Foreign Keys para impedir inclusão de unidades arbitrárias.
+2. **`20260721240100_backfill_fatores_conversao.sql`**:
+   - Migração relacional aditiva dos blobs JSON `detalhes_rendimento` para a tabela `fatores_conversao`.
+3. **`20260721240200_custeio_peps_lotes.sql`**:
+   - Criação da tabela `lotes_estoque` e triggers `trg_mov_criar_lote` / `trg_mov_custear_baixa`.
+   - Função `fn_consumir_lotes_peps` com bloqueio pessimista (`FOR UPDATE`) para prevenções de race condition.
+4. **`20260722000000_vw_custo_real_estoque.sql`**:
+   - View de observabilidade de custo médio ponderado por insumo e cálculo do desvio de estimativa.
+5. **`20260722000100_vw_margem_produto.sql`**:
+   - View de observabilidade de margem bruta por produto com integração de insumos em tempo real.
+
+---
+
+## 📑 Verificação de Qualidade e Integridade
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| **TypeScript Typecheck** | `npm run typecheck` | **0 erros** (Compilação estrita) |
+| **Suíte de Testes Unitários** | `npm test -- src/lib/custeio.test.ts src/lib/unidades.test.ts src/lib/estoque3d/carregarGrafo.test.ts` | **65/65 passou** (100% Sucesso) |
+| **Integridade de Git** | `git status` | Módulos novos organizados e prontos para commit |
