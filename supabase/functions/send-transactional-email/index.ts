@@ -37,8 +37,11 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-const GMAIL_USER = Deno.env.get('GMAIL_USER');
-const GMAIL_APP_PASSWORD = Deno.env.get('GMAIL_APP_PASSWORD');
+const SMTP_HOST = Deno.env.get('SMTP_HOST') ?? 'smtppro.zoho.com';
+const SMTP_PORT = Number(Deno.env.get('SMTP_PORT') ?? '465');
+const SMTP_USER = Deno.env.get('SMTP_USER')!;
+const SMTP_PASS = Deno.env.get('SMTP_PASS')!;
+const REMETENTE_EMAIL = Deno.env.get('EMAIL_FROM') ?? SMTP_USER;
 const REMETENTE_NOME = Deno.env.get('EMAIL_FROM_NAME') ?? 'MiseOn';
 
 // Token dedicado só para drenar a fila. Menor privilégio: se vazar, o
@@ -61,14 +64,16 @@ const MAX_TENTATIVAS = 4;
 const LOTE = 20;
 
 function transportador() {
-  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
+  if (!SMTP_USER || !SMTP_PASS) {
     throw new Error(
-      'Credenciais de envio ausentes. Defina os secrets GMAIL_USER e GMAIL_APP_PASSWORD na função.',
+      'Credenciais de envio ausentes. Defina os secrets SMTP_USER e SMTP_PASS na função.',
     );
   }
   return nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_PORT === 465,
+    auth: { user: SMTP_USER, pass: SMTP_PASS },
   });
 }
 
@@ -136,7 +141,7 @@ async function despachar(db: ReturnType<typeof admin>, smtp: any, item: any) {
   // O nome visível é o da loja; o endereço técnico continua sendo o da
   // plataforma. É assim que o cliente reconhece quem está falando.
   const info = await smtp.sendMail({
-    from: `"${loja.nome ?? REMETENTE_NOME} via MiseOn" <${GMAIL_USER}>`,
+    from: `"${loja.nome ?? REMETENTE_NOME} via MiseOn" <${REMETENTE_EMAIL}>`,
     to: item.destinatario,
     subject: assunto,
     html,
@@ -233,7 +238,7 @@ Deno.serve(async (req) => {
       if (body.somente_html) return json({ ok: true, assunto, html });
 
       const info = await transportador().sendMail({
-        from: `"${loja.nome ?? REMETENTE_NOME} via MiseOn" <${GMAIL_USER}>`,
+        from: `"${loja.nome ?? REMETENTE_NOME} via MiseOn" <${REMETENTE_EMAIL}>`,
         to: para,
         subject: `[TESTE] ${assunto}`,
         html,
@@ -296,6 +301,7 @@ Deno.serve(async (req) => {
     const smtp = transportador();
     let enviados = 0;
     let falhas = 0;
+    const errosDetalhados: Array<{ id: string; erro: string }> = [];
 
     for (const item of itens) {
       try {
@@ -303,8 +309,10 @@ Deno.serve(async (req) => {
         enviados++;
       } catch (e) {
         falhas++;
+        const msgErro = String((e as Error)?.message ?? e);
+        errosDetalhados.push({ id: item.id, erro: msgErro });
         console.error(`Falha no item ${item.id} (${item.evento}):`, e);
-        await falhou(db, item, String((e as Error)?.message ?? e));
+        await falhou(db, item, msgErro);
       }
     }
 
@@ -313,6 +321,7 @@ Deno.serve(async (req) => {
       processados: itens.length,
       enviados,
       falhas,
+      erros: errosDetalhados,
       carrinhos_detectados: carrinhos ?? 0,
     });
   } catch (e) {
