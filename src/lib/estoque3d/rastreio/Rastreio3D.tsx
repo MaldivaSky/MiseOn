@@ -194,7 +194,7 @@ export function Rastreio3D({ setores, dadosReceitas, altura = 620 }: Props) {
       )}
 
       {/* Legenda */}
-      <div className="mo-r3d-legenda">
+      <div data-tour="tour-estoque-3d-legenda-rastreio" className="mo-r3d-legenda">
         <span><i className="mo-r3d-dot" style={{ background: '#22d3ee' }} /> etapa física (automática)</span>
         <span><i className="mo-r3d-dot" style={{ background: '#f59e0b' }} /> etapa humana ⚠️ (rendimento declarado)</span>
         <span><i className="mo-r3d-dot" style={{ background: '#ef4444' }} /> crítico</span>
@@ -272,7 +272,7 @@ export function Rastreio3D({ setores, dadosReceitas, altura = 620 }: Props) {
       )}
 
       {/* Cartões-resumo — a versão acessível da cena */}
-      <div className="mo-r3d-cartoes">
+      <div data-tour="tour-estoque-3d-cartoes" className="mo-r3d-cartoes">
         {itensPagina.map((item) => (
           <button
             key={item.insumoId}

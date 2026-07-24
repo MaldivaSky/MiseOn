@@ -211,6 +211,7 @@ export function EstoqueCusto3D({ lojaId }: { lojaId: string }) {
         </div>
 
         <button
+          data-tour="tour-estoque-3d-legenda"
           onClick={() => setMostrarGuiaFisica((v) => !v)}
           className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800/50 transition-colors"
         >
@@ -316,7 +317,7 @@ export function EstoqueCusto3D({ lojaId }: { lojaId: string }) {
       </div>
 
       {/* Renderizador Canvas WebGL 3D */}
-      <div className="relative rounded-2xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-800">
+      <div data-tour="tour-estoque-3d-canvas" className="relative rounded-2xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-800">
         <CostGraph3D grafo={grafoFiltrado} altura={520} />
       </div>
     </div>

@@ -292,10 +292,10 @@ export default function Estoque() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
          <h2 className="font-black text-2xl dark:text-gray-100">Estoque Geral</h2>
          <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl shadow-inner">
-           <button onClick={() => setTab('insumos')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'insumos' ? 'bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Matérias-Primas</button>
-           <button onClick={() => setTab('preparos')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'preparos' ? 'bg-white dark:bg-gray-900 shadow-sm text-orange-600 dark:text-orange-500' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Receitas & Preparos</button>
-           <button onClick={() => setTab('custo3d')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'custo3d' ? 'bg-white dark:bg-gray-900 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Custo 3D</button>
-           <button onClick={() => setTab('rastreio3d')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'rastreio3d' ? 'bg-white dark:bg-gray-900 shadow-sm text-emerald-600 dark:text-emerald-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Rastreio 3D</button>
+           <button data-tour="tour-estoque-aba-insumos" onClick={() => setTab('insumos')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'insumos' ? 'bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Matérias-Primas</button>
+           <button data-tour="tour-estoque-aba-preparos" onClick={() => setTab('preparos')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'preparos' ? 'bg-white dark:bg-gray-900 shadow-sm text-orange-600 dark:text-orange-500' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Receitas & Preparos</button>
+           <button data-tour="tour-estoque-aba-3d" onClick={() => setTab('custo3d')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'custo3d' ? 'bg-white dark:bg-gray-900 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Custo 3D</button>
+           <button data-tour="tour-estoque-aba-rastreio3d" onClick={() => setTab('rastreio3d')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'rastreio3d' ? 'bg-white dark:bg-gray-900 shadow-sm text-emerald-600 dark:text-emerald-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>Rastreio 3D</button>
          </div>
       </div>
 
@@ -326,7 +326,7 @@ export default function Estoque() {
       )}
 
       {/* NOVO INSUMO COM MOTOR DINÂMICO */}
-      <div id="form-novo-insumo" className={`mb-8 rounded-2xl ${editando ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 ring-2 ring-blue-500/20' : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800'} border p-5 shadow-sm transition-all duration-300`}>
+      <div id="form-novo-insumo" data-tour="tour-estoque-btn-novo-insumo" className={`mb-8 rounded-2xl ${editando ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 ring-2 ring-blue-500/20' : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800'} border p-5 shadow-sm transition-all duration-300`}>
         <div className="mb-5 flex items-center justify-between">
            <p className="text-sm font-bold flex items-center gap-2 dark:text-gray-100">
              {editando ? <Pencil size={18} className="text-blue-500" /> : <Calculator size={18} className="text-[var(--cor-primaria)]" />} 
@@ -342,7 +342,7 @@ export default function Estoque() {
         <div className="space-y-5">
            {/* Nome */}
            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <label className="block">
+              <label data-tour="tour-estoque-campo-nome" className="block">
                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Nome do Insumo / Produto</span>
                  <input id="input-nome-insumo" className="mt-1 w-full rounded-xl border border-gray-300 p-3 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100 focus:border-[var(--cor-primaria)] focus:outline-none transition-colors" placeholder="ex: Queijo Mussarela, Coca-Cola Lata" value={nome} onChange={e => setNome(e.target.value)} />
               </label>
@@ -391,7 +391,7 @@ export default function Estoque() {
            
            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Compra */}
-              <div className="bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-200 dark:border-gray-700/50">
+              <div data-tour="tour-estoque-campo-compra" className="bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-200 dark:border-gray-700/50">
                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wider">1. Como você compra?</p>
                  <div className="space-y-3">
                     <label className="block">
@@ -419,7 +419,7 @@ export default function Estoque() {
               </div>
               
               {/* Uso / Conversão */}
-              <div className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
+              <div data-tour="tour-estoque-campo-conversao" className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
                  <p className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-3 uppercase tracking-wider">2. COMO VOCÊ ARMAZENA / USA? (CONVERSÃO)</p>
                  <div className="space-y-3">
                     <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">Ex: Compro <b>Fardo</b> ➔ Rende 6 <b>Unidades</b>. Ou Compro <b>Caixa</b> ➔ Rende 20 <b>Kg</b>.</p>
@@ -478,7 +478,7 @@ export default function Estoque() {
                        <Plus size={12} /> Adicionar quebra (ex: Peça para Fatias)
                     </button>
 
-                    <label className="block mt-4 pt-3 border-t border-blue-200 dark:border-blue-800/30">
+                    <label data-tour="tour-estoque-campo-minimo" className="block mt-4 pt-3 border-t border-blue-200 dark:border-blue-800/30">
                        <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400 block mb-1">Avisar estoque baixo quando chegar em:</span>
                        <div className="flex rounded-lg border border-blue-200 overflow-hidden dark:border-blue-800/50">
                           <input className="w-full p-2 text-sm dark:bg-gray-950 dark:text-gray-100 focus:outline-none bg-transparent" type="number" placeholder="0" value={estoqueMinimo} onChange={e => setEstoqueMinimo(e.target.value)} />
