@@ -3,10 +3,12 @@ import {
   QrCode, ClipboardList, ChefHat, Bike, Boxes, Wallet,
   MessageCircle, ShieldCheck, ArrowRight, Check, Sparkles,
   Menu as MenuIcon, X, UtensilsCrossed, Megaphone, ShoppingBag,
-  Mail, ChevronDown, Headset, Globe, MapPin, BarChart3, Star, Quote, BadgeCheck,
+  Mail, ChevronDown, Headset, BarChart3, Star, Quote, BadgeCheck,
 } from 'lucide-react';
 import { useState } from 'react';
 import MiseOnLogo from '../components/MiseOnLogo';
+import SEO from '../components/SEO';
+import FooterSEO from '../components/FooterSEO';
 
 const WHATSAPP_CONTATO = '5511919889233';
 const zap = (msg: string) => `https://wa.me/${WHATSAPP_CONTATO}?text=${encodeURIComponent(msg)}`;
@@ -259,6 +261,7 @@ export default function Home() {
   const [planoAnual, setPlanoAnual] = useState(true);
 
   const links = [
+    { href: '#nichos', rotulo: 'Nichos' },
     { href: '#recursos', rotulo: 'Recursos' },
     { href: '#plataforma', rotulo: 'Plataforma' },
     { href: '#como-funciona', rotulo: 'Como funciona' },
@@ -269,6 +272,35 @@ export default function Home() {
 
   return (
     <div className="min-h-screen scroll-smooth bg-[#F4F7FA] font-sans text-gray-900 selection:bg-[#FC5B24] selection:text-white dark:bg-[#070C18] dark:text-[#EAF1FB]">
+      <SEO
+        title="MiseOn | Sistema de Gestão para Restaurantes, Hamburguerias e Deliveries"
+        description="O MiseOn veio para organizar e simplificar a gestão de restaurantes, hamburguerias, pizzarias e lanchonetes. Cardápio digital, KDS, iFood, WhatsApp IA e Pix."
+        keywords="sistema para restaurante, sistema para hamburgueria, sistema para pizzaria, cardapio digital qr code, integracao ifood, whatsapp ia restaurante"
+        canonicalUrl="https://miseon.app.br/"
+        schemaJson={{
+          '@context': 'https://schema.org',
+          '@type': 'SoftwareApplication',
+          'name': 'MiseOn — Sistema de Gestão para Restaurantes e Deliveries',
+          'operatingSystem': 'Web, Android, iOS, Windows, macOS',
+          'applicationCategory': 'BusinessApplication',
+          'aggregateRating': {
+            '@type': 'AggregateRating',
+            'ratingValue': '4.9',
+            'reviewCount': '128',
+          },
+          'offers': {
+            '@type': 'Offer',
+            'price': '99.90',
+            'priceCurrency': 'BRL',
+            'priceValidUntil': '2027-12-31',
+          },
+          'author': {
+            '@type': 'Organization',
+            'name': 'MiseOn / Maldivas Tech Solutions',
+            'url': 'https://rafael-maldivas.vercel.app/',
+          },
+        }}
+      />
 
       {/* ══════════ 1. NAVBAR ══════════ */}
       <nav className="fixed inset-x-0 top-0 z-50 border-b border-gray-200/70 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-[#070C18]/80">
@@ -438,6 +470,135 @@ export default function Home() {
             <span className="flex items-center gap-2 transition hover:text-white"><Check size={16} className="text-emerald-400" /> Rotas & Entregas</span>
             <span className="flex items-center gap-2 transition hover:text-white"><Check size={16} className="text-emerald-400" /> Estoque & Ficha Técnica</span>
             <span className="flex items-center gap-2 transition hover:text-white"><Check size={16} className="text-emerald-400" /> Pix Automático</span>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════ 3.5 SEÇÃO VISUAL DE NICHOS E FUNCIONALIDADES ══════════ */}
+      <section id="nichos" className="scroll-mt-24 bg-slate-900/40 py-20 backdrop-blur-sm border-b border-white/10">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="mx-auto max-w-3xl text-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1 text-xs font-bold uppercase tracking-widest text-orange-400">
+              <Sparkles size={13} /> Soluções Sob Medida
+            </span>
+            <h2 className="mt-4 font-['Sora'] text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+              Feito sob medida para o ritmo real da sua cozinha
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-slate-300">
+              Cada segmento tem suas próprias dores. Clique no seu tipo de negócio e descubra como o MiseOn resolve sua operação:
+            </p>
+          </div>
+
+          {/* Cards de Nicho */}
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            
+            {/* 1. Hamburguerias */}
+            <Link
+              to="/sistema-para-hamburgueria"
+              className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-md transition-all duration-300 hover:-translate-y-1.5 hover:border-orange-500/50 hover:bg-white/10 hover:shadow-2xl hover:shadow-orange-500/10"
+            >
+              <div>
+                <div className="inline-flex rounded-2xl bg-orange-500/20 p-3 text-orange-400">
+                  <ChefHat size={28} />
+                </div>
+                <h3 className="mt-4 font-['Sora'] text-xl font-bold text-white group-hover:text-orange-400 transition-colors">
+                  Hamburguerias
+                </h3>
+                <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                  Ponto da carne, adicionais/combos, KDS na chapa, baixa de insumos (blends/pães) e iFood unificado.
+                </p>
+              </div>
+              <div className="mt-6 flex items-center gap-1.5 text-xs font-bold text-orange-400 group-hover:translate-x-1 transition-transform">
+                Ver solução para Hamburgueria <ArrowRight size={14} />
+              </div>
+            </Link>
+
+            {/* 2. Lanchonetes */}
+            <Link
+              to="/sistema-para-lanchonete"
+              className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-md transition-all duration-300 hover:-translate-y-1.5 hover:border-blue-500/50 hover:bg-white/10 hover:shadow-2xl hover:shadow-blue-500/10"
+            >
+              <div>
+                <div className="inline-flex rounded-2xl bg-blue-500/20 p-3 text-blue-400">
+                  <UtensilsCrossed size={28} />
+                </div>
+                <h3 className="mt-4 font-['Sora'] text-xl font-bold text-white group-hover:text-blue-400 transition-colors">
+                  Lanchonetes
+                </h3>
+                <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                  PDV express de balcão, comandas de salgado/bebida, controle de caixa por turno e impressões ultrarrápidas.
+                </p>
+              </div>
+              <div className="mt-6 flex items-center gap-1.5 text-xs font-bold text-blue-400 group-hover:translate-x-1 transition-transform">
+                Ver solução para Lanchonete <ArrowRight size={14} />
+              </div>
+            </Link>
+
+            {/* 3. Pizzarias */}
+            <Link
+              to="/sistema-para-pizzaria"
+              className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-md transition-all duration-300 hover:-translate-y-1.5 hover:border-emerald-500/50 hover:bg-white/10 hover:shadow-2xl hover:shadow-emerald-500/10"
+            >
+              <div>
+                <div className="inline-flex rounded-2xl bg-emerald-500/20 p-3 text-emerald-400">
+                  <Boxes size={28} />
+                </div>
+                <h3 className="mt-4 font-['Sora'] text-xl font-bold text-white group-hover:text-emerald-400 transition-colors">
+                  Pizzarias
+                </h3>
+                <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                  Acompanhamento no KDS de forno, gestão de entregadores/motoboys, ficha técnica de insumos e iFood unificado.
+                </p>
+              </div>
+              <div className="mt-6 flex items-center gap-1.5 text-xs font-bold text-emerald-400 group-hover:translate-x-1 transition-transform">
+                Ver solução para Pizzaria <ArrowRight size={14} />
+              </div>
+            </Link>
+
+            {/* 4. Restaurantes */}
+            <Link
+              to="/sistema-para-restaurantes"
+              className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-md transition-all duration-300 hover:-translate-y-1.5 hover:border-amber-500/50 hover:bg-white/10 hover:shadow-2xl hover:shadow-amber-500/10"
+            >
+              <div>
+                <div className="inline-flex rounded-2xl bg-amber-500/20 p-3 text-amber-400">
+                  <BarChart3 size={28} />
+                </div>
+                <h3 className="mt-4 font-['Sora'] text-xl font-bold text-white group-hover:text-amber-400 transition-colors">
+                  Restaurantes
+                </h3>
+                <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                  Comanda no celular do garçom, mapa de mesas com divisão de conta, DRE financeiro e NFC-e.
+                </p>
+              </div>
+              <div className="mt-6 flex items-center gap-1.5 text-xs font-bold text-amber-400 group-hover:translate-x-1 transition-transform">
+                Ver solução para Restaurante <ArrowRight size={14} />
+              </div>
+            </Link>
+
+          </div>
+
+          {/* Faixa de Funcionalidades Chave */}
+          <div className="mt-10 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Principais Integrações:
+              </span>
+              <div className="flex flex-wrap items-center gap-3 text-xs font-bold">
+                <Link to="/integracao-ifood" className="rounded-xl border border-white/10 bg-white/10 px-3.5 py-2 text-slate-200 transition hover:border-rose-500 hover:text-rose-400">
+                  🛵 Integração iFood
+                </Link>
+                <Link to="/cardapio-qr-code" className="rounded-xl border border-white/10 bg-white/10 px-3.5 py-2 text-slate-200 transition hover:border-orange-500 hover:text-orange-400">
+                  📱 Cardápio QR Code
+                </Link>
+                <Link to="/api-whatsapp-restaurantes" className="rounded-xl border border-white/10 bg-white/10 px-3.5 py-2 text-slate-200 transition hover:border-emerald-500 hover:text-emerald-400">
+                  🤖 WhatsApp IA Oficial
+                </Link>
+                <Link to="/gestao-fiscal-nfe" className="rounded-xl border border-white/10 bg-white/10 px-3.5 py-2 text-slate-200 transition hover:border-blue-500 hover:text-blue-400">
+                  🧾 Emissão Fiscal NFC-e
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -925,105 +1086,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ══════════ 10. FOOTER — MAPA DO SITE ══════════ */}
-      <footer className="border-t border-white/10 bg-[#070C18]">
-        <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
-          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
-            {/* Marca */}
-            <div className="sm:col-span-2 lg:col-span-1">
-              <MiseOnLogo size={140} />
-              <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-400">
-                O sistema de gestão que coloca o seu restaurante para vender no automático —
-                do cardápio digital ao WhatsApp com IA.
-              </p>
-              <p className="mt-5 flex items-start gap-2 text-xs leading-relaxed text-slate-500">
-                <MapPin size={13} className="mt-0.5 shrink-0 text-slate-500" />
-                Manaus/AM, Brasil · CNPJ 63.310.253/0001-81
-              </p>
-            </div>
-
-            {/* Produto */}
-            <nav aria-label="Mapa do site — Produto">
-              <h4 className="font-['Sora'] text-sm font-bold uppercase tracking-widest text-slate-300">Produto</h4>
-              <ul className="mt-4 space-y-2.5 text-sm text-slate-400">
-                <li><a href="#recursos" className="transition hover:text-white">Recursos</a></li>
-                <li><a href="#plataforma" className="transition hover:text-white">Plataforma completa</a></li>
-                <li><a href="#whatsapp-ia" className="transition hover:text-white">WhatsApp com IA</a></li>
-                <li><a href="#como-funciona" className="transition hover:text-white">Como funciona</a></li>
-                <li><a href="#planos" className="transition hover:text-white">Planos</a></li>
-                <li><Link to="/cadastre-se" className="transition hover:text-white">Cadastrar minha loja</Link></li>
-                <li><Link to="/acesso" className="transition hover:text-white">Entrar no painel</Link></li>
-              </ul>
-            </nav>
-
-            {/* Módulos */}
-            <nav aria-label="Mapa do site — Módulos">
-              <h4 className="font-['Sora'] text-sm font-bold uppercase tracking-widest text-slate-300">Módulos</h4>
-              <ul className="mt-4 space-y-2.5 text-sm text-slate-400">
-                <li><a href="#recursos" className="transition hover:text-white">Cardápio digital e QR Code</a></li>
-                <li><a href="#recursos" className="transition hover:text-white">PDV, mesas e comandas</a></li>
-                <li><a href="#recursos" className="transition hover:text-white">Cozinha (KDS)</a></li>
-                <li><a href="#recursos" className="transition hover:text-white">Entregas e entregadores</a></li>
-                <li><a href="#recursos" className="transition hover:text-white">Estoque, ficha técnica e CMV</a></li>
-                <li><a href="#recursos" className="transition hover:text-white">Financeiro com Pix</a></li>
-                <li><a href="#recursos" className="transition hover:text-white">Marketing e fidelização</a></li>
-                <li><a href="#recursos" className="transition hover:text-white">Integração iFood</a></li>
-              </ul>
-            </nav>
-
-            {/* Suporte */}
-            <nav aria-label="Mapa do site — Suporte">
-              <h4 className="font-['Sora'] text-sm font-bold uppercase tracking-widest text-slate-300">Suporte</h4>
-              <ul className="mt-4 space-y-2.5 text-sm text-slate-400">
-                <li>
-                  <a
-                    href="https://wa.me/5511919889233"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 transition hover:text-white"
-                  >
-                    <MessageCircle size={15} className="text-emerald-400" /> WhatsApp comercial
-                  </a>
-                </li>
-                <li>
-                  <a href="mailto:suporte@miseon.app.br" className="inline-flex items-center gap-2 transition hover:text-white">
-                    <Headset size={15} className="text-slate-500" /> suporte@miseon.app.br
-                  </a>
-                </li>
-                <li>
-                  <a href="mailto:contato@miseon.app.br" className="inline-flex items-center gap-2 transition hover:text-white">
-                    <Mail size={15} className="text-slate-500" /> contato@miseon.app.br
-                  </a>
-                </li>
-                <li><a href="#suporte" className="transition hover:text-white">Perguntas frequentes</a></li>
-              </ul>
-            </nav>
-
-            {/* Legal */}
-            <nav aria-label="Mapa do site — Legal">
-              <h4 className="font-['Sora'] text-sm font-bold uppercase tracking-widest text-slate-300">Legal</h4>
-              <ul className="mt-4 space-y-2.5 text-sm text-slate-400">
-                <li><Link to="/termos" className="transition hover:text-white">Termos de Uso</Link></li>
-                <li><Link to="/privacidade" className="transition hover:text-white">Política de Privacidade</Link></li>
-                <li>
-                  <a href="/sitemap.xml" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 transition hover:text-white">
-                    <Globe size={15} className="text-slate-500" /> Sitemap
-                  </a>
-                </li>
-              </ul>
-            </nav>
-          </div>
-
-          <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 sm:flex-row">
-            <p className="text-xs text-slate-500">
-              © 2026 MiseOn · CNPJ 63.310.253/0001-81 · Manaus/AM, Brasil
-            </p>
-            <p className="text-xs text-slate-600">
-              Pagamentos processados por Efí · WhatsApp Business Platform oficial
-            </p>
-          </div>
-        </div>
-      </footer>
+      {/* ══════════ 10. FOOTER SEO — LINKAGEM INTERNA ══════════ */}
+      <FooterSEO />
     </div>
   );
 }

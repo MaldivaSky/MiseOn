@@ -19,7 +19,10 @@ const MeusPedidos     = lazy(() => import('./pages/MeusPedidos'));
 const AcompanharPedido= lazy(() => import('./pages/Pedido'));
 const Termos          = lazy(() => import('./pages/legal/Termos'));
 const Privacidade     = lazy(() => import('./pages/legal/Privacidade'));
+const Sobre          = lazy(() => import('./pages/legal/Sobre'));
+const Contato         = lazy(() => import('./pages/legal/Contato'));
 const DescadastroEmail = lazy(() => import('./pages/legal/DescadastroEmail'));
+const NicheLandingPage = lazy(() => import('./pages/landing/NicheLandingPage'));
 
 // ── Lazy: ADMIN_LAYOUT (único layout compartilhado — carrega rápido) ─────────
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
@@ -132,12 +135,25 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               {/* ── Público ── */}
               <Route path="/"              element={<Home />} />
               <Route path="/acesso"        element={<Acesso />} />
+              <Route path="/sobre"         element={<Sobre />} />
+              <Route path="/contato"       element={<Contato />} />
               <Route path="/termos"        element={<Termos />} />
               <Route path="/privacidade"   element={<Privacidade />} />
               <Route path="/email/descadastro" element={<DescadastroEmail />} />
               <Route path="/lojas"         element={<Lojas />} />
               <Route path="/cadastre-se"   element={<CadastreSuaLoja />} />
               <Route path="/pedido/:id"    element={<AcompanharPedido />} />
+              
+              {/* ── Páginas de Nicho & Funcionalidade (SEO Programático) ── */}
+              <Route path="/sistema-para-hamburgueria" element={<NicheLandingPage forcedSlug="sistema-para-hamburgueria" />} />
+              <Route path="/sistema-para-lanchonete"   element={<NicheLandingPage forcedSlug="sistema-para-lanchonete" />} />
+              <Route path="/sistema-para-pizzaria"     element={<NicheLandingPage forcedSlug="sistema-para-pizzaria" />} />
+              <Route path="/sistema-para-restaurantes" element={<NicheLandingPage forcedSlug="sistema-para-restaurantes" />} />
+              <Route path="/integracao-ifood"          element={<NicheLandingPage forcedSlug="integracao-ifood" />} />
+              <Route path="/cardapio-qr-code"          element={<NicheLandingPage forcedSlug="cardapio-qr-code" />} />
+              <Route path="/api-whatsapp-restaurantes" element={<NicheLandingPage forcedSlug="api-whatsapp-restaurantes" />} />
+              <Route path="/gestao-fiscal-nfe"         element={<NicheLandingPage forcedSlug="gestao-fiscal-nfe" />} />
+
               <Route path="/:slug/meus-pedidos" element={<MeusPedidos />} />
               <Route path="/:slug"         element={<Cardapio />} />
               <Route path="*"             element={<Home />} />
