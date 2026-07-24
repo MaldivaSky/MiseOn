@@ -6,6 +6,7 @@ export interface CreatePedidoParams {
   tipo_pedido: string;
   origem: string;
   identificador_cliente: string;
+  cliente_id?: string | null;
   comanda_id?: string;
   mesa_numero?: number;
   subtotal: number;
@@ -21,6 +22,7 @@ export async function createPedidoPedido(dados: CreatePedidoParams) {
     tipo_pedido: dados.tipo_pedido,
     origem: dados.origem,
     identificador_cliente: dados.identificador_cliente,
+    cliente_id: dados.cliente_id ?? null,
     comanda_id: dados.comanda_id,
     mesa_numero: dados.mesa_numero,
     subtotal: dados.subtotal,

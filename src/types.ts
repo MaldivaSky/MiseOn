@@ -642,6 +642,36 @@ export interface PedidoActionsProps {
   onImprimir: (via: Via) => void;
   executar: (fn: () => Promise<void>) => Promise<void>;
 }
+export interface PedidoItensProps {
+  pedido: Pedido;
+  precisaConferir: boolean;
+  conferidos: Set<string>;
+  toggleConferido: (id: string) => void;
+}
+
+export interface PedidoFooterProps {
+  pedido: Pedido;
+}
+
+export interface PedidoActionsProps {
+  pedido: Pedido;
+  papel: string;
+  naCozinha: boolean;
+  precisaConferir: boolean;
+  todosConferidos: boolean;
+  semAvancoSalao: boolean;
+  destinoStatus: StatusPedido;
+  destinoLabel: string;
+  isDelivery: boolean;
+  processando: boolean;
+  fluxoProx?: StatusPedido;
+  fluxoLabel?: string;
+  onAvancar: (status: StatusPedido) => Promise<void>;
+  onEnviarCozinha: () => Promise<void>;
+  onCancelar: () => void;
+  onImprimir: (via: Via) => void;
+  executar: (fn: () => Promise<void>) => Promise<void>;
+}
 
 export interface HeaderBarProps {
   modo: ModoPDV;
@@ -650,6 +680,37 @@ export interface HeaderBarProps {
   dinheiroGaveta: number;
   setModalCaixa: (modal: 'ABRIR' | 'SANGRIA' | 'REFORCO' | 'FECHAR' | null) => void;
   setValorCaixa: (valor: string) => void;
+}
+
+export interface CaixaModalProps {
+  modalCaixa: 'ABRIR' | 'SANGRIA' | 'REFORCO' | 'FECHAR' | null;
+  setModalCaixa: (modal: 'ABRIR' | 'SANGRIA' | 'REFORCO' | 'FECHAR' | null) => void;
+  salvandoCaixa: boolean;
+  valorCaixa: string;
+  setValorCaixa: (valor: string) => void;
+  motivoCaixa: string;
+  setMotivoCaixa: (motivo: string) => void;
+  obsFechamento: string;
+  setObsFechamento: (obs: string) => void;
+  turno: CaixaTurno | null | undefined;
+  dinheiroTurno: number;
+  reforcos: number;
+  sangrias: number;
+  dinheiroGaveta: number;
+  abrirTurno: () => Promise<void>;
+  registrarMov: (tipo: 'SANGRIA' | 'REFORCO') => Promise<void>;
+  fecharTurno: () => Promise<void>;
+}
+
+export interface Movimentacao {
+  id: string;
+  loja_id: string;
+  insumo_id: string;
+  tipo: string;
+  quantidade: number;
+  motivo?: string;
+  pedido_id?: string;
+  criado_em: string;
 }
 
 export interface ProductGridProps {
@@ -662,13 +723,23 @@ export interface ProductGridProps {
   tocarProduto: (p: Produto) => void;
 }
 
+export interface ClientePDV {
+  id: string;
+  nome: string;
+  telefone: string;
+  saldoCashback?: number;
+}
+
 export interface CartSidebarProps {
+  lojaId?: string;
   carrinho: ItemCarrinho[];
   limparVenda: () => void;
   mudarQtd: (idx: number, delta: number) => void;
   removerItem: (idx: number) => void;
   nomeCliente: string;
   setNomeCliente: (nome: string) => void;
+  clienteSelecionado?: ClientePDV | null;
+  setClienteSelecionado?: (cliente: ClientePDV | null) => void;
   desconto: string;
   setDesconto: (desc: string) => void;
   subtotal: number;
@@ -704,35 +775,4 @@ export interface OrderSuccessModalProps {
   venda: VendaConcluida | null;
   imprimirVenda: (template: 'COMANDA_COZINHA' | 'RECIBO_CLIENTE') => Promise<void>;
   limparVenda: () => void;
-}
-
-export interface CaixaModalProps {
-  modalCaixa: 'ABRIR' | 'SANGRIA' | 'REFORCO' | 'FECHAR' | null;
-  setModalCaixa: (modal: 'ABRIR' | 'SANGRIA' | 'REFORCO' | 'FECHAR' | null) => void;
-  salvandoCaixa: boolean;
-  valorCaixa: string;
-  setValorCaixa: (valor: string) => void;
-  motivoCaixa: string;
-  setMotivoCaixa: (motivo: string) => void;
-  obsFechamento: string;
-  setObsFechamento: (obs: string) => void;
-  turno: CaixaTurno | null | undefined;
-  dinheiroTurno: number;
-  reforcos: number;
-  sangrias: number;
-  dinheiroGaveta: number;
-  abrirTurno: () => Promise<void>;
-  registrarMov: (tipo: 'SANGRIA' | 'REFORCO') => Promise<void>;
-  fecharTurno: () => Promise<void>;
-}
-
-export interface Movimentacao {
-  id: string;
-  loja_id: string;
-  insumo_id: string;
-  tipo: string;
-  quantidade: number;
-  motivo?: string;
-  pedido_id?: string;
-  criado_em: string;
 }

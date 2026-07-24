@@ -4,7 +4,7 @@ import { X, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import {
   fmt, precoItem, type Produto, type Opcao, type ItemCarrinho, type Loja, type Mesa,
-  type CaixaTurno, type CaixaMovimentacao, type MetodoPgto,
+  type CaixaTurno, type CaixaMovimentacao, type MetodoPgto, type ClientePDV,
 } from '../../types';
 import { imprimir } from '../../lib/print';
 import { obterOuCriarComandaAberta } from '../../lib/comandas';
@@ -75,6 +75,7 @@ export default function PDV() {
   // venda
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
   const [nomeCliente, setNomeCliente] = useState('');
+  const [clienteSelecionado, setClienteSelecionado] = useState<ClientePDV | null>(null);
   const [desconto, setDesconto] = useState('');
   const [etapa, setEtapa] = useState<EtapaVenda>('CARRINHO');
   const [metodo, setMetodo] = useState<MetodoPgto | null>(null);
@@ -155,7 +156,6 @@ export default function PDV() {
   /* ── carrinho ── */
   const adicionarProduto = (p: Produto, opcoes: Opcao[] = [], quantidade = 1, observacao = '') => {
     toast(`${p.nome} adicionado!`, 'info');
-    tocarSom();
     setCarrinho((c) => {
       // agrupa itens idênticos (mesmo produto, mesmas opções, mesma obs)
       const chave = (i: ItemCarrinho) => i.produto.id + '|' + i.opcoesSelecionadas.map((o) => o.id).sort().join(',') + '|' + (i.observacao ?? '');
@@ -175,12 +175,11 @@ export default function PDV() {
   };
 
   const mudarQtd = (idx: number, delta: number) => {
-    tocarSom();
     setCarrinho((c) => c.map((i, x) => x === idx ? { ...i, quantidade: Math.max(1, i.quantidade + delta) } : i));
   };
 
   const limparVenda = () => {
-    setCarrinho([]); setNomeCliente(''); setDesconto(''); setEtapa('CARRINHO');
+    setCarrinho([]); setNomeCliente(''); setClienteSelecionado(null); setDesconto(''); setEtapa('CARRINHO');
     setMetodo(null); setValorRecebido(''); setErro(''); setVenda(null); setPixInfo(null);
   };
 
@@ -195,12 +194,23 @@ export default function PDV() {
         tipo_pedido: 'RETIRADA_BALCAO',
         origem: 'balcao',
         identificador_cliente: nomeCliente.trim() || 'Balcão',
+        cliente_id: clienteSelecionado?.id ?? null,
         subtotal,
         desconto: descontoNum,
         valor_total: total,
         troco_para: met === 'DINHEIRO' && recebidoNum > total ? recebidoNum : null,
         carrinho,
       });
+
+      // Baixa saldo de cashback do cliente se foi utilizado
+      if (clienteSelecionado?.id && descontoNum > 0 && (clienteSelecionado.saldoCashback ?? 0) > 0) {
+        const cashbackUsado = Math.min(clienteSelecionado.saldoCashback ?? 0, descontoNum);
+        if (cashbackUsado > 0) {
+          await supabase.rpc('fn_usar_cashback', {
+            p_cliente_id: clienteSelecionado.id, p_loja_id: lojaId, p_pedido_id: ped.id, p_valor: cashbackUsado,
+          });
+        }
+      }
 
       // Se só tem revenda direta (latas de Coca-Cola, etc.), não vai pra cozinha.
       const temCozinha = carrinho.some((i) => i.produto.estacao_preparo === 'COZINHA' || !i.produto.estacao_preparo);
@@ -256,6 +266,7 @@ export default function PDV() {
         comanda_id: comandaId,
         mesa_numero: mesaSelecionada.numero,
         identificador_cliente: nomeCliente.trim() || `Mesa ${mesaSelecionada.numero}`,
+        cliente_id: clienteSelecionado?.id ?? null,
         subtotal,
         desconto: descontoNum,
         valor_total: total,
@@ -467,12 +478,15 @@ export default function PDV() {
         />
 
         <CartSidebar
+          lojaId={lojaId}
           carrinho={carrinho}
           limparVenda={limparVenda}
           mudarQtd={mudarQtd}
           removerItem={(idx) => setCarrinho((c) => c.filter((_, x) => x !== idx))}
           nomeCliente={nomeCliente}
           setNomeCliente={setNomeCliente}
+          clienteSelecionado={clienteSelecionado}
+          setClienteSelecionado={setClienteSelecionado}
           desconto={desconto}
           setDesconto={setDesconto}
           subtotal={subtotal}
