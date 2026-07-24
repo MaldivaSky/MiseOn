@@ -240,6 +240,8 @@ export interface ItemPedido {
   observacao?: string;
   assento_numero?: number | null;
   itens_pedido_opcoes?: { nome_opcao: string; preco_adicional: number }[];
+  // join opcional com produtos para o KDS saber a estação de preparo de cada item
+  produtos?: { estacao_preparo?: EstacaoPreparo | null } | null;
 }
 
 export interface Pedido {

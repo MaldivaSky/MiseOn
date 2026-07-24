@@ -22,7 +22,7 @@ import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { useToast } from '../../components/ui/Toast';
 import { tocarSom } from '../../lib/som';
 import { traduzirErro } from '../../lib/erros';
-import { createPedidoPedido } from '../../lib/pedidos';
+import { createPedidoPedido, isErroColunaKdsAusente } from '../../lib/pedidos';
 
 /* ─────────────────────────────────────────────────────────────
    PDV — Frente de balcão touch-first.
@@ -232,13 +232,28 @@ export default function PDV() {
         setVenda({ pedidoId: ped.id, numero: ped.numero, total, metodo: met, troco: 0, itens: carrinho, temCozinha });
         setEtapa('PIX_AGUARDANDO');
       } else {
-        await supabase.from('pedidos').update({ status: 'ACEITO' }).eq('id', ped.id);
+        const atualizacaoCozinha = {
+          status: 'ACEITO',
+          requer_cozinha: temCozinha,
+          estacao_atual: temCozinha ? 'COZINHA' : 'BALCAO',
+          enviado_cozinha_em: temCozinha ? new Date().toISOString() : null,
+        };
+        // etapa_kds_atual depende da migration 20260724010000_kds_etapas_kanban.sql;
+        // se o banco ainda não tem a coluna (schema cache / PGRST204), refaz sem ela
+        let { error: eUpd } = await supabase.from('pedidos').update({
+          ...atualizacaoCozinha,
+          etapa_kds_atual: 'etapa_fila',
+        }).eq('id', ped.id);
+        if (isErroColunaKdsAusente(eUpd)) {
+          ({ error: eUpd } = await supabase.from('pedidos').update(atualizacaoCozinha).eq('id', ped.id));
+        }
+        if (eUpd) console.error('Falha ao enviar pedido à cozinha:', eUpd);
         if (!temCozinha) {
           // Bypass completo pra revenda direta de balcão: o cliente já pegou a Coca-Cola e pagou
           await supabase.rpc('fn_avancar_status_pedido', { p_pedido_id: ped.id, p_novo_status: 'PRONTO' });
           await supabase.rpc('fn_avancar_status_pedido', { p_pedido_id: ped.id, p_novo_status: 'FINALIZADO' });
         }
-        setVenda({ pedidoId: ped.id, numero: ped.numero, total, metodo: met, troco, itens: carrinho });
+        setVenda({ pedidoId: ped.id, numero: ped.numero, total, metodo: met, troco, itens: carrinho, temCozinha });
         setEtapa('SUCESSO');
         toast(`Venda concluída! Pedido #${ped.numero}`, 'sucesso');
         tocarSom();

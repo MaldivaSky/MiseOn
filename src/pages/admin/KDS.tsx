@@ -6,14 +6,19 @@ import {
   Clock, BarChart2, AlertCircle
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { type Pedido, type EtapaKDS } from '../../types';
+import { type Pedido, type EtapaKDS, type StatusPedido } from '../../types';
 import { tocarSom } from '../../lib/som';
 import { traduzirErro, type ErroTraduzido } from '../../lib/erros';
 import { ErroAmigavel } from '../../components/ui/ErroAmigavel';
 import type { CtxLoja } from './AdminLayout';
 
+// Select principal: inclui adicionais (itens_pedido_opcoes) e estação de preparo do produto
+// para separar Cozinha vs Revenda Direta sem depender só de palavras-chave.
 const SELECT = 'id, numero, status, tipo_pedido, identificador_cliente, origem, mesa_numero, agendado_para, criado_em, estacao_atual, requer_cozinha, etapa_kds_atual, timestamps_etapas_kds, ' +
   'itens_pedido(id, nome_produto, quantidade, observacao, itens_pedido_opcoes(nome_opcao), produtos(estacao_preparo))';
+
+// Fallback: idêntico ao SELECT, apenas sem as colunas KDS (usado quando a migration Kanban ainda não foi aplicada)
+const SELECT_FALLBACK = SELECT.replace(' etapa_kds_atual, timestamps_etapas_kds,', '');
 
 const LIMITE_ATENCAO_MIN = 10;
 const LIMITE_ATRASO_MIN = 20;
@@ -26,6 +31,19 @@ function corDoTempo(min: number) {
   if (min >= LIMITE_ATRASO_MIN) return { borda: '#EF4444', texto: '#F87171', pulso: true };
   if (min >= LIMITE_ATENCAO_MIN) return { borda: '#F59E0B', texto: '#FBBF24', pulso: false };
   return { borda: 'rgba(255,255,255,0.12)', texto: '#6C7A96', pulso: false };
+}
+
+// Merge que preserva atualizações otimistas recentes: se o estado local tem mais
+// timestamps de etapa do que o dado vindo do banco (realtime/polling), mantém o local.
+function mesclarPreservandoOtimismo(prev: Pedido[], incoming: Pedido[]): Pedido[] {
+  return incoming.map((p) => {
+    const local = prev.find((l) => l.id === p.id);
+    if (!local) return p;
+    const localKeys = Object.keys(local.timestamps_etapas_kds || {}).length;
+    const incomingKeys = Object.keys(p.timestamps_etapas_kds || {}).length;
+    if (localKeys > incomingKeys) return local;
+    return p;
+  });
 }
 
 interface Operador { user_id: string; nome: string | null }
@@ -103,25 +121,48 @@ export default function KDS() {
   };
 
   const carregar = async () => {
-    if (antecedenciaMin === null) return;
-    const cutoffProducao = new Date(Date.now() + antecedenciaMin * 60000).toISOString();
     const cutoff24h = new Date(Date.now() - 24 * 3600e3).toISOString();
-    const { data } = await supabase
-      .from('pedidos').select(SELECT)
+
+    const { data, error } = await supabase
+      .from('pedidos')
+      .select(SELECT)
       .eq('loja_id', lojaId)
-      .eq('requer_cozinha', true)
       .in('status', ['ACEITO', 'PREPARANDO', 'PRONTO'])
-      .or('estacao_atual.eq.COZINHA,status.eq.PRONTO')
-      .or(`criado_em.gte.${cutoff24h},agendado_para.not.is.null`)
-      .or(`agendado_para.is.null,agendado_para.lte.${cutoffProducao}`)
+      .gte('criado_em', cutoff24h)
       .order('criado_em', { ascending: true });
-    setPedidos((data as unknown as Pedido[]) ?? []);
+
+    if (error) {
+      console.error('[KDS] Erro com colunas KDS, tentando query básica:', error.message);
+
+      // Fallback sem colunas KDS (caso não existam ainda no banco)
+      const { data: fallback, error: errFb } = await supabase
+        .from('pedidos')
+        .select(SELECT_FALLBACK)
+        .eq('loja_id', lojaId)
+        .in('status', ['ACEITO', 'PREPARANDO', 'PRONTO'])
+        .gte('criado_em', cutoff24h)
+        .order('criado_em', { ascending: true });
+
+      if (errFb) {
+        console.error('[KDS] Erro no fallback:', errFb.message);
+        return;
+      }
+      const incomingFb = (fallback as unknown as Pedido[]) ?? [];
+      setPedidos((prev) => mesclarPreservandoOtimismo(prev, incomingFb));
+      return;
+    }
+
+    const incoming = (data as unknown as Pedido[]) ?? [];
+    setPedidos((prev) => mesclarPreservandoOtimismo(prev, incoming));
   };
 
+  // Carga imediata assim que a página monta — não espera antecedenciaMin
   useEffect(() => {
-    if (antecedenciaMin === null) return;
     carregar();
-    carregarMetricas();
+  }, [lojaId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Realtime + polling a cada minuto
+  useEffect(() => {
     const canal = supabase
       .channel(`kds-${lojaId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: `loja_id=eq.${lojaId}` }, (payload) => {
@@ -132,7 +173,13 @@ export default function KDS() {
     const timer = setInterval(() => { setTick((t) => t + 1); carregar(); carregarMetricas(); }, 60_000);
     return () => { supabase.removeChannel(canal); clearInterval(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lojaId, antecedenciaMin]);
+  }, [lojaId]);
+
+  // Carregar métricas depois que antecedenciaMin chegar
+  useEffect(() => {
+    if (antecedenciaMin === null) return;
+    carregarMetricas();
+  }, [antecedenciaMin]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const escolherOperador = (userId: string) => {
     const novo = operadorAtivo === userId ? null : userId;
@@ -147,33 +194,78 @@ export default function KDS() {
 
     if (!proximaEtapa) return;
 
-    if (proxIndex >= etapas.length - 1) {
-      // Última etapa do Kanban (Pronto / Expedição)
-      const { error } = await supabase.rpc('fn_avancar_status_pedido', {
-        p_pedido_id: p.id, p_novo_status: 'PRONTO', p_operador_user_id: operadorAtivo,
-      });
-      if (error) {
-        setErroAcao(traduzirErro(error));
-        return;
-      }
-    } else {
-      // Etapa intermediária (Preparo / Chapa / Montagem / Forno)
-      const { error } = await supabase.rpc('fn_avancar_status_pedido', {
-        p_pedido_id: p.id, p_novo_status: 'PREPARANDO', p_operador_user_id: operadorAtivo,
-      });
-      if (error && p.status === 'ACEITO') {
-        setErroAcao(traduzirErro(error));
+    const ehUltimaEtapa = proxIndex >= etapas.length - 1;
+    const novoStatus: StatusPedido = ehUltimaEtapa ? 'PRONTO' : 'PREPARANDO';
+
+    // 1. Atualizar o registro no banco em UMA única chamada atômica
+    const tsAtuais = p.timestamps_etapas_kds || {};
+    const timestampsAtualizados = { ...tsAtuais, [proximaEtapa.id]: new Date().toISOString() };
+
+    const { error: errUpdate } = await supabase
+      .from('pedidos')
+      .update({
+        status: novoStatus,
+        estacao_atual: 'COZINHA',
+        etapa_kds_atual: proximaEtapa.id,
+        timestamps_etapas_kds: timestampsAtualizados,
+      })
+      .eq('id', p.id);
+
+    if (errUpdate) {
+      // Colunas KDS ausentes no schema cache (migration Kanban ainda não aplicada):
+      // retry atualizando apenas status/estacao_atual para o Kanban continuar funcional.
+      const ehErroColunaKds =
+        errUpdate.code === 'PGRST204' || (errUpdate.message || '').includes('schema cache');
+
+      if (ehErroColunaKds) {
+        console.warn('[KDS] Colunas KDS ausentes no banco, avançando só com status/estacao_atual:', errUpdate.message);
+        const { error: errRetry } = await supabase
+          .from('pedidos')
+          .update({
+            status: novoStatus,
+            estacao_atual: 'COZINHA',
+          })
+          .eq('id', p.id);
+
+        if (errRetry) {
+          console.error('Erro ao atualizar pedido (retry sem colunas KDS):', errRetry);
+          setErroAcao(traduzirErro(errRetry));
+          return;
+        }
+      } else {
+        console.error('Erro ao atualizar pedido:', errUpdate);
+        setErroAcao(traduzirErro(errUpdate));
         return;
       }
     }
 
-    // Registrar o timestamp da nova etapa no banco de dados
-    await supabase.rpc('fn_registrar_etapa_kds', {
-      p_pedido_id: p.id,
-      p_etapa_id: proximaEtapa.id,
-    });
+    // 2. Chamar RPC para regras de negócio adicionais (estoque, notificações)
+    try {
+      await supabase.rpc('fn_avancar_status_pedido', {
+        p_pedido_id: p.id,
+        p_novo_status: novoStatus,
+      });
+    } catch (e) {
+      console.warn('Nota fn_avancar_status_pedido:', e);
+    }
 
     setErroAcao(null);
+    tocarSom();
+
+    // 3. Atualização otimista imediata na interface
+    setPedidos((prev) =>
+      prev.map((item) =>
+        item.id === p.id
+          ? {
+              ...item,
+              status: novoStatus,
+              etapa_kds_atual: proximaEtapa.id,
+              timestamps_etapas_kds: timestampsAtualizados,
+            }
+          : item
+      )
+    );
+
     carregar();
     carregarMetricas();
   };
@@ -237,14 +329,16 @@ export default function KDS() {
 
   const handleAdicionarEtapa = () => {
     if (!novaEtapaNome.trim()) return;
+    // Nova etapa é inserida imediatamente ANTES da última coluna (Expedição/Pronto)
+    const indiceInsercao = etapas.length - 1;
     const nova: EtapaKDS = {
       id: `etapa_${Date.now()}`,
       nome: novaEtapaNome.trim(),
       cor: PALETA_CORES[etapas.length % PALETA_CORES.length],
-      ordem: etapas.length - 1,
+      ordem: indiceInsercao,
     };
     const clone = [...etapas];
-    clone.splice(clone.length - 1, 0, nova);
+    clone.splice(indiceInsercao, 0, nova);
     // Reordenar
     clone.forEach((e, idx) => (e.ordem = idx));
     salvarEtapas(clone);
@@ -270,7 +364,14 @@ export default function KDS() {
 
   const Card = ({ p, acaoRotulo, etapaIndex, etapaAtualObj }: { p: Pedido; acaoRotulo: string; etapaIndex: number; etapaAtualObj: EtapaKDS }) => {
     const referencia = p.agendado_para && new Date(p.agendado_para) > new Date(p.criado_em) ? p.agendado_para : p.criado_em;
-    const minTotal = minutosDesde(referencia);
+
+    // Pedido PRONTO: tempo total fica congelado no momento da conclusão (não continua contando)
+    const tsConclusao = p.status === 'PRONTO'
+      ? p.devolvido_balcao_em || Object.values(p.timestamps_etapas_kds || {}).sort().pop() || null
+      : null;
+    const minTotal = tsConclusao
+      ? (new Date(tsConclusao).getTime() - new Date(referencia).getTime()) / 60000
+      : minutosDesde(referencia);
     
     // Tempo na etapa atual
     const tsEtapaInicio = p.timestamps_etapas_kds?.[etapaAtualObj.id] || (etapaIndex === 0 ? p.enviado_cozinha_em || p.criado_em : null);
@@ -308,29 +409,63 @@ export default function KDS() {
           {p.tipo_pedido === 'SALAO' ? `MESA ${p.mesa_numero ?? '—'}` : p.origem === 'balcao' ? 'BALCÃO' : p.tipo_pedido === 'DELIVERY' ? 'DELIVERY' : 'RETIRADA'} · {p.identificador_cliente}
         </div>
 
-        <div className="mt-3 space-y-2">
-          {p.itens_pedido?.map((i) => {
-            const revenda = (i as any).produtos?.estacao_preparo === 'DIRETO';
-            if (revenda) {
-              return (
-                <p key={i.id} className="text-[12px] italic text-[#4B5872]">
-                  <Store size={10} className="mr-1 inline" /> no balcão: {i.quantidade}× {i.nome_produto}
-                </p>
-              );
-            }
-            return (
-              <div key={i.id}>
-                <p className="text-[15px] font-bold leading-tight text-[#EAF1FB]">
-                  <span className="text-orange-400">{i.quantidade}×</span> {i.nome_produto}
-                </p>
-                {i.itens_pedido_opcoes?.map((o, x) => (
-                  <p key={x} className="pl-5 text-[12px] text-[#8FA0BC]">+ {o.nome_opcao}</p>
-                ))}
-                {i.observacao && <p className="pl-5 text-[12px] font-bold text-red-400">⚠ {i.observacao.toUpperCase()}</p>}
-              </div>
-            );
-          })}
-        </div>
+        {/* Separação inteligente: Cozinha vs Revenda Direta */}
+        {(() => {
+          const palavrasRevenda = ['guaraná', 'guarana', 'coca', 'pepsi', 'fanta', 'sprite', 'suco', 'refrigerante', 'lata', 'cerveja', 'água', 'agua', 'long neck', 'red bull', 'h2oh', 'bebida'];
+          const isItemDireto = (item: any) => {
+            if (item.produtos?.estacao_preparo === 'DIRETO') return true;
+            const nomeLower = (item.nome_produto || '').toLowerCase();
+            return palavrasRevenda.some((p) => nomeLower.includes(p));
+          };
+
+          const cozinha = p.itens_pedido?.filter((i) => !isItemDireto(i)) || [];
+          const direto = p.itens_pedido?.filter((i) => isItemDireto(i)) || [];
+
+          return (
+            <div className="mt-3 space-y-3">
+              {/* 1. ITENS PARA PREPARAR NA COZINHA */}
+              {cozinha.length > 0 && (
+                <div className="space-y-2">
+                  <span className="font-['JetBrains_Mono'] text-[10px] font-extrabold uppercase tracking-wider text-orange-400">
+                    🍳 Preparo Cozinha ({cozinha.length}):
+                  </span>
+                  {cozinha.map((i) => (
+                    <div key={i.id} className="pl-1">
+                      <p className="text-[15px] font-extrabold leading-tight text-[#EAF1FB]">
+                        <span className="text-orange-400">{i.quantidade}×</span> {i.nome_produto}
+                      </p>
+                      {i.itens_pedido_opcoes?.map((o, x) => (
+                        <p key={x} className="pl-4 text-[12px] text-[#8FA0BC]">+ {o.nome_opcao}</p>
+                      ))}
+                      {i.observacao && (
+                        <p className="pl-4 text-[12px] font-bold text-red-400">⚠ {i.observacao.toUpperCase()}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 2. ITENS DE REVENDA DIRETA / BALCÃO */}
+              {direto.length > 0 && (
+                <div className="mt-2 rounded-xl border border-slate-700/60 bg-slate-800/40 p-2.5 space-y-1.5">
+                  <span className="font-['JetBrains_Mono'] text-[10px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <Store size={12} className="text-blue-400" /> Revenda / Balcão ({direto.length}):
+                  </span>
+                  {direto.map((i) => (
+                    <div key={i.id} className="flex items-center justify-between text-[12px] text-slate-300">
+                      <span>
+                        <strong className="text-blue-400">{i.quantidade}×</strong> {i.nome_produto}
+                      </span>
+                      <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                        DIRETO
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {finalizadoCozinha ? (
           <div className="mt-3 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500/10 py-2 text-center text-[12px] font-black uppercase tracking-wider text-emerald-400">
@@ -350,13 +485,49 @@ export default function KDS() {
 
   // Filtra pedidos para cada coluna de etapa configurada
   const getPedidosPorEtapa = (etapaIndex: number, etapa: EtapaKDS) => {
-    if (etapaIndex === 0) {
-      return pedidos.filter(p => p.status === 'ACEITO' || p.etapa_kds_atual === etapa.id);
-    }
+    // Última coluna: status PRONTO ou etapa gravada
     if (etapaIndex === etapas.length - 1) {
-      return pedidos.filter(p => p.status === 'PRONTO' || p.etapa_kds_atual === etapa.id);
+      return pedidos.filter((p) => {
+        if (p.status === 'PRONTO' || p.etapa_kds_atual === etapa.id) return true;
+        // Configuração mínima (2 colunas): não há coluna intermediária de fallback,
+        // então PREPARANDO com etapa removida da configuração aparece aqui para não sumir do quadro.
+        if (etapas.length === 2 && p.status === 'PREPARANDO'
+          && p.etapa_kds_atual && !etapas.some((e) => e.id === p.etapa_kds_atual)) return true;
+        return false;
+      });
     }
-    return pedidos.filter(p => p.status === 'PREPARANDO' && p.etapa_kds_atual === etapa.id);
+
+    // Coluna 0 (Fila de Entrada):
+    // - status ACEITO e (sem etapa gravada, ou etapa = esta)
+    // - NUNCA inclui pedidos PREPARANDO (eles já avançaram)
+    if (etapaIndex === 0) {
+      return pedidos.filter((p) => {
+        if (p.status === 'PRONTO') return false;
+        if (p.status === 'PREPARANDO') return false; // Já avançou
+        if (p.status === 'ACEITO') {
+          // Sem etapa: vai para fila
+          if (!p.etapa_kds_atual || p.etapa_kds_atual === etapa.id || p.etapa_kds_atual === 'etapa_fila') return true;
+          // Se tem etapa diferente (avançou otimisticamente), não exibir aqui
+          return false;
+        }
+        return false;
+      });
+    }
+
+    // Colunas intermediárias: etapa_kds_atual corresponde OU status PREPARANDO sem etapa específica
+    return pedidos.filter((p) => {
+      if (p.status === 'PRONTO') return false;
+      if (p.etapa_kds_atual === etapa.id) return true;
+      // Fallback: PREPARANDO sem etapa, ou cuja etapa gravada foi REMOVIDA da configuração
+      // (ficaria invisível no quadro), cai na 1ª coluna intermediária (index 1) — posição
+      // imediatamente anterior à próxima etapa válida que ele ainda não alcançou.
+      if (etapaIndex === 1 && p.status === 'PREPARANDO') {
+        if (!p.etapa_kds_atual) return true;
+        const etapaAindaExiste = etapas.some((e) => e.id === p.etapa_kds_atual);
+        if (!etapaAindaExiste) return true;
+      }
+      return false;
+    });
   };
 
   const nomeGargalo = etapas.find(e => e.id === metricasPorEtapa.gargaloId)?.nome;
@@ -415,14 +586,14 @@ export default function KDS() {
       {operadores.length > 0 && (
         <div className="mb-3 flex items-center gap-2 overflow-x-auto pb-1">
           <span className="shrink-0 font-['JetBrains_Mono'] text-[10px] font-bold uppercase tracking-[0.2em] text-[#6C7A96]">Na cozinha:</span>
-          {operadores.map((op) => (
+          {operadores.map((op, idx) => (
             <button key={op.user_id} onClick={() => escolherOperador(op.user_id)}
               className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold transition ${
                 operadorAtivo === op.user_id
                   ? 'border-orange-500 bg-orange-500 text-white'
                   : 'border-white/10 bg-white/5 text-white/60 hover:text-white'
               }`}>
-              {op.nome || 'Sem nome'}
+              {op.nome || `Operador ${idx + 1}`}
             </button>
           ))}
         </div>

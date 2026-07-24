@@ -4,6 +4,7 @@ import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizon
 import { supabase } from '../../lib/supabase';
 import { avaliarAssinatura } from '../../lib/assinatura';
 import ThemeToggle from '../../components/ThemeToggle';
+import { NotificationCenter } from '../../components/notifications/NotificationCenter';
 import { useLedgerAlerts } from '../../hooks/useLedgerAlerts';
 import { BrandLoader } from '../../components/BrandLoader';
 import { podeAcessar, HOME_POR_PAPEL, type Papel } from '../../lib/permissoes';
@@ -512,6 +513,7 @@ export default function AdminLayout() {
           </div>
 
           <div className="flex items-center gap-4">
+            {ctx?.lojaId && <NotificationCenter lojaId={ctx.lojaId} />}
             <ThemeToggle />
           </div>
         </header>
