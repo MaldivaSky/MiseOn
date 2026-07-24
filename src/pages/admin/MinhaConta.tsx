@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
-import { User as UserIcon, Lock, Mail, Phone, ShieldCheck, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { User as UserIcon, Lock, Mail, Phone, ShieldCheck, Loader2, CheckCircle2, AlertCircle, KeyRound, X, RefreshCw, ArrowRight } from 'lucide-react';
 
 export default function MinhaConta() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   // Senha
+  const [senhaAtual, setSenhaAtual] = useState('');
   const [novaSenha, setNovaSenha] = useState('');
   const [confirmaSenha, setConfirmaSenha] = useState('');
   const [salvandoSenha, setSalvandoSenha] = useState(false);
@@ -20,6 +21,14 @@ export default function MinhaConta() {
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
   const [msgPerfil, setMsgPerfil] = useState<{ tipo: 'sucesso' | 'erro' | 'aviso'; texto: string } | null>(null);
 
+  // Modal / Estado de Verificação OTP para troca de E-mail
+  const [modalOtpAberto, setModalOtpAberto] = useState(false);
+  const [novoEmailPendente, setNovoEmailPendente] = useState('');
+  const [codigoOtp, setCodigoOtp] = useState('');
+  const [verificandoOtp, setVerificandoOtp] = useState(false);
+  const [enviandoOtp, setEnviandoOtp] = useState(false);
+  const [msgOtp, setMsgOtp] = useState<{ tipo: 'sucesso' | 'erro'; texto: string } | null>(null);
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user);
@@ -30,10 +39,14 @@ export default function MinhaConta() {
     });
   }, []);
 
+  // ── ALTERAR SENHA COM VERIFICAÇÃO DE SENHA ATUAL ─────────────
   const alterarSenha = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsgSenha(null);
 
+    if (!senhaAtual) {
+      return setMsgSenha({ tipo: 'erro', texto: 'Informe sua senha atual por segurança.' });
+    }
     if (novaSenha.length < 6) {
       return setMsgSenha({ tipo: 'erro', texto: 'A nova senha deve ter no mínimo 6 caracteres.' });
     }
@@ -42,48 +55,122 @@ export default function MinhaConta() {
     }
 
     setSalvandoSenha(true);
-    const { error } = await supabase.auth.updateUser({ password: novaSenha });
+
+    const { data, error } = await supabase.functions.invoke('conta-atualizar', {
+      body: { acao: 'alterar_senha', senha_atual: senhaAtual, nova_senha: novaSenha },
+    });
+
     setSalvandoSenha(false);
 
-    if (error) {
-      setMsgSenha({ tipo: 'erro', texto: 'Erro ao alterar senha. Tente sair e entrar novamente.' });
+    if (error || data?.error) {
+      setMsgSenha({ tipo: 'erro', texto: data?.error || error?.message || 'Erro ao alterar senha. Verifique se a senha atual está correta.' });
     } else {
-      setMsgSenha({ tipo: 'sucesso', texto: 'Senha alterada com segurança!' });
+      setMsgSenha({ tipo: 'sucesso', texto: 'Senha alterada com sucesso e segurança!' });
+      setSenhaAtual('');
       setNovaSenha('');
       setConfirmaSenha('');
-      setTimeout(() => setMsgSenha(null), 4000);
+      setTimeout(() => setMsgSenha(null), 5000);
     }
   };
 
+  // ── SALVAR PERFIL (NOME, TELEFONE) & SOLICITAR OTP SE EMAIL MUDOU ──
   const salvarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsgPerfil(null);
     setSalvandoPerfil(true);
 
-    let mudouEmail = false;
-
-    // Atualiza metadados (nome, telefone)
+    // 1. Atualiza metadados (nome, telefone)
     const { error: errMeta } = await supabase.auth.updateUser({
       data: { full_name: nome, nome, telefone, phone: telefone }
     });
 
-    // Atualiza email se for diferente
-    let errEmail = null;
-    if (email && email !== user?.email) {
-      const { error } = await supabase.auth.updateUser({ email });
-      errEmail = error;
-      if (!error) mudouEmail = true;
+    // 2. Se o e-mail foi alterado, solicita código OTP por segurança
+    const emailMudou = email.trim().toLowerCase() !== user?.email?.toLowerCase();
+
+    if (emailMudou && email.trim()) {
+      setEnviandoOtp(true);
+      setNovoEmailPendente(email.trim().toLowerCase());
+
+      const { data: resOtp, error: errOtp } = await supabase.functions.invoke('conta-atualizar', {
+        body: { acao: 'solicitar_troca_email', novo_email: email.trim() },
+      });
+
+      setEnviandoOtp(false);
+      setSalvandoPerfil(false);
+
+      if (errOtp || resOtp?.error) {
+        setMsgPerfil({ tipo: 'erro', texto: resOtp?.error || errOtp?.message || 'Erro ao solicitar código de verificação para o novo e-mail.' });
+        return;
+      }
+
+      // Abre o modal de OTP para o usuário digitar o código enviado por e-mail
+      setCodigoOtp('');
+      setMsgOtp(null);
+      setModalOtpAberto(true);
+      if (!errMeta) {
+        setMsgPerfil({ tipo: 'aviso', texto: 'Nome e telefone salvos. Digite o código enviado para o seu novo e-mail para finalizar a troca.' });
+      }
+      return;
     }
 
     setSalvandoPerfil(false);
 
-    if (errMeta || errEmail) {
-      setMsgPerfil({ tipo: 'erro', texto: 'Erro ao atualizar dados. ' + (errEmail?.message || '') });
-    } else if (mudouEmail) {
-      setMsgPerfil({ tipo: 'aviso', texto: 'Dados salvos! Para efetivar a troca do e-mail, confirme no link que enviamos para sua nova caixa de entrada.' });
+    if (errMeta) {
+      setMsgPerfil({ tipo: 'erro', texto: 'Erro ao atualizar dados: ' + errMeta.message });
     } else {
-      setMsgPerfil({ tipo: 'sucesso', texto: 'Dados pessoais atualizados!' });
+      setMsgPerfil({ tipo: 'sucesso', texto: 'Dados pessoais atualizados com sucesso!' });
       setTimeout(() => setMsgPerfil(null), 4000);
+    }
+  };
+
+  // ── CONFIRMAR CÓDIGO OTP E TROCAR E-MAIL ────────────────────
+  const confirmarTrocaEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsgOtp(null);
+
+    if (!codigoOtp || codigoOtp.trim().length !== 6) {
+      return setMsgOtp({ tipo: 'erro', texto: 'Digite o código de 6 dígitos numéricos.' });
+    }
+
+    setVerificandoOtp(true);
+
+    const { data, error } = await supabase.functions.invoke('conta-atualizar', {
+      body: { acao: 'confirmar_email', novo_email: novoEmailPendente, codigo: codigoOtp.trim() },
+    });
+
+    setVerificandoOtp(false);
+
+    if (error || data?.error) {
+      setMsgOtp({ tipo: 'erro', texto: data?.error || error?.message || 'Erro ao verificar código.' });
+    } else {
+      setMsgOtp({ tipo: 'sucesso', texto: 'E-mail alterado com sucesso!' });
+      setTimeout(async () => {
+        setModalOtpAberto(false);
+        const { data: { user: updatedUser } } = await supabase.auth.getUser();
+        if (updatedUser) {
+          setUser(updatedUser);
+          setEmail(updatedUser.email || '');
+        }
+        setMsgPerfil({ tipo: 'sucesso', texto: 'E-mail de login atualizado com sucesso!' });
+      }, 1500);
+    }
+  };
+
+  // Reenviar Código OTP
+  const reenviarOtp = async () => {
+    setEnviandoOtp(true);
+    setMsgOtp(null);
+
+    const { data, error } = await supabase.functions.invoke('conta-atualizar', {
+      body: { acao: 'solicitar_troca_email', novo_email: novoEmailPendente },
+    });
+
+    setEnviandoOtp(false);
+
+    if (error || data?.error) {
+      setMsgOtp({ tipo: 'erro', texto: data?.error || error?.message || 'Erro ao reenviar código.' });
+    } else {
+      setMsgOtp({ tipo: 'sucesso', texto: 'Novo código de 6 dígitos enviado para sua caixa de entrada!' });
     }
   };
 
@@ -116,8 +203,8 @@ export default function MinhaConta() {
 
             {msgPerfil && (
               <div className={`mb-4 rounded-xl p-3 flex items-center gap-2 text-sm font-semibold ${msgPerfil.tipo === 'sucesso' ? 'bg-green-500/10 text-green-500' : msgPerfil.tipo === 'aviso' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500' : 'bg-red-500/10 text-red-500'}`}>
-                {msgPerfil.tipo === 'sucesso' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                {msgPerfil.texto}
+                {msgPerfil.tipo === 'sucesso' ? <CheckCircle2 size={16} className="shrink-0" /> : <AlertCircle size={16} className="shrink-0" />}
+                <span>{msgPerfil.texto}</span>
               </div>
             )}
 
@@ -133,7 +220,7 @@ export default function MinhaConta() {
                     className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 py-3 pl-10 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--cor-primaria)] dark:text-white" 
                   />
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">Ao alterar o e-mail, você precisará confirmar a mudança clicando no link enviado para o novo e-mail.</p>
+                <p className="text-[10px] text-gray-400 mt-1">Ao alterar o e-mail, enviaremos um código OTP de 6 dígitos para confirmação por segurança.</p>
               </label>
 
               <label className="block">
@@ -167,10 +254,10 @@ export default function MinhaConta() {
 
             <button 
               type="submit" 
-              disabled={salvandoPerfil}
+              disabled={salvandoPerfil || enviandoOtp}
               className="mt-6 w-full flex items-center justify-center gap-2 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 py-3 text-sm font-bold disabled:opacity-50 hover:brightness-110 transition-all"
             >
-              {salvandoPerfil ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+              {salvandoPerfil || enviandoOtp ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
               Salvar Perfil
             </button>
           </form>
@@ -185,18 +272,34 @@ export default function MinhaConta() {
 
             {msgSenha && (
               <div className={`mb-4 rounded-xl p-3 flex items-center gap-2 text-sm font-semibold ${msgSenha.tipo === 'sucesso' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                {msgSenha.tipo === 'sucesso' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                {msgSenha.texto}
+                {msgSenha.tipo === 'sucesso' ? <CheckCircle2 size={16} className="shrink-0" /> : <AlertCircle size={16} className="shrink-0" />}
+                <span>{msgSenha.texto}</span>
               </div>
             )}
 
             <div className="space-y-4">
               <label className="block">
-                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1 block">Nova Senha</span>
+                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1 block">Senha Atual *</span>
+                <div className="relative">
+                  <KeyRound size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input 
+                    type="password" 
+                    required
+                    value={senhaAtual}
+                    onChange={(e) => setSenhaAtual(e.target.value)}
+                    placeholder="Sua senha atual"
+                    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 py-3 pl-10 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500 dark:text-white" 
+                  />
+                </div>
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1 block">Nova Senha *</span>
                 <div className="relative">
                   <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input 
                     type="password" 
+                    required
                     value={novaSenha}
                     onChange={(e) => setNovaSenha(e.target.value)}
                     placeholder="Mínimo de 6 caracteres"
@@ -206,14 +309,15 @@ export default function MinhaConta() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1 block">Confirmar Nova Senha</span>
+                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1 block">Confirmar Nova Senha *</span>
                 <div className="relative">
                   <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input 
                     type="password" 
+                    required
                     value={confirmaSenha}
                     onChange={(e) => setConfirmaSenha(e.target.value)}
-                    placeholder="Repita a senha"
+                    placeholder="Repita a nova senha"
                     className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 py-3 pl-10 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500 dark:text-white" 
                   />
                 </div>
@@ -222,7 +326,7 @@ export default function MinhaConta() {
 
             <button 
               type="submit" 
-              disabled={salvandoSenha || !novaSenha || !confirmaSenha}
+              disabled={salvandoSenha || !senhaAtual || !novaSenha || !confirmaSenha}
               className="mt-6 w-full flex items-center justify-center gap-2 rounded-xl bg-[var(--cor-primaria)] text-white py-3 text-sm font-bold disabled:opacity-50 hover:brightness-110 transition-all shadow-lg shadow-[var(--cor-primaria)]/20"
             >
               {salvandoSenha ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />}
@@ -231,6 +335,77 @@ export default function MinhaConta() {
           </form>
         </div>
       </div>
+
+      {/* ── MODAL OTP: CONFIRMAÇÃO DE TROCA DE E-MAIL ── */}
+      {modalOtpAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => !verificandoOtp && setModalOtpAberto(false)}>
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl dark:bg-gray-900 border border-gray-100 dark:border-gray-800" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10 text-[var(--cor-primaria)]">
+                  <KeyRound size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold dark:text-gray-100">Verificação de Segurança</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Confirmação de alteração de e-mail</p>
+                </div>
+              </div>
+              <button onClick={() => setModalOtpAberto(false)} disabled={verificandoOtp} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="rounded-xl bg-orange-50 dark:bg-orange-950/30 p-4 mb-4 border border-orange-100 dark:border-orange-900/40 text-xs text-orange-900 dark:text-orange-300">
+              <p className="font-semibold">Enviamos um código de 6 dígitos para:</p>
+              <p className="font-bold text-sm font-mono text-orange-600 dark:text-orange-400 mt-1">{novoEmailPendente}</p>
+              <p className="mt-2 text-[11px] text-orange-700/80 dark:text-orange-400/80">Verifique sua caixa de entrada e spam. O código é válido por 10 minutos.</p>
+            </div>
+
+            {msgOtp && (
+              <div className={`mb-4 rounded-xl p-3 flex items-center gap-2 text-xs font-semibold ${msgOtp.tipo === 'sucesso' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                {msgOtp.tipo === 'sucesso' ? <CheckCircle2 size={16} className="shrink-0" /> : <AlertCircle size={16} className="shrink-0" />}
+                <span>{msgOtp.texto}</span>
+              </div>
+            )}
+
+            <form onSubmit={confirmarTrocaEmail} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 text-center">Código de 6 dígitos</label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  autoFocus
+                  value={codigoOtp}
+                  onChange={(e) => setCodigoOtp(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  className="w-full text-center tracking-[12px] font-mono text-2xl font-bold py-3.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 focus:border-[var(--cor-primaria)] focus:outline-none dark:text-white"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={reenviarOtp}
+                  disabled={enviandoOtp || verificandoOtp}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-700 py-3 text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                >
+                  {enviandoOtp ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                  Reenviar código
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={verificandoOtp || codigoOtp.length !== 6}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-[var(--cor-primaria)] text-white py-3 text-xs font-bold disabled:opacity-50 hover:brightness-110 transition-all shadow-md shadow-[var(--cor-primaria)]/20"
+                >
+                  {verificandoOtp ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
+                  Confirmar Troca
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
