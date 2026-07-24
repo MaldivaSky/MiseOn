@@ -263,6 +263,7 @@ export default function Home() {
   const links = [
     { href: '#nichos', rotulo: 'Nichos' },
     { href: '#recursos', rotulo: 'Recursos' },
+    { href: '/videos', rotulo: 'Vídeos 🎬', isRouter: true },
     { href: '#plataforma', rotulo: 'Plataforma' },
     { href: '#como-funciona', rotulo: 'Como funciona' },
     { href: '#whatsapp-ia', rotulo: 'WhatsApp IA' },
@@ -311,15 +312,25 @@ export default function Home() {
 
           {/* Links âncora — desktop */}
           <div className="hidden items-center gap-6 lg:flex">
-            {links.map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                className="text-sm font-semibold text-gray-600 transition hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
-              >
-                {l.rotulo}
-              </a>
-            ))}
+            {links.map((l) =>
+              l.isRouter ? (
+                <Link
+                  key={l.href}
+                  to={l.href}
+                  className="text-sm font-bold text-orange-500 transition hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-300"
+                >
+                  {l.rotulo}
+                </Link>
+              ) : (
+                <a
+                  key={l.href}
+                  href={l.href}
+                  className="text-sm font-semibold text-gray-600 transition hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                >
+                  {l.rotulo}
+                </a>
+              )
+            )}
           </div>
 
           <div className="hidden items-center gap-3 lg:flex">

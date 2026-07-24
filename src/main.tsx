@@ -22,6 +22,7 @@ const Privacidade     = lazy(() => import('./pages/legal/Privacidade'));
 const Sobre          = lazy(() => import('./pages/legal/Sobre'));
 const Contato         = lazy(() => import('./pages/legal/Contato'));
 const DescadastroEmail = lazy(() => import('./pages/legal/DescadastroEmail'));
+const Videos           = lazy(() => import('./pages/Videos'));
 const NicheLandingPage = lazy(() => import('./pages/landing/NicheLandingPage'));
 
 // ── Lazy: ADMIN_LAYOUT (único layout compartilhado — carrega rápido) ─────────
@@ -68,13 +69,10 @@ const Onboarding       = lazy(() => import('./pages/superadmin/Onboarding'));
 const Churn            = lazy(() => import('./pages/superadmin/Churn'));
 const Auditoria        = lazy(() => import('./pages/superadmin/Auditoria'));
 
-// ── Loading placeholder minimalista (evita CLS durante lazy load) ─────────────
+import { BrandLoader } from './components/BrandLoader';
+
 function PageLoader() {
-  return (
-    <div className="flex h-screen items-center justify-center bg-[#F4F7FA] dark:bg-[#0B1120]">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#004198] border-t-transparent" />
-    </div>
-  );
+  return <BrandLoader title="CARREGANDO MISEON..." />;
 }
 
 registerSW({ immediate: true });
@@ -142,6 +140,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="/email/descadastro" element={<DescadastroEmail />} />
               <Route path="/lojas"         element={<Lojas />} />
               <Route path="/cadastre-se"   element={<CadastreSuaLoja />} />
+              <Route path="/videos"        element={<Videos />} />
+              <Route path="/depoimentos"   element={<Videos />} />
+              <Route path="/demonstracao"  element={<Videos />} />
               <Route path="/pedido/:id"    element={<AcompanharPedido />} />
               
               {/* ── Páginas de Nicho & Funcionalidade (SEO Programático) ── */}

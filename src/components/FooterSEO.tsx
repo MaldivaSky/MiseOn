@@ -20,6 +20,7 @@ export function FooterSEO() {
 
   const legal = [
     { title: 'Sobre Nós', href: '/sobre' },
+    { title: 'Vídeos & Demonstrações', href: '/videos' },
     { title: 'Contato & Suporte', href: '/contato' },
     { title: 'Termos de Uso', href: '/termos' },
     { title: 'Política de Privacidade', href: '/privacidade' },
