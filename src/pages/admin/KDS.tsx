@@ -205,7 +205,7 @@ export default function KDS() {
       .from('pedidos')
       .update({
         status: novoStatus,
-        estacao_atual: 'COZINHA',
+        estacao_atual: ehUltimaEtapa ? 'BALCAO' : 'COZINHA',
         etapa_kds_atual: proximaEtapa.id,
         timestamps_etapas_kds: timestampsAtualizados,
       })
@@ -223,7 +223,7 @@ export default function KDS() {
           .from('pedidos')
           .update({
             status: novoStatus,
-            estacao_atual: 'COZINHA',
+            estacao_atual: ehUltimaEtapa ? 'BALCAO' : 'COZINHA',
           })
           .eq('id', p.id);
 

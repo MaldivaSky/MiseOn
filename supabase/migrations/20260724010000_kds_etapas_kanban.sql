@@ -53,3 +53,37 @@ begin
    where id = p_pedido_id;
 end;
 $function$;
+
+-- 5. Atualiza fn_valida_estacao_pedido para permitir a devolução do bastão (COZINHA -> BALCAO) ao concluir (PRONTO)
+create or replace function fn_valida_estacao_pedido()
+returns trigger
+language plpgsql
+security definer
+as $function$
+begin
+  if OLD.estacao_atual = NEW.estacao_atual then
+    return NEW;
+  end if;
+
+  if OLD.estacao_atual = 'BALCAO' and NEW.estacao_atual = 'COZINHA' then
+    if OLD.status <> 'ACEITO' then
+      raise exception 'Só é possível enviar para a cozinha um pedido ACEITO (pedido #%).', OLD.numero;
+    end if;
+    if not OLD.requer_cozinha then
+      raise exception 'Pedido #% não tem item de preparo — não precisa ir para a cozinha.', OLD.numero;
+    end if;
+    NEW.enviado_cozinha_em := now();
+    return NEW;
+  end if;
+
+  if OLD.estacao_atual = 'COZINHA' and NEW.estacao_atual = 'BALCAO' then
+    if NEW.status not in ('PRONTO', 'EM_ROTA', 'FINALIZADO', 'CANCELADO') then
+      raise exception 'Devolução ao balcão só é permitida ao concluir a preparação (pedido #%).', OLD.numero;
+    end if;
+    NEW.devolvido_balcao_em := coalesce(NEW.devolvido_balcao_em, now());
+    return NEW;
+  end if;
+
+  raise exception 'Transição de bastão inválida: % → % (pedido #%).', OLD.estacao_atual, NEW.estacao_atual, OLD.numero;
+end;
+$function$;
