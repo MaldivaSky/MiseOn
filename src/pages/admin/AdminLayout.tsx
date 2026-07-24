@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History, CreditCard, ShoppingCart, Flame, ChevronLeft, Menu, UserCircle, LifeBuoy, LayoutDashboard, Calculator, ChefHat, LayoutGrid, MessageSquare, MessageCircle, Plug } from 'lucide-react';
+import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History, CreditCard, ShoppingCart, Flame, ChevronLeft, Menu, UserCircle, LifeBuoy, LayoutDashboard, Calculator, ChefHat, LayoutGrid, MessageSquare, MessageCircle, Plug, FileText } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { avaliarAssinatura } from '../../lib/assinatura';
 import ThemeToggle from '../../components/ThemeToggle';
@@ -246,6 +246,7 @@ export default function AdminLayout() {
     { to: '/admin/equipe', icon: <Users size={20} />, label: 'Equipe e Acessos', colorHex: C.pink },
     { to: '/admin/assinatura', icon: <CreditCard size={20} />, label: 'Assinatura SaaS', colorHex: C.emerald },
     { to: '/admin/loja', icon: <Store size={20} />, label: 'Configurações da Loja', colorHex: C.indigo },
+    { to: '/admin/fiscal', icon: <FileText size={20} />, label: 'Módulo Fiscal (NFe/NFCe)', colorHex: C.emerald },
     { to: '/admin/ajuda', icon: <LifeBuoy size={20} />, label: 'Central de Ajuda', colorHex: C.blue },
   ];
 
@@ -416,7 +417,7 @@ export default function AdminLayout() {
                 <p className={`px-5 mb-2 mt-4 text-[10px] font-bold tracking-widest text-gray-400 uppercase transition-all duration-300 ${isCollapsed ? 'text-center text-[8px]' : ''}`}>
                   {isCollapsed ? '---' : 'Configurações'}
                 </p>
-                {[...principal, ...mais].filter(p => ['/admin/equipe', '/admin/loja', '/admin/assinatura'].includes(p.to)).map(p => renderSidebarLink(p))}
+                {[...principal, ...mais].filter(p => ['/admin/equipe', '/admin/loja', '/admin/fiscal', '/admin/assinatura'].includes(p.to)).map(p => renderSidebarLink(p))}
               </div>
 
               {/* Suporte */}
