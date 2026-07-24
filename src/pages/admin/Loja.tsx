@@ -9,6 +9,7 @@ import ImageUpload from '../../components/ImageUpload';
 import { FiscalOnboarding } from '../../components/admin/FiscalOnboarding';
 import { IfoodOnboarding } from '../../components/admin/IfoodOnboarding';
 import type { CtxLoja } from './AdminLayout';
+import MiseOnLoader from '../../components/MiseOnLoader';
 import type { EntregaModo, FaixaEntrega, HorarioFuncionamento } from '../../types';
 import { maskCPFouCNPJ, maskTelefone, validarCPFouCNPJ } from '../../lib/mascaras';
 import { EFI_TARIFAS, EFI_LINKS } from '../../lib/efiInfo';
@@ -405,7 +406,13 @@ export default function Loja() {
     setOk(true); setTimeout(() => setOk(false), 2500);
   };
 
-  if (carregando) return <div className="p-8 text-center text-gray-400">Carregando…</div>;
+  if (carregando) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <MiseOnLoader status="Carregando configurações da loja..." rows={2} />
+      </div>
+    );
+  }
 
   const linkPublico = `${window.location.origin}/${slug}`;
   const fundoPreview = obterFundoLojaPorTema(temaPreview, form);

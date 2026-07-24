@@ -11,6 +11,7 @@ import { tocarSom } from '../lib/som';
 import { aplicarTema, obterTemaPreferido, type PreferenciaTema } from '../lib/tema';
 import { fonteFamilia, obterFundoLojaPorTema, obterTokensLoja } from '../lib/personalizacao';
 import ThemeToggle from '../components/ThemeToggle';
+import MiseOnLoader from '../components/MiseOnLoader';
 
 const ETAPAS_DELIVERY: { status: StatusPedido; label: string; icon: ReactNode }[] = [
   { status: 'NOVO', label: 'Recebido', icon: <Clock size={16} /> },
@@ -306,7 +307,11 @@ export default function AcompanharPedido() {
   }, [pedido?.tipo_pedido, pedido?.requer_cozinha]);
 
   if (!pedido) {
-    return <div className="flex h-screen items-center justify-center text-gray-400 dark:bg-gray-950">Carregando pedido...</div>;
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#F4F7FA] dark:bg-[#070C18]">
+        <MiseOnLoader status="Carregando acompanhamento do pedido..." rows={2} />
+      </div>
+    );
   }
 
   const idxAtual = etapasAtuais.findIndex((e) => e.status === pedido.status);

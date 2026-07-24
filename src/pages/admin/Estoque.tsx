@@ -6,6 +6,7 @@ import { Insumo, fmt, InsumoRendimentoJSON } from '../../types';
 import { UNIDADES, destinosPermitidos, validarConversao } from '../../lib/unidades';
 import { OPCOES_SETOR, SETORES, validarSetor, derivarSetor } from '../../lib/estoque3d/rastreio/setores';
 import type { CtxLoja } from './AdminLayout';
+import MiseOnLoader from '../../components/MiseOnLoader';
 import EstoquePreparos from './EstoquePreparos';
 import { SimuladorCusto } from '../../components/custeio';
 import type { ItemEstoque, FatorItem } from '../../lib/custeio';
@@ -299,11 +300,11 @@ export default function Estoque() {
       </div>
 
       {tab === 'rastreio3d' ? (
-        <Suspense fallback={<div className="h-[560px] rounded-2xl bg-gray-100 dark:bg-gray-800/40 animate-pulse" />}>
+        <Suspense fallback={<div className="flex h-[560px] items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800/40"><MiseOnLoader status="Carregando Rastreio 3D..." rows={2} /></div>}>
           <EstoqueRastreio3D lojaId={lojaId} />
         </Suspense>
       ) : tab === 'custo3d' ? (
-        <Suspense fallback={<div className="h-[520px] rounded-2xl bg-gray-100 dark:bg-gray-800/40 animate-pulse" />}>
+        <Suspense fallback={<div className="flex h-[520px] items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800/40"><MiseOnLoader status="Carregando Custo 3D..." rows={2} /></div>}>
           <EstoqueCusto3D lojaId={lojaId} />
         </Suspense>
       ) : tab === 'preparos' ? (

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { User as UserIcon, Lock, Mail, Phone, ShieldCheck, Loader2, CheckCircle2, AlertCircle, KeyRound, X, RefreshCw, ArrowRight } from 'lucide-react';
+import MiseOnLoader from '../../components/MiseOnLoader';
 
 export default function MinhaConta() {
   const [user, setUser] = useState<User | null>(null);
@@ -177,7 +178,7 @@ export default function MinhaConta() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 size={32} className="animate-spin text-gray-400" />
+        <MiseOnLoader status="Carregando dados da conta..." rows={2} />
       </div>
     );
   }

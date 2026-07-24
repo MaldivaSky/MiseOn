@@ -8,6 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { supabase } from '../../lib/supabase';
 import { fmt, ProdutoCusto, ConfiguracoesCusto, Pedido, MetodoPgto } from '../../types';
 import type { CtxLoja } from './AdminLayout';
+import MiseOnLoader from '../../components/MiseOnLoader';
 
 const defaultCustos: ConfiguracoesCusto = {
   loja_id: '',
@@ -192,7 +193,13 @@ export default function Financeiro() {
     setTimeout(() => setMensagem(''), 3000);
   };
 
-  if (carregando) return <div className="p-8 text-center text-gray-400">Carregando inteligência financeira…</div>;
+  if (carregando) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <MiseOnLoader status="Carregando inteligência financeira..." rows={2} />
+      </div>
+    );
+  }
 
   const totalFixoMensal = Number(configCusto.custo_aluguel) + Number(configCusto.custo_energia) + Number(configCusto.custo_agua) + Number(configCusto.custo_internet) + Number(configCusto.custo_gas) + Number(configCusto.outros_custos_fixos);
   const rateioSimulado = Number(configCusto.expectativa_vendas_mes) > 0 ? totalFixoMensal / Number(configCusto.expectativa_vendas_mes) : 0;

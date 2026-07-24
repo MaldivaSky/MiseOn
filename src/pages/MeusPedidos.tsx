@@ -6,6 +6,7 @@ import { fmt, type Loja, type Pedido, type StatusPedido } from '../types';
 import { aplicarTema, obterTemaPreferido, type PreferenciaTema } from '../lib/tema';
 import { fonteFamilia, obterFundoLojaPorTema, obterTokensLoja } from '../lib/personalizacao';
 import ThemeToggle from '../components/ThemeToggle';
+import MiseOnLoader from '../components/MiseOnLoader';
 
 const STATUS_LABEL: Record<StatusPedido, string> = {
   NOVO: 'Recebido',
@@ -240,7 +241,9 @@ export default function MeusPedidos() {
         )}
 
         {carregando && logado !== false && (
-          <p className="py-12 text-center text-sm" style={{ color: 'var(--cor-texto-fraco)' }}>Carregando seus pedidos...</p>
+          <div className="py-12 flex justify-center">
+            <MiseOnLoader status="Carregando seus pedidos..." rows={2} />
+          </div>
         )}
 
         {logado && !carregando && (

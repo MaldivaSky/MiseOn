@@ -12,6 +12,7 @@ import { fmt, type Mesa, type Comanda, type Pedido, type Loja, type MetodoPgto }
 import { gerarQrDataUrl } from '../../lib/qr';
 import { imprimir } from '../../lib/print';
 import type { CtxLoja } from './AdminLayout';
+import MiseOnLoader from '../../components/MiseOnLoader';
 import { Mesas3DCanvas } from '../../lib/mesas3d/Mesas3DCanvas';
 import { prepararLayoutSalao3D } from '../../lib/mesas3d/layoutMesas';
 import type { Mesa3DPosicionada } from '../../lib/mesas3d/types';
@@ -365,7 +366,13 @@ export default function Mesas() {
 
   const inputCls = 'w-full rounded-xl border border-gray-300 p-2.5 text-sm outline-none focus:border-[var(--cor-primaria)] dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100';
 
-  if (carregando) return <div className="p-8 text-center text-gray-400">Carregando o salão…</div>;
+  if (carregando) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <MiseOnLoader status="Carregando mapa do salão..." rows={2} />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl p-4 pb-12">

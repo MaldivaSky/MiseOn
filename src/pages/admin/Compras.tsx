@@ -4,6 +4,7 @@ import { ShoppingCart, CheckCircle2, Circle, PackageCheck, AlertTriangle, ArrowR
 import { supabase } from '../../lib/supabase';
 import { Insumo, fmt } from '../../types';
 import type { CtxLoja } from './AdminLayout';
+import MiseOnLoader from '../../components/MiseOnLoader';
 
 interface ItemCompra {
   insumo: Insumo;
@@ -122,7 +123,13 @@ export default function Compras() {
     }
   };
 
-  if (carregando) return <div className="p-8 text-center text-gray-400">Verificando despensa...</div>;
+  if (carregando) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <MiseOnLoader status="Verificando a despensa..." rows={2} />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 max-w-4xl mx-auto pb-24">

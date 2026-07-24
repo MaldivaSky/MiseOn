@@ -7,6 +7,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import type { MembroEquipe, TipoContrato } from '../../types';
 import type { CtxLoja } from './AdminLayout';
+import MiseOnLoader from '../../components/MiseOnLoader';
 
 const PAPEL_INFO: Record<string, { label: string; icon: typeof ShieldCheck; classe: string }> = {
   admin:      { label: 'Admin',      icon: ShieldCheck,     classe: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
@@ -198,7 +199,9 @@ export default function Equipe() {
 
       {/* ── Lista de membros ── */}
       {carregando ? (
-        <p className="py-8 text-center text-sm text-gray-400">Carregando equipe…</p>
+        <div className="flex h-64 items-center justify-center">
+          <MiseOnLoader status="Carregando equipe..." rows={2} />
+        </div>
       ) : erroLista ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-400">
           {erroLista}

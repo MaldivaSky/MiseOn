@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { Pedido, StatusPedido, fmt } from '../../types';
 import type { CtxLoja } from './AdminLayout';
 import { Timer } from 'lucide-react';
+import MiseOnLoader from '../../components/MiseOnLoader';
 
 const STATUS_LABEL: Record<StatusPedido, string> = {
   NOVO: 'Recebido', ACEITO: 'Aceito', PREPARANDO: 'Preparando',
@@ -108,7 +109,9 @@ export default function Historico() {
       <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">{visiveis.length} pedido(s) · faturamento no filtro: <b className="text-gray-700">{fmt(totalPeriodo)}</b></p>
 
       {carregando ? (
-        <p className="py-10 text-center text-sm text-gray-400">Carregando…</p>
+        <div className="flex h-64 items-center justify-center">
+          <MiseOnLoader status="Carregando histórico de pedidos..." rows={2} />
+        </div>
       ) : (
         <div className="space-y-2">
           {visiveis.map((p) => (

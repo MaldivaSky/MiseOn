@@ -9,6 +9,7 @@ import {
 import { imprimir } from '../../lib/print';
 import { obterOuCriarComandaAberta } from '../../lib/comandas';
 import type { CtxLoja } from './AdminLayout';
+import MiseOnLoader from '../../components/MiseOnLoader';
 
 import { HeaderBar } from '../../components/pdv/HeaderBar';
 import { ProductGrid } from '../../components/pdv/ProductGrid';
@@ -399,7 +400,13 @@ export default function PDV() {
 
   /* ═════════════════════════ UI ═════════════════════════ */
 
-  if (turno === undefined) return <div className="p-8 text-center text-gray-400">Abrindo o PDV…</div>;
+  if (turno === undefined) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <MiseOnLoader status="Abrindo o PDV..." rows={2} />
+      </div>
+    );
+  }
 
   const propsCaixaModal = {
     modalCaixa, setModalCaixa, salvandoCaixa, valorCaixa, setValorCaixa,

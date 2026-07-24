@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { Insumo, Loja, fmt } from '../../types';
 import type { CtxLoja } from './AdminLayout';
 import { imprimir } from '../../lib/print';
+import MiseOnLoader from '../../components/MiseOnLoader';
 
 type Ficha = { insumo_id: string; quantidade: number };
 
@@ -483,8 +484,8 @@ export default function KDSProducao() {
       </div>
 
       {carregando ? (
-        <div className="flex items-center justify-center py-20 text-gray-400 gap-2">
-          <Loader2 size={20} className="animate-spin" /> Carregando fila…
+        <div className="flex items-center justify-center py-20">
+          <MiseOnLoader status="Carregando ordens de produção..." rows={2} />
         </div>
       ) : preparos.length === 0 ? (
         <div className="text-center py-20 text-gray-400 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">

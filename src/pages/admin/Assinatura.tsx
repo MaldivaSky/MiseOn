@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { avaliarAssinatura } from '../../lib/assinatura';
 import { BandeiraMark } from '../../components/ui';
 import type { CtxLoja } from './AdminLayout';
+import MiseOnLoader from '../../components/MiseOnLoader';
 
 export default function Assinatura() {
   const { lojaId, lojaNome } = useOutletContext<CtxLoja>();
@@ -143,10 +144,7 @@ export default function Assinatura() {
 
   if (carregando) return (
     <div className="flex h-[50vh] items-center justify-center">
-      <div className="flex flex-col items-center gap-3">
-         <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-[var(--cor-primaria)]"></div>
-         <p className="text-sm font-semibold text-gray-400">Autenticando ambiente seguro...</p>
-      </div>
+      <MiseOnLoader status="Autenticando ambiente seguro..." rows={2} />
     </div>
   );
 

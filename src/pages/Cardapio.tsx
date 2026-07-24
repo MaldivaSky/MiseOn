@@ -19,6 +19,7 @@ import CheckoutDrawer from '../components/CheckoutDrawer';
 import PagamentoStatus, { type PixInfo } from '../components/PagamentoStatus';
 import ThemeToggle from '../components/ThemeToggle';
 import ChatInterface from '../components/chat/ChatInterface';
+import MiseOnLoader from '../components/MiseOnLoader';
 
 const guardarUltimoPedido = (slug: string | undefined, pedidoId: string, numero: number) => {
   if (!slug) return;
@@ -816,37 +817,8 @@ const ProdutoCard = memo(({ p, onClick }: { p: Produto; onClick: () => void }) =
 ));
 
 const CardapioSkeleton = () => (
-  <div className="min-h-screen pb-28 lg:pb-16 bg-gray-50 dark:bg-gray-900 animate-pulse">
-    <div className="h-48 w-full bg-gray-300 dark:bg-gray-800 sm:h-64 lg:h-80" />
-    <div className="mx-auto max-w-6xl px-4 pb-4 sm:px-6 sm:pb-6 -mt-10 lg:-mt-16 flex items-end gap-4 relative z-10">
-      <div className="h-16 w-16 shrink-0 rounded-2xl bg-gray-400 dark:bg-gray-700 sm:h-24 sm:w-24" />
-      <div className="flex-1 space-y-2 pb-1">
-        <div className="h-6 w-1/3 rounded-lg bg-gray-400 dark:bg-gray-700" />
-        <div className="h-3 w-1/4 rounded-lg bg-gray-300 dark:bg-gray-600" />
-      </div>
-    </div>
-    <div className="mx-auto max-w-6xl px-4 lg:px-6 pt-4 space-y-8">
-      <div className="flex gap-2">
-        <div className="h-10 w-20 rounded-full bg-gray-300 dark:bg-gray-800" />
-        <div className="h-10 w-24 rounded-full bg-gray-300 dark:bg-gray-800" />
-        <div className="h-10 w-16 rounded-full bg-gray-300 dark:bg-gray-800" />
-      </div>
-      <div>
-        <div className="h-5 w-32 rounded-lg bg-gray-300 dark:bg-gray-800 mb-4" />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex gap-3 rounded-[24px] p-2.5 bg-gray-200 dark:bg-gray-800/50">
-              <div className="h-24 w-24 shrink-0 rounded-2xl bg-gray-300 dark:bg-gray-700" />
-              <div className="flex-1 py-3 pr-3 space-y-2">
-                <div className="h-4 w-3/4 rounded bg-gray-300 dark:bg-gray-700" />
-                <div className="h-3 w-full rounded bg-gray-300 dark:bg-gray-700" />
-                <div className="h-3 w-5/6 rounded bg-gray-300 dark:bg-gray-700" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+  <div className="flex h-screen items-center justify-center bg-[#F4F7FA] dark:bg-[#070C18]">
+    <MiseOnLoader status="Carregando cardápio..." rows={3} />
   </div>
 );
 
