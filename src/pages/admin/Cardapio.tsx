@@ -80,7 +80,7 @@ export default function CardapioAdmin() {
   };
 
   return (
-    <div className="p-4">
+    <div data-tour="tour-cardapio-header" className="p-4">
       <div className="mb-3 flex gap-2">
         {(['produtos', 'categorias'] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}

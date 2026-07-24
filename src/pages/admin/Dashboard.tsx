@@ -182,7 +182,7 @@ export default function Dashboard() {
   return (
     <div className="mx-auto max-w-5xl p-4 pb-12">
       {/* ── Saudação ── */}
-      <div className="mb-5">
+      <div data-tour="tour-dashboard-header" className="mb-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{hoje}</p>
         <h2 className="mt-1 text-2xl font-black dark:text-gray-100">{saudacao()}, {lojaNome} 👋</h2>
       </div>

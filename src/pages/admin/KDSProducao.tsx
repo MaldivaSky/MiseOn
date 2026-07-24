@@ -471,7 +471,7 @@ export default function KDSProducao() {
   return (
     <div className="print:hidden p-4 sm:p-6 pb-24 animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-6 text-white mb-6 shadow-lg shadow-orange-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div data-tour="tour-producao-header" className="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-6 text-white mb-6 shadow-lg shadow-orange-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="bg-white/20 p-4 rounded-full backdrop-blur-sm"><ChefHat size={32} /></div>
           <div>

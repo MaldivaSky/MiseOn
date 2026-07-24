@@ -375,7 +375,7 @@ export default function Mesas() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-4 pb-12">
+    <div data-tour="tour-mesas-header" className="mx-auto max-w-5xl p-4 pb-12">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-xl font-black dark:text-gray-100">

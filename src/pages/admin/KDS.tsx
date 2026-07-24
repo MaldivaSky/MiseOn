@@ -536,7 +536,7 @@ export default function KDS() {
     <div className="flex h-[calc(100vh-64px)] flex-col bg-[#070C18] px-4 pt-3 lg:h-screen">
       
       {/* ── Cabeçalho KDS Kanban ── */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div data-tour="tour-kds-header" className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <ChefHat size={22} className="text-orange-500" />
           <h2 className="font-['Sora'] text-xl font-black text-white">KDS Kanban Cozinha</h2>

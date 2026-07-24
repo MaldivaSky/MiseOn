@@ -211,7 +211,7 @@ export default function Financeiro() {
   );
 
   return (
-    <div className="p-4 max-w-3xl mx-auto">
+    <div data-tour="tour-financeiro-header" className="p-4 max-w-3xl mx-auto">
       <div className="mb-3 flex items-center gap-2">
         <h2 className="font-bold text-xl dark:text-gray-100">Financeiro</h2>
         <span className="flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">

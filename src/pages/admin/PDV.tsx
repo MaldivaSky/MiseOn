@@ -443,7 +443,7 @@ export default function PDV() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-64px)] flex-col lg:h-screen">
+    <div data-tour="tour-pdv-header" className="flex h-[calc(100vh-64px)] flex-col lg:h-screen">
       <HeaderBar
         modo={modo}
         setModo={(m) => {

@@ -243,7 +243,7 @@ export default function PainelPedidos() {
           <span className="font-['JetBrains_Mono'] text-[11px] tracking-[0.28em] text-orange-500 uppercase">PAINEL · AO VIVO</span>
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#22c55e]" />
         </div>
-        <h2 className="m-0 font-['Sora'] text-[26px] font-extrabold text-gray-900 dark:text-white">Balcão</h2>
+        <h2 data-tour="tour-pedidos-header" className="m-0 font-['Sora'] text-[26px] font-extrabold text-gray-900 dark:text-white">Balcão</h2>
         <p className="mt-1 font-['JetBrains_Mono'] text-xs text-gray-500 dark:text-gray-400">
           {pedidos.length} pedidos hoje · {ativos.length} em andamento
         </p>
@@ -255,7 +255,7 @@ export default function PainelPedidos() {
         )}
 
         {/* ── Filtro por status ── */}
-        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+        <div data-tour="tour-pedidos-filtros" className="mt-4 flex gap-2 overflow-x-auto pb-1">
           {filtros.map((f) => {
             const qtd = contagem(f);
             const ativo = filtro === f.id;
