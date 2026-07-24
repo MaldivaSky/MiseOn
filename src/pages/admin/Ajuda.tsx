@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import {
   LifeBuoy, ChevronDown, Landmark, QrCode, CreditCard, Check,
   ExternalLink, MessageCircle, ShieldCheck, Wallet, HelpCircle, ClipboardList,
-  Settings, BarChart3, Users, PhoneCall, PlayCircle, MonitorSmartphone, LayoutDashboard, Mail
+  Settings, BarChart3, Users, PhoneCall, PlayCircle, MonitorSmartphone, LayoutDashboard, Mail,
+  Compass, Sparkles, ArrowRight
 } from 'lucide-react';
 import { EFI_TARIFAS, EFI_LINKS } from '../../lib/efiInfo';
 
@@ -47,6 +48,10 @@ function Passo({ n, titulo, children }: { n: number; titulo: string; children: R
 export default function Ajuda() {
   const [tabAtiva, setTabAtiva] = useState<'sistema' | 'integracoes' | 'financeiro' | 'indicadores' | 'especialista'>('sistema');
 
+  const dispararTour = () => {
+    window.dispatchEvent(new CustomEvent('iniciar-guided-tour'));
+  };
+
   return (
     <div className="mx-auto max-w-4xl p-4 pb-16">
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -63,6 +68,31 @@ export default function Ajuda() {
           className="inline-flex items-center gap-2 rounded-full bg-green-500/10 px-4 py-2 text-sm font-bold text-green-600 transition hover:bg-green-500/20 dark:text-green-400">
           <MessageCircle size={16} /> Suporte Rápido
         </a>
+      </div>
+
+      {/* ── BANNER HERO: TOUR COMPLETO DO SISTEMA (20 PASSOS) ── */}
+      <div className="mb-8 overflow-hidden rounded-3xl border-2 border-orange-500/50 bg-gradient-to-r from-gray-900 via-slate-900 to-indigo-950 p-6 sm:p-8 text-white shadow-xl relative">
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-2 max-w-xl">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-500/20 border border-orange-500/40 px-3 py-1 text-xs font-black uppercase tracking-wider text-orange-400">
+              <Sparkles size={14} /> Treinamento Interativo Completo
+            </span>
+            <h3 className="font-['Sora'] text-xl sm:text-2xl font-black leading-snug">
+              🚀 Tour Completo do Sistema (20 Passos)
+            </h3>
+            <p className="text-sm text-slate-300 font-medium leading-relaxed">
+              Percorra todos os módulos do MiseOn de ponta a ponta: do recebimento de pedidos no Balcão, baixa de estoque, Custo 3D, Salão 3D, KDS até a conciliação Efí Bank.
+            </p>
+          </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('iniciar-guided-tour-completo'))}
+            className="shrink-0 flex items-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 px-6 py-3.5 text-sm sm:text-base font-black text-white shadow-[0_0_25px_rgba(249,115,22,0.5)] hover:scale-105 transition-all"
+          >
+            <Compass size={20} />
+            <span>Iniciar Tour Completo (20 Passos)</span>
+            <ArrowRight size={18} />
+          </button>
+        </div>
       </div>
 
       {/* ── Tabs Navigation ── */}
@@ -102,6 +132,36 @@ export default function Ajuda() {
       {/* ── TAB: SISTEMA ── */}
       {tabAtiva === 'sistema' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* BANNER HERO: TOUR GUIADO INTERATIVO */}
+          <div className="relative mb-8 overflow-hidden rounded-3xl border border-orange-500/30 bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A] p-6 shadow-xl text-white sm:p-8">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-orange-500/20 blur-3xl" />
+            <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+              <div className="flex items-start gap-4">
+                <div className="rounded-2xl border border-orange-500/30 bg-orange-500/20 p-3.5 text-orange-400 backdrop-blur-md shrink-0">
+                  <Compass size={32} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="rounded-full bg-orange-500/20 border border-orange-500/30 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-orange-400">
+                      Novo Recurso Interativo
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-black tracking-tight text-white">Tour Guiado Completo pelo Sistema</h3>
+                  <p className="mt-1 text-sm text-slate-300 leading-relaxed max-w-xl">
+                    Aprenda na prática! O assistente conduz você pelas telas de <b>Pedidos</b>, <b>Estoque (Insumos, Receitas e 3D)</b>, <b>KDS Cozinha</b>, <b>iFood</b> e <b>WhatsApp IA</b> iluminando exatamente o que você precisa clicar.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={dispararTour}
+                className="shrink-0 flex items-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-orange-500/30 hover:scale-105 active:scale-95 transition-all"
+              >
+                <Sparkles size={18} /> Iniciar Tour Guiado <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+
           <div className="mb-8 rounded-3xl border border-blue-200/60 bg-gradient-to-br from-blue-50 to-indigo-50/30 p-6 dark:border-blue-900/30 dark:from-blue-900/10 dark:to-indigo-900/10">
              <div className="flex items-start gap-4">
                <div className="rounded-full bg-blue-100 p-3 dark:bg-blue-900/30">

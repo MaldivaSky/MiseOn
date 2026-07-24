@@ -1,6 +1,6 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History, CreditCard, ShoppingCart, Flame, ChevronLeft, Menu, UserCircle, LifeBuoy, LayoutDashboard, Calculator, ChefHat, LayoutGrid, MessageSquare, MessageCircle, Plug, FileText } from 'lucide-react';
+import { ClipboardList, Boxes, Bike, Store, LogOut, UtensilsCrossed, MoreHorizontal, X, TrendingUp, Megaphone, Users, History, CreditCard, ShoppingCart, Flame, ChevronLeft, Menu, UserCircle, LifeBuoy, LayoutDashboard, Calculator, ChefHat, LayoutGrid, MessageSquare, MessageCircle, Plug, FileText, Compass } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { avaliarAssinatura } from '../../lib/assinatura';
 import ThemeToggle from '../../components/ThemeToggle';
@@ -8,6 +8,8 @@ import { NotificationCenter } from '../../components/notifications/NotificationC
 import { useLedgerAlerts } from '../../hooks/useLedgerAlerts';
 import { BrandLoader } from '../../components/BrandLoader';
 import { podeAcessar, HOME_POR_PAPEL, type Papel } from '../../lib/permissoes';
+import { useGuidedTour } from '../../hooks/useGuidedTour';
+import { GuidedTourModal } from '../../components/tour/GuidedTourModal';
 
 export interface RouteDef {
   to: string;
@@ -55,6 +57,9 @@ export default function AdminLayout() {
   // Monitoramento financeiro em tempo real — alertas de estorno suspeito,
   // cancelamento com estoque comprometido e erros de webhook
   useLedgerAlerts({ lojaId: ctx?.lojaId ?? '' });
+
+  // Hook de controle do Tour Guiado pelo Sistema (deve estar no topo antes dos early-returns)
+  const tour = useGuidedTour(ctx?.lojaId);
 
   // Regras Inteligentes de Transição (Forward / Backward)
   useEffect(() => {
@@ -439,8 +444,6 @@ export default function AdminLayout() {
           )}
         </div>
 
-
-
         {/* Footer da Sidebar (Usuário) */}
         <div className={`p-4 border-t border-gray-200/30 dark:border-white/10 space-y-2 shrink-0 transition-all duration-300 overflow-hidden bg-white/20 dark:bg-black/10 backdrop-blur-md rounded-b-[2rem]`}>
           <a
@@ -463,7 +466,7 @@ export default function AdminLayout() {
             <div className="nav-link-bg absolute inset-0 opacity-0 transition-opacity duration-500 pointer-events-none rounded-2xl" />
             <UserCircle size={20} className="nav-link-icon shrink-0 transition-transform duration-300" />
             <span className={`nav-link-text whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>Minha Conta</span>
-            {isCollapsed && <div className="absolute left-full ml-4 px-3 py-2 bg-gray-900/90 backdrop-blur-sm dark:bg-white/90 text-white dark:text-gray-900 text-sm font-bold rounded-xl opacity-0 -translate-x-2 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 shadow-xl z-50 whitespace-nowrap">Minha Conta</div>}
+            {isCollapsed && <div className="absolute left-full ml-4 px-3 py-2 bg-gray-900/90 backdrop-blur-sm dark:bg-[#111827]/90 text-white text-sm font-bold rounded-xl opacity-0 -translate-x-2 pointer-events-none transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 shadow-xl z-50 whitespace-nowrap">Minha Conta</div>}
           </NavLink>
           <button
             onClick={sair}
@@ -512,7 +515,23 @@ export default function AdminLayout() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                if (location.pathname === '/admin/ajuda') {
+                  tour.iniciarTourCompleto();
+                } else {
+                  tour.iniciarTourDaPagina(location.pathname);
+                }
+              }}
+              title={location.pathname === '/admin/ajuda' ? 'Iniciar Tour Completo do Sistema (20 Passos)' : 'Iniciar Tour Guiado desta página'}
+              className="flex items-center gap-1.5 rounded-full border border-orange-500/40 bg-orange-500/10 px-3.5 py-1.5 text-xs font-extrabold text-orange-600 dark:text-orange-400 hover:bg-orange-500/20 transition shadow-sm"
+            >
+              <Compass size={15} />
+              <span className="hidden sm:inline">
+                {location.pathname === '/admin/ajuda' ? 'Tour Completo 🚀' : 'Tour desta Página 📍'}
+              </span>
+            </button>
             {ctx?.lojaId && <NotificationCenter lojaId={ctx.lojaId} />}
             <ThemeToggle />
           </div>
@@ -541,7 +560,9 @@ export default function AdminLayout() {
 
           {/* Container com transição inteligente (mo-screen ou mo-screen-back) baseada na profundidade */}
           <div key={loc.pathname} className={`mx-auto max-w-6xl w-full h-full ${transitionClass}`}>
-            <Outlet context={ctx} />
+            <Suspense fallback={<BrandLoader title="Carregando módulo..." />}>
+              <Outlet context={ctx} />
+            </Suspense>
           </div>
         </main>
 
@@ -588,11 +609,6 @@ export default function AdminLayout() {
       )}
 
       {/* ── BOTTOM NAV (SOMENTE MOBILE) ── */}
-      {/* 
-          Diferente da versão "floating", esta barra é 100% fixa ao chão sem espaçamentos laterais.
-          Ela funciona como um BottomNavigationView padrão, não obstrui as telas internas pois 
-          telas como Compras terão seu próprio z-index e padding-bottom.
-      */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-[#111827] border-t border-gray-200 dark:border-gray-800 flex justify-around items-center h-16 pb-safe print:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         {bottomNav.map((i) => (
           <NavLink key={i.to} to={i.to}
@@ -618,6 +634,17 @@ export default function AdminLayout() {
         </button>
       </nav>
 
+      {/* ── MODAL DO TOUR GUIADO ── */}
+      <GuidedTourModal
+        ativo={tour.ativo}
+        passoAtual={tour.passoAtual}
+        passoIndex={tour.passoIndex}
+        totalPassos={tour.totalPassos}
+        targetElement={tour.targetElement}
+        onProximo={tour.proximoPasso}
+        onAnterior={tour.passoAnterior}
+        onEncerrar={tour.encerrarTour}
+      />
     </div>
   );
 }
