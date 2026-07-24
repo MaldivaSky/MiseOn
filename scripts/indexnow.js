@@ -1,7 +1,7 @@
 import https from 'https';
 
 const host = 'miseon.app.br';
-const key = 'bafd591fb187443394a2f30550742e97';
+const key = '85ab415ae21f43bb8c74ac936ea56de5';
 const keyLocation = `https://${host}/${key}.txt`;
 
 const payload = JSON.stringify({
