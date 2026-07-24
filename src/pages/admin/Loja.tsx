@@ -503,7 +503,7 @@ export default function Loja() {
 
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
         {(['aparencia', 'identidade', 'logistica', 'horarios', 'pagamentos', 'fiscal', 'ifood'] as Aba[]).map((a) => (
-          <button key={a} onClick={() => setAba(a)}
+          <button key={a} data-tour={a === 'pagamentos' ? "tour-loja-aba-pagamentos" : undefined} onClick={() => setAba(a)}
             className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${aba === a ? 'bg-[var(--cor-primaria)] text-white' : 'bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-600 dark:text-gray-300 shadow-sm'}`}>
             {a === 'aparencia' ? 'Aparência' : a === 'identidade' ? 'Identidade' : a === 'logistica' ? 'Entrega e Cobertura' : a === 'horarios' ? 'Horários' : a === 'pagamentos' ? 'Pagamentos' : a === 'fiscal' ? 'Fiscal (NFC-e)' : 'Integrações (iFood)'}
           </button>
@@ -914,7 +914,7 @@ export default function Loja() {
       )}
 
       {aba === 'pagamentos' && (
-        <div className="space-y-4">
+        <div data-tour="tour-loja-pagamentos" className="space-y-4">
           <Link to="/admin/ajuda" className="flex items-center justify-between gap-3 rounded-2xl border border-dashed border-[var(--cor-primaria)]/40 bg-[var(--cor-primaria)]/5 px-4 py-3 transition hover:bg-[var(--cor-primaria)]/10">
             <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
               🧭 Primeira vez configurando? A <b>Central de Ajuda</b> tem o passo a passo completo — da abertura da conta Efí até o dinheiro na sua mão.
@@ -965,7 +965,7 @@ export default function Loja() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-[var(--cor-primaria)] bg-[var(--cor-primaria)]/5 p-4">
+          <div data-tour="tour-loja-efi-payee" className="rounded-2xl border border-[var(--cor-primaria)] bg-[var(--cor-primaria)]/5 p-4">
             <h3 className="mb-1 text-sm font-bold text-[var(--cor-primaria)]">Cartão de crédito direto na sua conta (Identificador Efí)</h3>
             <p className="mb-4 text-xs text-gray-600 dark:text-gray-300">
               Com este código, <b>cada venda no cartão é repassada 100% para a sua conta Efí automaticamente</b>.

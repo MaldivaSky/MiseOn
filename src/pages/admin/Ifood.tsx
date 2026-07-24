@@ -113,23 +113,38 @@ export default function Ifood() {
 
       {/* ── Abas ── */}
       <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
-        {([
-          { id: 'conexao', label: 'Conexão e Taxas', icon: <Link2 size={15} /> },
-          { id: 'depara', label: 'De-Para de Produtos', icon: <Package size={15} /> },
-          { id: 'pedidos', label: 'Pedidos iFood', icon: <ClipboardList size={15} /> },
-        ] as { id: Aba; label: string; icon: any }[]).map((a) => (
-          <button
-            key={a.id}
-            onClick={() => setAba(a.id)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition ${
-              aba === a.id
-                ? 'bg-red-600 text-white shadow-md shadow-red-600/25'
-                : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'
-            }`}
-          >
-            {a.icon} {a.label}
-          </button>
-        ))}
+        <button
+          data-tour="tour-ifood-aba-credenciais"
+          onClick={() => setAba('conexao')}
+          className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition ${
+            aba === 'conexao'
+              ? 'bg-red-600 text-white shadow-md shadow-red-600/25'
+              : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'
+          }`}
+        >
+          <Link2 size={15} /> Conexão e Taxas
+        </button>
+        <button
+          data-tour="tour-ifood-aba-depara"
+          onClick={() => setAba('depara')}
+          className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition ${
+            aba === 'depara'
+              ? 'bg-red-600 text-white shadow-md shadow-red-600/25'
+              : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'
+          }`}
+        >
+          <Package size={15} /> De-Para de Produtos
+        </button>
+        <button
+          onClick={() => setAba('pedidos')}
+          className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition ${
+            aba === 'pedidos'
+              ? 'bg-red-600 text-white shadow-md shadow-red-600/25'
+              : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'
+          }`}
+        >
+          <ClipboardList size={15} /> Pedidos iFood
+        </button>
       </div>
 
       {aba === 'conexao' && (

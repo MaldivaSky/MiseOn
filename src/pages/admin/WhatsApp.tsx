@@ -215,7 +215,7 @@ export default function WhatsApp() {
   return (
     <div className="px-4 py-6">
       {/* ── Cabeçalho ── */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div data-tour="tour-whatsapp-header" className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-600/25">
             <MessageCircle size={24} />
