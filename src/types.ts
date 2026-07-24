@@ -11,6 +11,7 @@ export type EntregaModo = 'BAIRRO' | 'DISTANCIA' | 'HIBRIDO';
 // produto e o bastão atual do pedido entre balcão e cozinha.
 export type EstacaoPreparo = 'COZINHA' | 'DIRETO';
 export type EstacaoAtual = 'BALCAO' | 'COZINHA';
+export type TipoVenda = 'UNITARIO' | 'POR_PESO';
 
 export interface EtapaKDS {
   id: string;
@@ -179,6 +180,8 @@ export interface Produto {
   controla_estoque?: boolean;
   ordem?: number;
   vendidos: number;
+  tipo_venda?: TipoVenda;
+  preco_por_quilo?: number;
   grupos_opcoes?: GrupoOpcoes[];
   fichas_tecnicas?: FichaTecnica[];
   tem_estoque?: boolean; // calculado no client via fn_produtos_com_estoque — não existe como coluna
@@ -574,8 +577,20 @@ export interface ConfiguracoesCusto {
 export const fmt = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-export const precoItem = (i: ItemCarrinho) =>
-  (Number(i.produto.preco) + i.opcoesSelecionadas.reduce((s, o) => s + Number(o.preco_adicional), 0)) * i.quantidade;
+export const fmtQtd = (qtd: number, tipoVenda?: TipoVenda) => {
+  if (tipoVenda === 'POR_PESO') {
+    return `${qtd.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg`;
+  }
+  return String(qtd);
+};
+
+export const precoItem = (i: ItemCarrinho) => {
+  const precoBase = i.produto.tipo_venda === 'POR_PESO'
+    ? Number(i.produto.preco_por_quilo || 0) * i.quantidade
+    : Number(i.produto.preco) * i.quantidade;
+  const precoExtras = i.opcoesSelecionadas.reduce((s, o) => s + Number(o.preco_adicional), 0) * (i.produto.tipo_venda === 'POR_PESO' ? 1 : i.quantidade);
+  return precoBase + precoExtras;
+};
 
 // ── Props & Types UI ──────────────────────────────────────────
 

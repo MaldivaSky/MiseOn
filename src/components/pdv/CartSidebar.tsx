@@ -1,5 +1,5 @@
 import { ShoppingCart, Trash2, Plus, Minus, Loader2 } from 'lucide-react';
-import { fmt, precoItem } from '../../types';
+import { fmt, fmtQtd, precoItem } from '../../types';
 import type { CartSidebarProps } from '../../types';
 
 export function CartSidebar({
@@ -31,9 +31,17 @@ export function CartSidebar({
                 <p className="shrink-0 text-[13px] font-black dark:text-gray-100">{fmt(precoItem(item))}</p>
               </div>
               <div className="mt-2 flex items-center gap-2">
-                <button onClick={() => mudarQtd(idx, -1)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800"><Minus size={13} /></button>
-                <span className="w-6 text-center text-sm font-black dark:text-gray-100">{item.quantidade}</span>
-                <button onClick={() => mudarQtd(idx, 1)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800"><Plus size={13} /></button>
+                {item.produto.tipo_venda === 'POR_PESO' ? (
+                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-50 text-xs font-bold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900">
+                    {fmtQtd(item.quantidade, 'POR_PESO')}
+                  </span>
+                ) : (
+                  <>
+                    <button onClick={() => mudarQtd(idx, -1)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800"><Minus size={13} /></button>
+                    <span className="w-6 text-center text-sm font-black dark:text-gray-100">{item.quantidade}</span>
+                    <button onClick={() => mudarQtd(idx, 1)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800"><Plus size={13} /></button>
+                  </>
+                )}
                 <button onClick={() => removerItem(idx)} className="ml-auto rounded-lg p-1.5 text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
               </div>
             </div>

@@ -170,7 +170,7 @@ export default function PDV() {
 
   const tocarProduto = (p: Produto) => {
     const temOpcoes = (p.grupos_opcoes ?? []).some((g) => (g.opcoes ?? []).filter((o) => o.disponivel).length > 0);
-    if (temOpcoes) setEscolhendo(p);
+    if (temOpcoes || p.tipo_venda === 'POR_PESO') setEscolhendo(p);
     else adicionarProduto(p);
   };
 

@@ -86,12 +86,18 @@ CREATE TABLE produtos (
   is_combo     BOOLEAN DEFAULT false,
   destaque     BOOLEAN DEFAULT false,
   disponivel   BOOLEAN DEFAULT true,                -- acabou? some da vitrine
+  tipo_venda   TEXT DEFAULT 'UNITARIO' CHECK (tipo_venda IN ('UNITARIO', 'POR_PESO')),
+  preco_por_quilo NUMERIC(10,2) DEFAULT 0.00,
   controla_estoque BOOLEAN DEFAULT true,            -- baixa via ficha técnica
   ordem        INT DEFAULT 0,
   vendidos     INT DEFAULT 0,                       -- alimenta "Os mais pedidos"
   criado_em    TIMESTAMPTZ DEFAULT now()
 );
+-- Index for product type queries
+CREATE INDEX idx_produtos_tipo_venda ON produtos (tipo_venda);
 CREATE INDEX idx_produtos_loja ON produtos (loja_id, disponivel);
+-- Testing edit
+-- Another test
 
 -- Adicionais/extras (as baguetes têm "acompanhamentos extras")
 CREATE TABLE grupos_opcoes (
@@ -236,7 +242,7 @@ CREATE TABLE itens_pedido (
   produto_id   UUID REFERENCES produtos(id) ON DELETE SET NULL,
   nome_produto TEXT NOT NULL,                       -- snapshot
   preco_unitario NUMERIC(10,2) NOT NULL,            -- snapshot (nunca o preço atual!)
-  quantidade   INT NOT NULL CHECK (quantidade > 0),
+  quantidade   NUMERIC(12,4) NOT NULL CHECK (quantidade > 0),
   observacao   TEXT                                 -- "Sem cebola"
 );
 
@@ -342,7 +348,7 @@ BEGIN
   END LOOP;
 
   -- Removemos o UPDATE pedidos daqui para evitar conflito de tupla modificada
-  UPDATE produtos p SET vendidos = vendidos + ip.quantidade
+  UPDATE produtos p SET vendidos = vendidos + CASE WHEN p.tipo_venda = 'POR_PESO' THEN 1 ELSE ip.quantidade END
   FROM itens_pedido ip
   WHERE ip.pedido_id = p_pedido_id AND ip.produto_id = p.id;
 END; $$ LANGUAGE plpgsql SECURITY DEFINER;

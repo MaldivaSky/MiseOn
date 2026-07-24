@@ -50,7 +50,7 @@ export default function NicheLandingPage({ forcedSlug }: NicheLandingPageProps) 
       'applicationCategory': 'BusinessApplication',
       'offers': {
         '@type': 'Offer',
-        'price': '99.90',
+        'price': '149.90',
         'priceCurrency': 'BRL',
       },
       'description': data.seo.description,
@@ -346,6 +346,34 @@ export default function NicheLandingPage({ forcedSlug }: NicheLandingPageProps) 
                 </div>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════ 6.5 CARD DE PRECIFICAÇÃO PROMOCIONAL DO NICHO ══════════ */}
+      <section className="py-16 bg-[#070C18] border-t border-white/10">
+        <div className="mx-auto max-w-4xl px-4 text-center">
+          <div className="rounded-3xl border border-orange-500/30 bg-gradient-to-br from-[#0B1120] via-[#0C1730] to-[#111a33] p-8 md:p-12 shadow-2xl backdrop-blur-xl">
+            <span className="inline-flex rounded-full bg-emerald-500/20 border border-emerald-500/40 px-4 py-1 text-xs font-black uppercase tracking-widest text-emerald-300">
+              ✨ 30 Dias Grátis · Sem Cartão de Crédito
+            </span>
+            <h2 className="mt-4 font-['Sora'] text-3xl font-extrabold text-white">
+              Comece agora sem custos e transforme a gestão da sua loja
+            </h2>
+            <p className="mt-3 text-sm text-slate-300 max-w-2xl mx-auto">
+              Teste todos os recursos liberados por 30 dias. Plano Mensal por <b>R$ 169,90/mês</b> ou Anual por <b>R$ 149,90/mês</b> (em até 12x no cartão via Efí Bank). Pagamentos no Pix têm <b>5% de desconto à vista</b>!
+            </p>
+            <div className="mt-8 flex flex-col sm:flex-row justify-center items-center gap-4">
+              <Link
+                to="/cadastre-se"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#FC5B24] to-[#E34A1B] px-8 py-4 font-['Sora'] text-base font-bold text-white shadow-xl shadow-[#FC5B24]/30 transition hover:scale-105"
+              >
+                Testar 30 Dias Grátis <ArrowRight size={18} />
+              </Link>
+            </div>
+            <p className="mt-4 text-xs text-slate-400">
+              Zero pegadinhas. Tolerância de 7 dias pós-vencimento. Cancele quando quiser.
+            </p>
           </div>
         </div>
       </section>

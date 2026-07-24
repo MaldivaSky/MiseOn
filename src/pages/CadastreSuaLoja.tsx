@@ -60,9 +60,12 @@ export default function CadastreSuaLoja() {
         
         <div className="mb-8 flex flex-col items-center justify-center text-center relative z-10">
           <MiseOnLogo size={150} className="mb-4" />
-          <h1 className="text-xl font-bold dark:text-white" style={{ fontFamily: "'Sora', sans-serif" }}>Cadastre sua loja</h1>
+          <span className="mb-3 inline-flex rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-emerald-400">
+            ✨ 30 Dias Grátis · Sem Cartão
+          </span>
+          <h1 className="text-xl font-bold dark:text-white" style={{ fontFamily: "'Sora', sans-serif" }}>Cadastre sua loja na MiseOn</h1>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Cardápio digital, pedidos, entrega e controle de estoque.
+            Cardápio digital, WhatsApp IA, PDV, entregas e controle de estoque com 30 dias de uso liberado sem compromisso.
           </p>
         </div>
         

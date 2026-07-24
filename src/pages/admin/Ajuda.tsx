@@ -162,16 +162,21 @@ export default function Ajuda() {
                 </p>
               </div>
             </Expansivel>
-            <Expansivel titulo="Gestão de Estoque e Fichas Técnicas">
+            <Expansivel titulo="Gestão de Estoque, Fichas Técnicas e 3D">
               <p>
-                O coração do MiseOn é a ficha técnica. Ao invés de baixar apenas o "Hambúrguer", o sistema baixa "150g de carne", "1 Pão", "2 fatias de queijo".
+                O coração do MiseOn é a ficha técnica com rastreabilidade 3D e fracionamento automático de insumos.
               </p>
               <ul className="list-disc space-y-1.5 pl-5 mt-2">
-                <li><b>Insumos:</b> Cadastre os ingredientes brutos (ex: Saco de Batata de 2kg).</li>
-                <li><b>Produtos Finais:</b> O que você vende (ex: Porção de Batata de 300g).</li>
-                <li><b>Ficha Técnica:</b> É onde você liga um ao outro. Adicione os insumos e as quantidades usadas dentro de cada Produto.</li>
+                <li><b>Insumos & Fracionamento:</b> Compre em fardo/pacote e converta automaticamente para gramas, ml ou fatias;</li>
+                <li><b>Receitas & Preparos:</b> Crie preparos intermediários (blends, molhos) com controle de tempo de validade por lote;</li>
+                <li><b>Observabilidade 3D:</b> Visualize no gráfico 3D o capital investido e os lotes no espaço da sua cozinha.</li>
               </ul>
-              <p className="mt-2 text-xs text-gray-500">Isso garante que você saiba exatamente o seu custo real (CMV) e nunca venda algo que não tem na despensa.</p>
+              <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Guia Visual Completo com Imagens e Passos do Estoque 3D:</span>
+                <Link to="/gestao-de-estoque-3d" target="_blank" className="inline-flex items-center gap-1 text-xs font-black text-[var(--cor-primaria)] hover:underline bg-[var(--cor-primaria)]/10 px-3 py-1.5 rounded-lg">
+                  Abrir Guia de Estoque 3D 🌐
+                </Link>
+              </div>
             </Expansivel>
           </div>
         </div>

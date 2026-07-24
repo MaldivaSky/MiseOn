@@ -749,4 +749,93 @@ export const LANDING_PAGES_DATA: Record<string, LandingPageData> = {
       },
     ],
   },
+
+  'sistema-para-restaurante-por-quilo': {
+    slug: 'sistema-para-restaurante-por-quilo',
+    category: 'nicho',
+    seo: {
+      title: 'Sistema para Restaurante por Quilo e Self-Service | Peso Inteligente — MiseOn',
+      description: 'O sistema definitivo para restaurantes a quilo e self-service: baixa automática de insumos por peso real via Ficha Técnica, R$/kg flexível, PDV balança e métricas de porção.',
+      keywords: 'sistema para restaurante por quilo, sistema self service, restaurante comida por quilo, baixa de estoque por peso, pdv balanca comida quilo',
+      canonicalUrl: 'https://miseon.app.br/sistema-para-restaurante-por-quilo',
+    },
+    badge: 'Buffet Self-Service & Comida por Quilo',
+    h1Title: 'O único sistema para restaurante por quilo com',
+    h1Highlight: 'baixa automática de estoque por peso real',
+    subheadline: 'Elimine o prejuízo do buffet por falta de controle. Calcule pratos por peso (R$/kg) ou unidade com a precisão da Ficha Técnica MiseOn. Cada grama servida reduz o estoque exato dos seus insumos.',
+    heroMetrics: [
+      { label: 'Redução no desperdício do buffet', value: '-30%' },
+      { label: 'Precisão de baixa por peso consumido', value: '100%' },
+      { label: 'Lançamento de peso no PDV', value: 'Em segundos' },
+    ],
+    painPointsTitle: 'Pare de perder dinheiro e margem no buffet por quilo',
+    painPointsSubtitle: 'Veja como o Peso Inteligente MiseOn elimina os vazamentos de lucro na sua comida por peso:',
+    painPoints: [
+      {
+        semMiseOn: 'Sistemas legados que tratam o prato por quilo como uma "unidade genérica" e nunca baixam os insumos reais (carne, feijão, arroz).',
+        comMiseOn: 'Peso Inteligente MiseOn: o cliente serve 350g e a Ficha Técnica baixa exatamente a proporção exata dos insumos cadastrados.',
+      },
+      {
+        semMiseOn: 'Dificuldade para reajustar o preço do quilo quando os insumos sobem no fornecedor.',
+        comMiseOn: 'Gestão flexível de R$/kg com cálculo de custo por prato e simulação de margem em tempo real.',
+      },
+      {
+        semMiseOn: 'Métricas distorcidas em relatórios que contam 0.35kg como "0.35 vendas" em vez de 1 porção consumida.',
+        comMiseOn: 'Contagem de "Mais Pedidos" baseada em porções servidas reais, fornecendo inteligência de negócios de verdade.',
+      },
+    ],
+    featuresTitle: 'Funcionalidades reais do Módulo de Venda por Peso',
+    featuresSubtitle: 'Construído para a rotina dinâmica de buffets, marmitas e restaurantes self-service:',
+    features: [
+      {
+        iconName: 'UtensilsCrossed',
+        title: 'Configuração Flexível (R$/kg ou Unidade)',
+        description: 'Defina se o produto é vendido por peso (R$/kg) ou unidade inteira com 1 único clique.',
+        tag: 'Configurável por Produto',
+      },
+      {
+        iconName: 'Boxes',
+        title: 'Baixa Automática Por Peso Real',
+        description: 'A Ficha Técnica multiplica o consumo exato da receita pelo peso servido no prato.',
+        tag: 'Estoque de Precisão',
+      },
+      {
+        iconName: 'UtensilsCrossed',
+        title: 'Lançamento Rápido no PDV Balcão',
+        description: 'Digite o peso em gramas ou kg em segundos no caixa do balcão ou nas comandas de mesa.',
+        tag: 'PDV Express',
+      },
+      {
+        iconName: 'QrCode',
+        title: 'Cardápio Digital com Seletor de Peso',
+        description: 'Seletor intuitivo com atalhos rápidos (250g, 350g, 500g, 1kg) para pedidos online e marmitas a peso.',
+        tag: 'Autoatendimento',
+      },
+    ],
+    businessRules: {
+      title: 'Recursos Operacionais para Restaurantes por Quilo',
+      description: 'Como o MiseOn opera no modelo self-service:',
+      items: [
+        'Lançamento por peso fracionado com precisão de até 4 casas decimais (ex: 0,350 kg).',
+        'Tabela de porções vendidas com contador inteligente de clientes servidos.',
+        'Suporte a produtos híbridos no mesmo caixa (buffet a quilo + bebidas unitárias + sobremesa).',
+        'Impressão de comanda e romaneio com formatação clara de peso (ex: 0,350 kg).',
+        'Relatórios de margem por prato baseados no valor do kg e custo dos insumos.',
+      ],
+    },
+    faqs: [
+      {
+        pergunta: 'Como funciona a baixa de estoque para produtos vendidos a quilo?',
+        resposta: 'Na ficha técnica, você cadastra os insumos necessários por quilo (ex: 0.3kg de feijão para cada 1kg de feijoada). Se o cliente serve 350g (0.350kg), o sistema baixa exatamente 0.105kg de feijão.',
+      },
+      {
+        pergunta: 'Posso vender produtos por peso e produtos unitários no mesmo pedido?',
+        resposta: 'Com certeza! O sistema é 100% híbrido. Você pode lançar o prato por peso (0,450 kg) junto com um refrigerante por unidade (1x Coca-Cola) na mesma comanda.',
+      },
+      {
+        pergunta: 'Preciso de alguma balança específica para usar com o sistema?',
+        resposta: 'Não! O operador de caixa digita diretamente o peso (em gramas ou kg) indicado na balança, garantindo agilidade extrema sem travas de homologação de hardware.',
+      },
+    ],
+  },
 };

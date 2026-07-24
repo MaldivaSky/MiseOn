@@ -47,11 +47,18 @@ export function ProductGrid({ busca, setBusca, categorias, catAtiva, setCatAtiva
             {/* Brilho interno no hover */}
             <div className="absolute inset-0 bg-gradient-to-br from-[var(--cor-primaria)]/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none" />
             
-            <span className="text-[13px] font-bold leading-snug text-gray-800 dark:text-gray-100 group-hover:text-[var(--cor-primaria)] transition-colors duration-300 z-10">
-              {p.nome.toUpperCase()}
-            </span>
+            <div className="flex items-center gap-1.5 z-10">
+              <span className="text-[13px] font-bold leading-snug text-gray-800 dark:text-gray-100 group-hover:text-[var(--cor-primaria)] transition-colors duration-300">
+                {p.nome.toUpperCase()}
+              </span>
+              {p.tipo_venda === 'POR_PESO' && (
+                <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[9px] font-black text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
+                  R$/KG
+                </span>
+              )}
+            </div>
             <span className="mt-3 text-[15px] font-black text-[var(--cor-primaria)] drop-shadow-sm z-10">
-              {fmt(Number(p.preco))}
+              {p.tipo_venda === 'POR_PESO' ? `${fmt(Number(p.preco_por_quilo || 0))}/kg` : fmt(Number(p.preco))}
             </span>
           </button>
         ))}

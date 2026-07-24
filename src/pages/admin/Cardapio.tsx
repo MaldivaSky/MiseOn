@@ -4,7 +4,7 @@ import {
   Plus, Pencil, Trash2, X, Star, EyeOff, Eye, Search, ChevronUp, ChevronDown, Save, Sparkles, ChefHat, Store,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { Categoria, Produto, Insumo, EstacaoPreparo, fmt } from '../../types';
+import { Categoria, Produto, Insumo, EstacaoPreparo, TipoVenda, fmt } from '../../types';
 import ImageUpload from '../../components/ImageUpload';
 import type { CtxLoja } from './AdminLayout';
 
@@ -153,7 +153,9 @@ export default function CardapioAdmin() {
                     )}
                   </p>
                   <p className="text-xs text-gray-400">{nomeCategoria(p.categoria_id)}</p>
-                  <p className="text-sm font-bold text-[var(--cor-primaria)]">{fmt(Number(p.preco))}</p>
+                  <p className="text-sm font-bold text-[var(--cor-primaria)]">
+                    {p.tipo_venda === 'POR_PESO' ? `${fmt(Number(p.preco_por_quilo || 0))}/kg` : fmt(Number(p.preco))}
+                  </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-center gap-1.5">
                   <button onClick={() => toggleDestaque(p)} title="Destaque">
@@ -269,7 +271,9 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, rateioFixo, lojaIn
 }) {
   const [nome, setNome] = useState(produto?.nome ?? '');
   const [descricao, setDescricao] = useState(produto?.descricao ?? '');
+  const [tipoVenda, setTipoVenda] = useState<TipoVenda>(produto?.tipo_venda ?? 'UNITARIO');
   const [preco, setPreco] = useState(String(produto?.preco ?? ''));
+  const [precoPorQuilo, setPrecoPorQuilo] = useState(String(produto?.preco_por_quilo ?? ''));
   const [galeria, setGaleria] = useState<string[]>(produto?.galeria ?? (produto?.imagem_url ? [produto.imagem_url] : []));
   const [categoriaId, setCategoriaId] = useState(produto?.categoria_id ?? categorias[0]?.id ?? '');
   const [isCombo, setIsCombo] = useState(produto?.is_combo ?? false);
@@ -350,6 +354,8 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, rateioFixo, lojaIn
         is_combo: isCombo,
         destaque,
         controla_estoque: controlaEstoque,
+        tipo_venda: tipoVenda,
+        preco_por_quilo: tipoVenda === 'POR_PESO' ? Number(precoPorQuilo || 0) : 0,
         estacao_preparo: estacaoPreparo,
         pdv_code: pdvCode.trim() || null,
       };
@@ -419,8 +425,45 @@ function ProdutoModal({ lojaId, produto, categorias, insumos, rateioFixo, lojaIn
               <Sparkles size={14} className={gerandoIA ? "animate-pulse" : ""} /> {gerandoIA ? 'Gerando Mágica...' : 'Gerar com IA'}
             </button>
           </div>
+          {/* Modelo de Venda: Unidade ou Peso */}
+          <div className="rounded-2xl border p-3 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+            <p className="mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400">Modelo de Venda</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setTipoVenda('UNITARIO')}
+                className={`rounded-xl border p-2.5 text-xs font-bold transition-all ${
+                  tipoVenda === 'UNITARIO'
+                    ? 'border-[var(--cor-primaria)] bg-[var(--cor-primaria)]/10 text-[var(--cor-primaria)]'
+                    : 'border-gray-200 text-gray-400 dark:border-gray-700'
+                }`}>
+                📦 Por Unidade (Inteira)
+              </button>
+              <button type="button" onClick={() => setTipoVenda('POR_PESO')}
+                className={`rounded-xl border p-2.5 text-xs font-bold transition-all ${
+                  tipoVenda === 'POR_PESO'
+                    ? 'border-[var(--cor-primaria)] bg-[var(--cor-primaria)]/10 text-[var(--cor-primaria)]'
+                    : 'border-gray-200 text-gray-400 dark:border-gray-700'
+                }`}>
+                ⚖️ Por Quilo (Self-Service)
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
-            <input value={preco} onChange={(e) => setPreco(e.target.value)} type="number" placeholder="Preço R$" className="rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
+            {tipoVenda === 'POR_PESO' ? (
+              <input
+                value={precoPorQuilo}
+                onChange={(e) => {
+                  setPrecoPorQuilo(e.target.value);
+                  setPreco(e.target.value); // 1kg reference
+                }}
+                type="number"
+                step="0.01"
+                placeholder="Preço por Kg (R$/kg)"
+                className="rounded-xl border border-emerald-400 bg-emerald-50/30 p-2.5 text-sm font-semibold text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+              />
+            ) : (
+              <input value={preco} onChange={(e) => setPreco(e.target.value)} type="number" placeholder="Preço R$" className="rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
+            )}
             <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} className="rounded-xl border p-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
               <option value="">Sem categoria</option>
               {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}

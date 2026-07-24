@@ -119,6 +119,12 @@ export function imprimir(options: PrintOptions) {
 const esc = (v: unknown) =>
   String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+function formatarQtdItem(qtd: number): string {
+  const n = Number(qtd || 0);
+  if (Number.isInteger(n)) return `${n}x`;
+  return `${n.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg`;
+}
+
 const tipoLabel = (p: Pedido) =>
   p.tipo_pedido === 'DELIVERY' ? 'ENTREGA' : p.tipo_pedido === 'SALAO' ? 'SALÃO' : 'RETIRADA NO BALCÃO';
 
@@ -189,7 +195,7 @@ function htmlComandaCozinha(o: PrintOptions) {
   const itensHtml = itens.map((i) => `
     <div class="mt-2">
       <div class="font-bold flex">
-        <span style="margin-right:8px;">${Number(i.quantidade)}x</span>
+        <span style="margin-right:8px;">${formatarQtdItem(i.quantidade)}</span>
         <span class="uppercase">${esc(i.nome_produto)}</span>
       </div>
       ${(i.itens_pedido_opcoes ?? []).map((op) => `<div class="ml-5 sm uppercase">+ ${esc(op.nome_opcao)}</div>`).join('')}
@@ -292,7 +298,7 @@ function htmlViaEntregador(o: PrintOptions) {
   const { pedido, itens } = o;
   if (!pedido || !itens) return '';
 
-  const itensHtml = itens.map((i) => `<div class="font-bold uppercase">${Number(i.quantidade)}x ${esc(i.nome_produto)}</div>`).join('');
+  const itensHtml = itens.map((i) => `<div class="font-bold uppercase">${formatarQtdItem(i.quantidade)} ${esc(i.nome_produto)}</div>`).join('');
   const pago = pedidoPago(pedido);
   const troco = pedido.troco_para ? Number(pedido.troco_para) - Number(pedido.valor_total) : null;
 
@@ -338,7 +344,7 @@ function htmlReciboCliente(o: PrintOptions) {
       `<div class="xs uppercase">+ ${esc(op.nome_opcao)}${Number(op.preco_adicional) > 0 ? ' (' + fmt(Number(op.preco_adicional)) + ')' : ''}</div>`).join('');
     return `
       <tr>
-        <td class="col-qtd font-bold">${Number(i.quantidade)}x</td>
+        <td class="col-qtd font-bold">${formatarQtdItem(i.quantidade)}</td>
         <td><div class="font-bold uppercase">${esc(i.nome_produto)}</div>${ops}</td>
         <td class="col-valor">${fmt(totalItem)}</td>
       </tr>`;
@@ -388,7 +394,7 @@ function htmlContaMesa(o: PrintOptions) {
     const ops = (i.opcoes ?? []).map((op) => `<div class="xs uppercase">+ ${esc(op.nome_opcao)}</div>`).join('');
     return `
       <tr>
-        <td class="col-qtd font-bold">${Number(i.quantidade)}x</td>
+        <td class="col-qtd font-bold">${formatarQtdItem(i.quantidade)}</td>
         <td><div class="font-bold uppercase">${esc(i.nome_produto)}</div>${ops}</td>
         <td class="col-valor">${fmt(totalItem)}</td>
       </tr>`;

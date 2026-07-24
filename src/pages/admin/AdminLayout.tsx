@@ -112,8 +112,8 @@ export default function AdminLayout() {
       if (lojaInfo?.cor_primaria) document.documentElement.style.setProperty('--cor-primaria', lojaInfo.cor_primaria);
       if (lojaInfo?.cor_secundaria) document.documentElement.style.setProperty('--cor-secundaria', lojaInfo.cor_secundaria);
 
-      // Motor de Bloqueio Seco (Lockdown)
-      if (diasAtraso > 5 && papel === 'admin' && !loc.pathname.includes('/assinatura')) {
+      // Motor de Bloqueio Pós-Tolerância (7 Dias de Carência)
+      if (diasAtraso > 7 && papel === 'admin' && !loc.pathname.includes('/assinatura')) {
         nav('/admin/assinatura');
       } else if (!podeAcessar(papel, loc.pathname)) {
         nav(HOME_POR_PAPEL[papel as Papel] ?? '/admin/inicio', { replace: true });
@@ -172,8 +172,8 @@ export default function AdminLayout() {
     return <BrandLoader />;
   }
 
-  // Se bloqueado e for admin, a UI morre e força a tela de assinatura
-  const isLockdown = ctx.diasAtraso > 5;
+  // Se bloqueado (atraso > 7 dias) e for admin, força tela de assinatura
+  const isLockdown = ctx.diasAtraso > 7;
   if (isLockdown && ctx.papel !== 'admin') {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 p-8 text-center bg-gray-50 dark:bg-[#0B1120] text-gray-900 dark:text-gray-100">
@@ -519,20 +519,20 @@ export default function AdminLayout() {
         {/* ── CONTEÚDO DA PÁGINA (SCROLLÁVEL) ── */}
         <main className="flex-1 overflow-y-auto pb-20 lg:pb-0 relative custom-scrollbar px-6 sm:px-10 pt-2">
 
-          {/* BANNER DE CARÊNCIA INFECHÁVEL (DIAS 1 A 5) */}
-          {ctx.diasAtraso > 0 && ctx.diasAtraso <= 5 && (
-            <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-3 sm:px-6 flex items-center justify-between shadow-inner">
+          {/* BANNER DE CARÊNCIA INFECHÁVEL (DIAS 1 A 7 DE TOLERÂNCIA PÓS-VENCIMENTO) */}
+          {ctx.diasAtraso > 0 && ctx.diasAtraso <= 7 && (
+            <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-3 sm:px-6 flex items-center justify-between shadow-inner">
               <div className="flex items-center gap-3">
-                <div className="bg-red-500 text-white p-1.5 rounded-lg animate-pulse">
+                <div className="bg-amber-500 text-white p-1.5 rounded-lg animate-pulse">
                   <CreditCard size={18} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-red-700 dark:text-red-400 leading-tight">Assinatura Vencida (Atraso: {ctx.diasAtraso} {ctx.diasAtraso === 1 ? 'dia' : 'dias'})</h3>
-                  <p className="text-[11px] text-red-600/80 dark:text-red-400/80 mt-0.5">O sistema será totalmente bloqueado em {6 - ctx.diasAtraso} dias.</p>
+                  <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400 leading-tight">Assinatura Vencida (Tolerância: dia {ctx.diasAtraso} de 7)</h3>
+                  <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80 mt-0.5">O acesso total será suspenso em {8 - ctx.diasAtraso} dias caso não seja regularizado.</p>
                 </div>
               </div>
-              <button onClick={() => nav('/admin/assinatura')} className="whitespace-nowrap px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[11px] uppercase tracking-wider font-bold rounded-lg shadow-sm transition-colors">
-                Pagar Agora
+              <button onClick={() => nav('/admin/assinatura')} className="whitespace-nowrap px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-[11px] uppercase tracking-wider font-bold rounded-lg shadow-sm transition-colors">
+                Regularizar Assinatura
               </button>
             </div>
           )}

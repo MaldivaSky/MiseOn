@@ -14,6 +14,28 @@ export const EFI_TARIFAS = {
   referencia: 'julho/2026',
 } as const;
 
+export const SAAS_PRICING = {
+  mensal: {
+    bruto: 169.90,
+    descontoPixPct: 0.05,
+    pix: 161.40, // 169.90 com 5% de desconto à vista
+  },
+  anual: {
+    mensalEquivalente: 149.90,
+    totalBruto: 1798.80, // 12 x 149.90
+    descontoPixPct: 0.05,
+    pix: 1708.86, // 1798.80 com 5% de desconto à vista (Economia de R$ 329.94/ano)
+    parcelas: [
+      { qtd: 3, valorParcela: 599.60, total: 1798.80 },
+      { qtd: 6, valorParcela: 299.80, total: 1798.80 },
+      { qtd: 8, valorParcela: 224.85, total: 1798.80 },
+      { qtd: 12, valorParcela: 149.90, total: 1798.80 },
+    ],
+  },
+  trialDias: 30,
+  toleranciaDias: 7,
+} as const;
+
 export const EFI_LINKS = {
   site: 'https://sejaefi.com.br',
   tarifas: 'https://sejaefi.com.br/tarifas',

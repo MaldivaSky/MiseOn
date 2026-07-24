@@ -11,7 +11,7 @@ import PedidoMesaDrawer from '../components/PedidoMesaDrawer';
 import { Button, Modal, SuccessCelebration, BandeiraMark, BANDEIRAS_ACEITAS } from '../components/ui';
 import {
   Loja, Banner, Categoria, Produto, TaxaEntrega, FaixaEntrega, ItemCarrinho,
-  HorarioFuncionamento, MetodoPgto, Mesa, fmt, precoItem,
+  HorarioFuncionamento, MetodoPgto, Mesa, fmt, fmtQtd, precoItem,
 } from '../types';
 import { fonteFamilia, isLightColor, obterFundoLojaPorTema, obterTokensLoja } from '../lib/personalizacao';
 import { aplicarTema, obterTemaPreferido, type PreferenciaTema } from '../lib/tema';
@@ -488,9 +488,15 @@ export default function Cardapio() {
                       )}
                       <div className="mt-2 flex items-center justify-between">
                         <div className="inline-flex items-center gap-3 rounded-full border px-2.5 py-1.5" style={{ background: 'var(--cor-surface-muted)', borderColor: 'var(--cor-borda)' }}>
-                          <button onClick={() => i.quantidade > 1 ? setCarrinho(carrinho.map((x, y) => y === idx ? { ...x, quantidade: x.quantidade - 1 } : x)) : setCarrinho(carrinho.filter((_, y) => y !== idx))} className="transition-colors hover:text-red-500" style={{ color: 'var(--cor-texto-suave)' }}><Minus size={14} /></button>
-                          <span className="w-4 text-center text-xs font-bold" style={{ color: 'var(--cor-texto)' }}>{i.quantidade}</span>
-                          <button onClick={() => setCarrinho(carrinho.map((x, y) => y === idx ? { ...x, quantidade: x.quantidade + 1 } : x))} className="transition-colors hover:text-[var(--cor-primaria)]" style={{ color: 'var(--cor-texto-suave)' }}><Plus size={14} /></button>
+                          {i.produto.tipo_venda === 'POR_PESO' ? (
+                            <span className="px-1 text-xs font-bold" style={{ color: 'var(--cor-texto)' }}>{fmtQtd(i.quantidade, 'POR_PESO')}</span>
+                          ) : (
+                            <>
+                              <button onClick={() => i.quantidade > 1 ? setCarrinho(carrinho.map((x, y) => y === idx ? { ...x, quantidade: x.quantidade - 1 } : x)) : setCarrinho(carrinho.filter((_, y) => y !== idx))} className="transition-colors hover:text-red-500" style={{ color: 'var(--cor-texto-suave)' }}><Minus size={14} /></button>
+                              <span className="w-4 text-center text-xs font-bold" style={{ color: 'var(--cor-texto)' }}>{i.quantidade}</span>
+                              <button onClick={() => setCarrinho(carrinho.map((x, y) => y === idx ? { ...x, quantidade: x.quantidade + 1 } : x))} className="transition-colors hover:text-[var(--cor-primaria)]" style={{ color: 'var(--cor-texto-suave)' }}><Plus size={14} /></button>
+                            </>
+                          )}
                         </div>
                         <button onClick={() => setCarrinho(carrinho.filter((_, y) => y !== idx))} className="transition-colors hover:text-red-500" style={{ color: 'var(--cor-texto-fraco)' }}>
                           <Trash2 size={15} />
@@ -636,14 +642,16 @@ function ModalProduto({ produto, onClose, onAdd }: {
   onClose: () => void;
   onAdd: (i: ItemCarrinho) => void;
 }) {
-  const [qtd, setQtd] = useState(1);
+  const isPeso = produto.tipo_venda === 'POR_PESO';
+  const [qtd, setQtd] = useState(isPeso ? 0.350 : 1);
   const [obs, setObs] = useState('');
   const [sel, setSel] = useState<Record<string, string[]>>({}); // grupo_id -> opcao_ids
 
   const grupos = produto.grupos_opcoes ?? [];
   const opcoesSelecionadas = grupos.flatMap((g) => g.opcoes.filter((o) => (sel[g.id] ?? []).includes(o.id)));
-  const valido = grupos.every((g) => (sel[g.id]?.length ?? 0) >= g.min_escolhas);
-  const total = (Number(produto.preco) + opcoesSelecionadas.reduce((s, o) => s + Number(o.preco_adicional), 0)) * qtd;
+  const valido = grupos.every((g) => (sel[g.id]?.length ?? 0) >= g.min_escolhas) && (!isPeso || qtd > 0);
+  const precoBaseUnit = isPeso ? Number(produto.preco_por_quilo || 0) : Number(produto.preco);
+  const total = (precoBaseUnit * qtd) + (opcoesSelecionadas.reduce((s, o) => s + Number(o.preco_adicional), 0) * (isPeso ? 1 : qtd));
 
   const toggle = (g: { id: string; max_escolhas: number }, opcaoId: string) => {
     setSel((s) => {
@@ -656,8 +664,6 @@ function ModalProduto({ produto, onClose, onAdd }: {
 
   const imgs = produto.galeria?.length ? produto.galeria : (produto.imagem_url ? [produto.imagem_url] : []);
 
-  // Portal no body: position:fixed dentro de ancestral com transform (ex.: .mo-screen)
-  // é posicionado em relação ao ancestral, não à janela — o modal "afunda".
   return createPortal(
     <div className="fade fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div className="sheet max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white dark:bg-gray-900 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -688,7 +694,14 @@ function ModalProduto({ produto, onClose, onAdd }: {
 
         <div className="p-4">
           <div className="flex items-start justify-between">
-            <h3 className="text-lg font-bold dark:text-gray-100">{produto.nome}</h3>
+            <div>
+              <h3 className="text-lg font-bold dark:text-gray-100">{produto.nome}</h3>
+              {isPeso && (
+                <span className="mt-0.5 inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300">
+                  ⚖️ {fmt(Number(produto.preco_por_quilo || 0))}/kg
+                </span>
+              )}
+            </div>
             <button onClick={onClose} className="dark:text-gray-300"><X size={20} /></button>
           </div>
           {produto.descricao && <p className="mt-1 whitespace-pre-line text-sm text-gray-500 dark:text-gray-400">{produto.descricao}</p>}
@@ -727,19 +740,73 @@ function ModalProduto({ produto, onClose, onAdd }: {
             rows={2}
           />
 
-          <div className="mt-4 flex items-center gap-3">
-            <div className="flex items-center gap-3 rounded-xl border px-3 py-2 dark:border-gray-700 dark:text-gray-200">
-              <button onClick={() => setQtd((q) => Math.max(1, q - 1))}><Minus size={16} /></button>
-              <span className="w-5 text-center font-semibold">{qtd}</span>
-              <button onClick={() => setQtd((q) => q + 1)}><Plus size={16} /></button>
-            </div>
-            <button
-              disabled={!valido}
-              onClick={() => onAdd({ produto, quantidade: qtd, observacao: obs || undefined, opcoesSelecionadas })}
-              className="flex-1 rounded-xl bg-[var(--cor-primaria)] py-3 font-semibold text-white disabled:opacity-40"
-            >
-              Adicionar {fmt(total)}
-            </button>
+          {/* Seletor de Quantidade / Peso */}
+          <div className="mt-4">
+            {isPeso ? (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">⚖️ Peso informado (Kg):</span>
+                  <span className="text-sm font-black text-emerald-700 dark:text-emerald-400">{fmtQtd(qtd, 'POR_PESO')}</span>
+                </div>
+                <div className="flex gap-1.5 overflow-x-auto pb-2">
+                  {[0.250, 0.350, 0.500, 0.750, 1.000].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setQtd(preset)}
+                      className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors ${
+                        qtd === preset
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-white text-emerald-800 border border-emerald-200 dark:bg-gray-800 dark:text-emerald-300 dark:border-emerald-800'
+                      }`}
+                    >
+                      {preset < 1 ? `${preset * 1000}g` : `${preset}kg`}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Em gramas:</span>
+                  <input
+                    type="number"
+                    step="1"
+                    min="1"
+                    value={Math.round(qtd * 1000)}
+                    onChange={(e) => {
+                      const g = Math.max(0, Number(e.target.value || 0));
+                      setQtd(g / 1000);
+                    }}
+                    placeholder="Ex: 350"
+                    className="w-24 rounded-lg border border-emerald-300 bg-white p-1.5 text-xs font-bold outline-none dark:border-emerald-800 dark:bg-gray-800 dark:text-gray-100"
+                  />
+                  <span className="text-xs font-bold text-gray-500">g</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 rounded-xl border px-3 py-2 dark:border-gray-700 dark:text-gray-200">
+                  <button type="button" onClick={() => setQtd((q) => Math.max(1, q - 1))}><Minus size={16} /></button>
+                  <span className="w-5 text-center font-semibold">{qtd}</span>
+                  <button type="button" onClick={() => setQtd((q) => q + 1)}><Plus size={16} /></button>
+                </div>
+                <button
+                  disabled={!valido}
+                  onClick={() => onAdd({ produto, quantidade: qtd, observacao: obs || undefined, opcoesSelecionadas })}
+                  className="flex-1 rounded-xl bg-[var(--cor-primaria)] py-3 font-semibold text-white disabled:opacity-40"
+                >
+                  Adicionar {fmt(total)}
+                </button>
+              </div>
+            )}
+
+            {isPeso && (
+              <button
+                disabled={!valido}
+                onClick={() => onAdd({ produto, quantidade: qtd, observacao: obs || undefined, opcoesSelecionadas })}
+                className="mt-3 flex w-full items-center justify-center rounded-xl bg-[var(--cor-primaria)] py-3 font-semibold text-white disabled:opacity-40"
+              >
+                Adicionar ({fmtQtd(qtd, 'POR_PESO')}) — {fmt(total)}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -783,9 +850,14 @@ const MaisPedidoCard = memo(({ p, onClick }: { p: Produto; onClick: () => void }
     {p.tem_estoque === false && (
       <span className="absolute right-3 top-3 rounded-full bg-gray-800 px-2 py-0.5 text-[9px] font-bold text-white">ESGOTADO</span>
     )}
+    {p.tipo_venda === 'POR_PESO' && (
+      <span className="absolute left-3 top-3 rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-bold text-white shadow-sm">R$/kg</span>
+    )}
     <p className="line-clamp-2 text-sm font-bold" style={{ color: 'var(--cor-texto)' }}>{p.nome}</p>
     <div className="mt-2 flex items-center justify-between">
-      <p className="text-sm font-black text-[var(--cor-primaria)]">{fmt(Number(p.preco))}</p>
+      <p className="text-sm font-black text-[var(--cor-primaria)]">
+        {p.tipo_venda === 'POR_PESO' ? `${fmt(Number(p.preco_por_quilo || 0))}/kg` : fmt(Number(p.preco))}
+      </p>
       <span className="vitrine-card-cta inline-flex items-center gap-1 text-[11px] font-semibold">
         Ver <ArrowRight size={13} />
       </span>
@@ -804,10 +876,17 @@ const ProdutoCard = memo(({ p, onClick }: { p: Produto; onClick: () => void }) =
         {p.tem_estoque === false && (
           <span className="rounded-full bg-gray-800 px-2 py-0.5 text-[9px] font-bold text-white">ESGOTADO</span>
         )}
+        {p.tipo_venda === 'POR_PESO' && (
+          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+            ⚖️ Por Peso (Kg)
+          </span>
+        )}
       </p>
       {p.descricao && <p className="line-clamp-2 text-xs" style={{ color: 'var(--cor-texto-suave)' }}>{p.descricao}</p>}
       <div className="mt-2 flex items-center justify-between gap-3">
-        <p className="font-black text-[var(--cor-primaria)]">{fmt(Number(p.preco))}</p>
+        <p className="font-black text-[var(--cor-primaria)]">
+          {p.tipo_venda === 'POR_PESO' ? `${fmt(Number(p.preco_por_quilo || 0))}/kg` : fmt(Number(p.preco))}
+        </p>
         <span className="vitrine-card-cta inline-flex items-center gap-1 text-xs font-semibold">
           Personalizar <ArrowRight size={14} />
         </span>

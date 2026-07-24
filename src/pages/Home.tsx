@@ -3,7 +3,8 @@ import {
   QrCode, ClipboardList, ChefHat, Bike, Boxes, Wallet,
   MessageCircle, ShieldCheck, ArrowRight, Check, Sparkles,
   Menu as MenuIcon, X, UtensilsCrossed, Megaphone, ShoppingBag,
-  Mail, ChevronDown, Headset, BarChart3, Star, Quote, BadgeCheck,
+  Mail, ChevronDown, Headset, BarChart3, Star, Quote, BadgeCheck, Scale,
+  Database, FlaskConical, Eye, AlertTriangle,
 } from 'lucide-react';
 import { useState } from 'react';
 import MiseOnLogo from '../components/MiseOnLogo';
@@ -78,6 +79,13 @@ const RECURSOS = [
     texto: 'Os pedidos do iFood caem no mesmo painel dos pedidos do seu site. Uma fila só, uma cozinha só, um estoque só.',
     cor: 'text-rose-500',
     fundo: 'bg-rose-500/10',
+  },
+  {
+    icone: Scale,
+    titulo: 'Venda por Quilo (R$/kg)',
+    texto: 'Peso Inteligente: vendas por R$/kg ou unidade com seletor de peso fracionado e baixa exata no estoque via Ficha Técnica.',
+    cor: 'text-emerald-400',
+    fundo: 'bg-emerald-500/10',
   },
 ];
 
@@ -259,17 +267,8 @@ function FaqItem({ pergunta, resposta }: { pergunta: string; resposta: string })
 export default function Home() {
   const [menuAberto, setMenuAberto] = useState(false);
   const [planoAnual, setPlanoAnual] = useState(true);
-
-  const links = [
-    { href: '#nichos', rotulo: 'Nichos' },
-    { href: '#recursos', rotulo: 'Recursos' },
-    { href: '/videos', rotulo: 'Vídeos 🎬', isRouter: true },
-    { href: '#plataforma', rotulo: 'Plataforma' },
-    { href: '#como-funciona', rotulo: 'Como funciona' },
-    { href: '#whatsapp-ia', rotulo: 'WhatsApp IA' },
-    { href: '#planos', rotulo: 'Planos' },
-    { href: '#suporte', rotulo: 'Suporte' },
-  ];
+  const [solucoesOpen, setSolucoesOpen] = useState(false);
+  const [recursosOpen, setRecursosOpen] = useState(false);
 
   return (
     <div className="min-h-screen scroll-smooth bg-[#F4F7FA] font-sans text-gray-900 selection:bg-[#FC5B24] selection:text-white dark:bg-[#070C18] dark:text-[#EAF1FB]">
@@ -303,34 +302,224 @@ export default function Home() {
         }}
       />
 
-      {/* ══════════ 1. NAVBAR ══════════ */}
-      <nav className="fixed inset-x-0 top-0 z-50 border-b border-gray-200/70 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-[#070C18]/80">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6">
+      {/* ══════════ 1. NAVBAR (UX REDESIGN COM DROPDOWNS) ══════════ */}
+      <nav className="fixed inset-x-0 top-0 z-50 border-b border-gray-200/70 bg-white/90 backdrop-blur-xl dark:border-white/10 dark:bg-[#070C18]/90">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
           <Link to="/" aria-label="MiseOn — início" className="drop-shadow-[0_0_10px_rgba(255,255,255,0.15)]">
-            <MiseOnLogo size={132} />
+            <MiseOnLogo size={128} />
           </Link>
 
-          {/* Links âncora — desktop */}
-          <div className="hidden items-center gap-6 lg:flex">
-            {links.map((l) =>
-              l.isRouter ? (
-                <Link
-                  key={l.href}
-                  to={l.href}
-                  className="text-sm font-bold text-orange-500 transition hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-300"
-                >
-                  {l.rotulo}
-                </Link>
-              ) : (
-                <a
-                  key={l.href}
-                  href={l.href}
-                  className="text-sm font-semibold text-gray-600 transition hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
-                >
-                  {l.rotulo}
-                </a>
-              )
-            )}
+          {/* Links âncora e Dropdowns — desktop (UX Clean: Máx 4 itens principais) */}
+          <div className="hidden items-center gap-7 lg:flex">
+            
+            {/* 1. Soluções por Nicho (Dropdown) */}
+            <div
+              className="relative"
+              onMouseEnter={() => setSolucoesOpen(true)}
+              onMouseLeave={() => setSolucoesOpen(false)}
+            >
+              <button
+                type="button"
+                onClick={() => setSolucoesOpen(!solucoesOpen)}
+                className="flex items-center gap-1 text-sm font-semibold text-gray-700 transition hover:text-[var(--cor-primaria)] dark:text-gray-200 dark:hover:text-white"
+              >
+                Soluções
+                <ChevronDown size={14} className={`transition-transform duration-200 ${solucoesOpen ? 'rotate-180 text-[#FC5B24]' : ''}`} />
+              </button>
+
+              {solucoesOpen && (
+                <div className="absolute top-full -left-4 mt-2 w-80 rounded-2xl border border-gray-200 bg-white/95 p-3 shadow-2xl backdrop-blur-xl dark:border-white/15 dark:bg-[#0B1120]/95 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="mb-2 px-3 pt-1 text-[11px] font-black uppercase tracking-wider text-slate-400">
+                    Soluções por Nicho
+                  </div>
+                  <div className="space-y-1">
+                    <Link
+                      to="/sistema-para-restaurante-por-quilo"
+                      onClick={() => setSolucoesOpen(false)}
+                      className="flex items-center gap-3 rounded-xl p-2.5 transition hover:bg-emerald-500/10 dark:hover:bg-white/10 group"
+                    >
+                      <div className="rounded-lg bg-emerald-500/20 p-2 text-emerald-400 shrink-0">
+                        <Scale size={18} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900 dark:text-white group-hover:text-emerald-400">
+                          Restaurantes por Quilo
+                          <span className="rounded-full bg-emerald-500 px-1.5 py-0.2 text-[9px] font-black text-slate-950">NOVO</span>
+                        </div>
+                        <p className="text-[11px] text-gray-500 dark:text-slate-400">Peso Inteligente R$/kg e Ficha Técnica</p>
+                      </div>
+                    </Link>
+                    <Link
+                      to="/sistema-para-hamburgueria"
+                      onClick={() => setSolucoesOpen(false)}
+                      className="flex items-center gap-3 rounded-xl p-2.5 transition hover:bg-orange-500/10 dark:hover:bg-white/10 group"
+                    >
+                      <div className="rounded-lg bg-orange-500/20 p-2 text-orange-400 shrink-0">
+                        <ChefHat size={18} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-orange-400">Hamburguerias</p>
+                        <p className="text-[11px] text-gray-500 dark:text-slate-400">Chapa KDS, adicionais e blends</p>
+                      </div>
+                    </Link>
+                    <Link
+                      to="/sistema-para-pizzaria"
+                      onClick={() => setSolucoesOpen(false)}
+                      className="flex items-center gap-3 rounded-xl p-2.5 transition hover:bg-emerald-500/10 dark:hover:bg-white/10 group"
+                    >
+                      <div className="rounded-lg bg-emerald-500/20 p-2 text-emerald-400 shrink-0">
+                        <Boxes size={18} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-emerald-400">Pizzarias</p>
+                        <p className="text-[11px] text-gray-500 dark:text-slate-400">KDS de forno, delivery e motoboys</p>
+                      </div>
+                    </Link>
+                    <Link
+                      to="/sistema-para-lanchonete"
+                      onClick={() => setSolucoesOpen(false)}
+                      className="flex items-center gap-3 rounded-xl p-2.5 transition hover:bg-blue-500/10 dark:hover:bg-white/10 group"
+                    >
+                      <div className="rounded-lg bg-blue-500/20 p-2 text-blue-400 shrink-0">
+                        <UtensilsCrossed size={18} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-blue-400">Lanchonetes</p>
+                        <p className="text-[11px] text-gray-500 dark:text-slate-400">PDV balcão express e caixa por turno</p>
+                      </div>
+                    </Link>
+                    <Link
+                      to="/sistema-para-restaurantes"
+                      onClick={() => setSolucoesOpen(false)}
+                      className="flex items-center gap-3 rounded-xl p-2.5 transition hover:bg-amber-500/10 dark:hover:bg-white/10 group"
+                    >
+                      <div className="rounded-lg bg-amber-500/20 p-2 text-amber-400 shrink-0">
+                        <BarChart3 size={18} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-amber-400">Restaurantes & Bares</p>
+                        <p className="text-[11px] text-gray-500 dark:text-slate-400">Garçom no celular e mapa de mesas</p>
+                      </div>
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 2. Funcionalidades (Dropdown) */}
+            <div
+              className="relative"
+              onMouseEnter={() => setRecursosOpen(true)}
+              onMouseLeave={() => setRecursosOpen(false)}
+            >
+              <button
+                type="button"
+                onClick={() => setRecursosOpen(!recursosOpen)}
+                className="flex items-center gap-1 text-sm font-semibold text-gray-700 transition hover:text-[var(--cor-primaria)] dark:text-gray-200 dark:hover:text-white"
+              >
+                Funcionalidades
+                <ChevronDown size={14} className={`transition-transform duration-200 ${recursosOpen ? 'rotate-180 text-[#FC5B24]' : ''}`} />
+              </button>
+
+              {recursosOpen && (
+                <div className="absolute top-full -left-4 mt-2 w-80 rounded-2xl border border-gray-200 bg-white/95 p-3 shadow-2xl backdrop-blur-xl dark:border-white/15 dark:bg-[#0B1120]/95 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="mb-2 px-3 pt-1 text-[11px] font-black uppercase tracking-wider text-slate-400">
+                    Recursos em Destaque
+                  </div>
+                  <div className="space-y-1">
+                    <Link
+                      to="/api-whatsapp-restaurantes"
+                      onClick={() => setRecursosOpen(false)}
+                      className="flex items-center gap-3 rounded-xl p-2.5 transition hover:bg-emerald-500/10 dark:hover:bg-white/10 group"
+                    >
+                      <div className="rounded-lg bg-emerald-500/20 p-2 text-emerald-400 shrink-0">
+                        <MessageCircle size={18} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-emerald-400">WhatsApp IA Oficial Meta</p>
+                        <p className="text-[11px] text-gray-500 dark:text-slate-400">Atendimento inteligente automatizado</p>
+                      </div>
+                    </Link>
+                    <Link
+                      to="/integracao-ifood"
+                      onClick={() => setRecursosOpen(false)}
+                      className="flex items-center gap-3 rounded-xl p-2.5 transition hover:bg-rose-500/10 dark:hover:bg-white/10 group"
+                    >
+                      <div className="rounded-lg bg-rose-500/20 p-2 text-rose-400 shrink-0">
+                        <ShoppingBag size={18} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-rose-400">Integração iFood</p>
+                        <p className="text-[11px] text-gray-500 dark:text-slate-400">Fila única na cozinha e estoque</p>
+                      </div>
+                    </Link>
+                    <Link
+                      to="/cardapio-qr-code"
+                      onClick={() => setRecursosOpen(false)}
+                      className="flex items-center gap-3 rounded-xl p-2.5 transition hover:bg-orange-500/10 dark:hover:bg-white/10 group"
+                    >
+                      <div className="rounded-lg bg-orange-500/20 p-2 text-orange-400 shrink-0">
+                        <QrCode size={18} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-orange-400">Cardápio QR Code</p>
+                        <p className="text-[11px] text-gray-500 dark:text-slate-400">Autoatendimento direto na mesa sem taxas</p>
+                      </div>
+                    </Link>
+                    <Link
+                      to="/gestao-fiscal-nfe"
+                      onClick={() => setRecursosOpen(false)}
+                      className="flex items-center gap-3 rounded-xl p-2.5 transition hover:bg-blue-500/10 dark:hover:bg-white/10 group"
+                    >
+                      <div className="rounded-lg bg-blue-500/20 p-2 text-blue-400 shrink-0">
+                        <ShieldCheck size={18} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-blue-400">Emissão Fiscal NFC-e</p>
+                        <p className="text-[11px] text-gray-500 dark:text-slate-400">FocusNFe nativo e integrado</p>
+                      </div>
+                    </Link>
+                    <Link
+                      to="/gestao-de-estoque-3d"
+                      onClick={() => setRecursosOpen(false)}
+                      className="flex items-center gap-3 rounded-xl p-2.5 transition hover:bg-purple-500/10 dark:hover:bg-white/10 group"
+                    >
+                      <div className="rounded-lg bg-purple-500/20 p-2 text-purple-400 shrink-0">
+                        <Boxes size={18} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-purple-400">Estoque 3D & Preparos</p>
+                        <p className="text-[11px] text-gray-500 dark:text-slate-400">Fichas técnicas, lotes e gráfico 3D</p>
+                      </div>
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 3. Como funciona */}
+            <a
+              href="#como-funciona"
+              className="text-sm font-semibold text-gray-700 transition hover:text-[var(--cor-primaria)] dark:text-gray-200 dark:hover:text-white"
+            >
+              Como funciona
+            </a>
+
+            {/* 4. Planos */}
+            <a
+              href="#planos"
+              className="text-sm font-semibold text-gray-700 transition hover:text-[var(--cor-primaria)] dark:text-gray-200 dark:hover:text-white"
+            >
+              Planos
+            </a>
+
+            {/* 5. Vídeos 🎬 */}
+            <Link
+              to="/videos"
+              className="text-sm font-bold text-orange-500 transition hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-300"
+            >
+              Vídeos 🎬
+            </Link>
           </div>
 
           <div className="hidden items-center gap-3 lg:flex">
@@ -342,7 +531,7 @@ export default function Home() {
             </Link>
             <Link
               to="/cadastre-se"
-              className="rounded-full bg-[var(--cor-primaria)] px-5 py-2.5 font-['Sora'] text-sm font-bold text-white shadow-lg shadow-[#FC5B24]/25 transition hover:scale-105 hover:brightness-110"
+              className="rounded-full bg-gradient-to-r from-[#FC5B24] to-[#E34A1B] px-5 py-2.5 font-['Sora'] text-sm font-bold text-white shadow-lg shadow-[#FC5B24]/25 transition hover:scale-105 hover:brightness-110"
             >
               Cadastrar minha loja
             </Link>
@@ -362,16 +551,34 @@ export default function Home() {
         {menuAberto && (
           <div className="border-t border-gray-200/70 bg-white/95 px-4 pb-5 pt-3 backdrop-blur-xl lg:hidden dark:border-white/10 dark:bg-[#070C18]/95">
             <div className="flex flex-col gap-1">
-              {links.map((l) => (
-                <a
-                  key={l.href}
-                  href={l.href}
-                  onClick={() => setMenuAberto(false)}
-                  className="rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/10"
-                >
-                  {l.rotulo}
-                </a>
-              ))}
+              <div className="px-3 py-1 text-[11px] font-black uppercase text-slate-400">Soluções</div>
+              <Link to="/sistema-para-restaurante-por-quilo" onClick={() => setMenuAberto(false)} className="rounded-xl px-3 py-2 text-sm font-bold text-emerald-400">
+                ⚖️ Restaurantes por Quilo (Novo)
+              </Link>
+              <Link to="/sistema-para-hamburgueria" onClick={() => setMenuAberto(false)} className="rounded-xl px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                🍔 Hamburguerias
+              </Link>
+              <Link to="/sistema-para-pizzaria" onClick={() => setMenuAberto(false)} className="rounded-xl px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                🍕 Pizzarias
+              </Link>
+              <Link to="/sistema-para-lanchonete" onClick={() => setMenuAberto(false)} className="rounded-xl px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                🥪 Lanchonetes
+              </Link>
+              <Link to="/sistema-para-restaurantes" onClick={() => setMenuAberto(false)} className="rounded-xl px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                🍽️ Restaurantes & Bares
+              </Link>
+
+              <div className="mt-2 px-3 py-1 text-[11px] font-black uppercase text-slate-400">Navegação</div>
+              <a href="#como-funciona" onClick={() => setMenuAberto(false)} className="rounded-xl px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                Como funciona
+              </a>
+              <a href="#planos" onClick={() => setMenuAberto(false)} className="rounded-xl px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                Planos
+              </a>
+              <Link to="/videos" onClick={() => setMenuAberto(false)} className="rounded-xl px-3 py-2 text-sm font-bold text-orange-400">
+                Vídeos 🎬
+              </Link>
+
               <div className="mt-3 flex flex-col gap-2">
                 <Link
                   to="/acesso"
@@ -576,7 +783,7 @@ export default function Home() {
                   <BarChart3 size={28} />
                 </div>
                 <h3 className="mt-4 font-['Sora'] text-xl font-bold text-white group-hover:text-amber-400 transition-colors">
-                  Restaurantes
+                  Restaurantes & Bares
                 </h3>
                 <p className="mt-2 text-xs leading-relaxed text-slate-300">
                   Comanda no celular do garçom, mapa de mesas com divisão de conta, DRE financeiro e NFC-e.
@@ -584,6 +791,36 @@ export default function Home() {
               </div>
               <div className="mt-6 flex items-center gap-1.5 text-xs font-bold text-amber-400 group-hover:translate-x-1 transition-transform">
                 Ver solução para Restaurante <ArrowRight size={14} />
+              </div>
+            </Link>
+
+            {/* 5. Restaurantes por Quilo & Self-Service */}
+            <Link
+              to="/sistema-para-restaurante-por-quilo"
+              className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-emerald-500/30 bg-emerald-950/20 p-6 backdrop-blur-md transition-all duration-300 hover:-translate-y-1.5 hover:border-emerald-500 hover:bg-emerald-900/30 hover:shadow-2xl hover:shadow-emerald-500/20 sm:col-span-2 lg:col-span-4"
+            >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="inline-flex rounded-2xl bg-emerald-500/20 p-3.5 text-emerald-400 shrink-0">
+                    <Scale size={32} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-['Sora'] text-xl font-bold text-white group-hover:text-emerald-400 transition-colors">
+                        Restaurantes a Quilo & Buffet Self-Service
+                      </h3>
+                      <span className="rounded-full bg-emerald-500 px-2.5 py-0.5 text-[10px] font-black uppercase text-slate-950">
+                        NOVO MÓDULO
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm leading-relaxed text-slate-300 max-w-3xl">
+                      Módulo de Peso Inteligente (R$/kg): baixa exata de estoque proporcional por grama consumida, PDV express de balança, cardápio digital com seletor de peso e relatórios por porções.
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 flex items-center gap-1.5 text-sm font-bold text-emerald-400 group-hover:translate-x-1 transition-transform">
+                  Conhecer Peso Inteligente <ArrowRight size={16} />
+                </div>
               </div>
             </Link>
 
@@ -767,6 +1004,213 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ══════════ 6.5 SEÇÃO PROMO DE REFEIÇÃO POR QUILO ══════════ */}
+      <section className="relative overflow-hidden bg-slate-900 py-20 border-t border-white/10">
+        <div className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 h-96 w-96 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/60 via-slate-900 to-emerald-950/40 p-8 md:p-12 shadow-2xl backdrop-blur-xl">
+            <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
+              <div>
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-1.5 text-xs font-extrabold uppercase tracking-widest text-emerald-300">
+                  <Scale size={14} /> Fim do Desperdício no Buffet
+                </span>
+                <h2 className="mt-4 font-['Sora'] text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+                  Seu restaurante a quilo vendendo com{' '}
+                  <span className="bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">
+                    Peso Inteligente
+                  </span>
+                </h2>
+                <p className="mt-4 text-base leading-relaxed text-slate-300">
+                  Chega de perder dinheiro no buffet por falta de controle de estoque. Com a tecnologia de peso do MiseOn, cada grama servida no prato baixa exatamente a proporção de insumos cadastrada na Ficha Técnica.
+                </p>
+                <div className="mt-6 space-y-3">
+                  <div className="flex items-start gap-3 text-sm text-slate-200">
+                    <Check size={18} className="mt-0.5 shrink-0 text-emerald-400 font-bold" />
+                    <span><b>Baixa Exata de Estoque:</b> 0.350kg no prato = baixa proporcional exata no estoque de insumos.</span>
+                  </div>
+                  <div className="flex items-start gap-3 text-sm text-slate-200">
+                    <Check size={18} className="mt-0.5 shrink-0 text-emerald-400 font-bold" />
+                    <span><b>Preço R$/kg Flexível:</b> Atualize o valor por quilo sempre que a carne ou insumos oscilarem.</span>
+                  </div>
+                  <div className="flex items-start gap-3 text-sm text-slate-200">
+                    <Check size={18} className="mt-0.5 shrink-0 text-emerald-400 font-bold" />
+                    <span><b>Operação Híbrida:</b> Prato por quilo + marmitas a peso + bebidas unitárias no mesmo caixa.</span>
+                  </div>
+                </div>
+                <div className="mt-8">
+                  <Link
+                    to="/sistema-para-restaurante-por-quilo"
+                    className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-8 py-4 font-['Sora'] text-sm font-extrabold text-slate-950 shadow-lg shadow-emerald-500/25 transition hover:scale-105 hover:bg-emerald-400"
+                  >
+                    Conhecer Módulo por Quilo <ArrowRight size={18} />
+                  </Link>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/40 p-6 backdrop-blur-md">
+                <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
+                  <span className="text-xs font-bold uppercase text-emerald-400">Simulação de Venda por Peso</span>
+                  <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">PDV Express</span>
+                </div>
+                <div className="space-y-3 text-xs">
+                  <div className="flex justify-between rounded-xl bg-white/5 p-3">
+                    <span className="font-semibold text-slate-200">Feijoada por Quilo (R$ 69,90/kg)</span>
+                    <span className="font-mono font-bold text-emerald-400">0,420 kg</span>
+                  </div>
+                  <div className="flex justify-between rounded-xl bg-white/5 p-3">
+                    <span className="font-semibold text-slate-200">Baixa automática em estoque</span>
+                    <span className="font-mono text-slate-300">-126g Feijão / -84g Carne</span>
+                  </div>
+                  <div className="flex justify-between border-t border-white/10 pt-3 text-sm font-bold text-white">
+                    <span>Subtotal Prato</span>
+                    <span className="text-emerald-400">R$ 29,35</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════ 6.6 SEÇÃO ENGENHARIA DE ESTOQUE 3D & PREPAROS ══════════ */}
+      <section id="estoque-3d" className="relative scroll-mt-24 overflow-hidden bg-[#070C18] py-20 sm:py-28 border-t border-white/10">
+        <div className="pointer-events-none absolute left-1/4 top-0 h-96 w-96 rounded-full bg-blue-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute right-10 bottom-0 h-96 w-96 rounded-full bg-purple-500/10 blur-3xl" />
+
+        <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="mx-auto max-w-3xl text-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-blue-400">
+              <Boxes size={14} /> Módulo de Engenharia de Estoque & Preparos
+            </span>
+            <h2 className="mt-5 font-['Sora'] text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl">
+              Controle de Insumos, Fichas Técnicas e{' '}
+              <span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">
+                Observabilidade 3D em Tempo Real
+              </span>
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-slate-300 sm:text-lg">
+              Transforme a gestão de suprimentos da sua cozinha com conversão automática de fracionamento, receitas base com controle de validade e mapeamento tridimensional de lotes físicos.
+            </p>
+          </div>
+
+          <div className="mt-16 grid gap-8 lg:grid-cols-3">
+            
+            {/* Pilar 1: Cadastro & Fracionamento */}
+            <div className="flex flex-col justify-between rounded-3xl border border-white/10 bg-white/5 p-7 backdrop-blur-xl transition-all duration-300 hover:border-blue-500/40 hover:bg-white/10 hover:shadow-2xl">
+              <div>
+                <div className="inline-flex rounded-2xl bg-blue-500/20 p-3.5 text-blue-400">
+                  <Database size={28} />
+                </div>
+                <div className="mt-5">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-blue-400">Pilar 01</span>
+                  <h3 className="mt-1 font-['Sora'] text-xl font-bold text-white">
+                    Cadastro & Fracionamento Inteligente
+                  </h3>
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-slate-300">
+                  Cadastre insumos por categoria (<i>Ingrediente, Revenda Direta, Embalagem, Limpeza</i>) e atribua o setor físico (<i>Geladeira, Freezer, Dispensa, Armário</i>).
+                </p>
+                <div className="mt-4 space-y-2 rounded-2xl bg-black/40 p-4 text-xs">
+                  <div className="flex items-center justify-between text-slate-200">
+                    <span>Unidade de Compra:</span>
+                    <span className="font-bold text-blue-300">Pacote / Fardo / Caixa</span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-200 border-t border-white/10 pt-2">
+                    <span>Conversão de Uso:</span>
+                    <span className="font-bold text-emerald-400">Gramas (g) / ML / Fatias</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-amber-300 border-t border-white/10 pt-2">
+                    <AlertTriangle size={13} className="shrink-0" />
+                    <span>Alerta automático de estoque crítico/risco.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Pilar 2: Receitas & Ordens de Produção */}
+            <div className="flex flex-col justify-between rounded-3xl border border-white/10 bg-white/5 p-7 backdrop-blur-xl transition-all duration-300 hover:border-orange-500/40 hover:bg-white/10 hover:shadow-2xl">
+              <div>
+                <div className="inline-flex rounded-2xl bg-orange-500/20 p-3.5 text-orange-400">
+                  <FlaskConical size={28} />
+                </div>
+                <div className="mt-5">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-orange-400">Pilar 02</span>
+                  <h3 className="mt-1 font-['Sora'] text-xl font-bold text-white">
+                    Receitas Base & Validade de Lotes
+                  </h3>
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-slate-300">
+                  Crie preparos intermediários (ex: <i>Blend Moldado 180g, Cebola Caramelizada, Molhos</i>) especificando rendimento por lote e ficha técnica dos insumos brutos.
+                </p>
+                <div className="mt-4 space-y-2 rounded-2xl bg-black/40 p-4 text-xs">
+                  <div className="flex items-center justify-between text-slate-200">
+                    <span>Produção por Lote:</span>
+                    <span className="font-bold text-orange-300">Ordens de Serviço (OS)</span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-200 border-t border-white/10 pt-2">
+                    <span>Controle de Validade:</span>
+                    <span className="font-bold text-white">Horas / Dias com Timer</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[#FF4D4D] border-t border-white/10 pt-2 font-bold">
+                    <span>Sinalização de Risco:</span>
+                    <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[10px]">LOTE VENCIDO</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Pilar 3: Observabilidade 3D & Rastreio */}
+            <div className="flex flex-col justify-between rounded-3xl border border-white/10 bg-white/5 p-7 backdrop-blur-xl transition-all duration-300 hover:border-purple-500/40 hover:bg-white/10 hover:shadow-2xl">
+              <div>
+                <div className="inline-flex rounded-2xl bg-purple-500/20 p-3.5 text-purple-400">
+                  <Eye size={28} />
+                </div>
+                <div className="mt-5">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-purple-400">Pilar 03</span>
+                  <h3 className="mt-1 font-['Sora'] text-xl font-bold text-white">
+                    Observabilidade 3D de Estoque Físico
+                  </h3>
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-slate-300">
+                  Visualização tridimensional interativa que mapeia lotes físicos no espaço da cozinha e aplica o método PEPS (Primeiro que entra, Primeiro que sai).
+                </p>
+                <div className="mt-4 space-y-2 rounded-2xl bg-black/40 p-4 text-xs">
+                  <div className="flex items-center justify-between text-slate-200">
+                    <span>Capital Investido:</span>
+                    <span className="font-mono font-bold text-emerald-400">R$ Total Mapeado</span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-200 border-t border-white/10 pt-2">
+                    <span>Maior Alocação:</span>
+                    <span className="font-bold text-purple-300">Custo unitário por Lote</span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-200 border-t border-white/10 pt-2">
+                    <span>Rastreabilidade:</span>
+                    <span className="font-bold text-blue-300">Esteiras 3D por Setor</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div className="mt-12 rounded-3xl border border-white/10 bg-gradient-to-r from-blue-950/40 via-purple-950/40 to-slate-900 p-8 text-center backdrop-blur-xl">
+            <h3 className="font-['Sora'] text-2xl font-bold text-white">
+              Quer ver o controle de estoque 3D da sua cozinha em ação?
+            </h3>
+            <p className="mt-2 text-sm text-slate-300 max-w-2xl mx-auto">
+              Elimine perdas por insumos vencidos e saiba exatamente quanto dinheiro está parado nas suas prateleiras e geladeiras.
+            </p>
+            <div className="mt-6 flex justify-center">
+              <Link
+                to="/cadastre-se"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#FC5B24] to-[#E34A1B] px-8 py-4 font-['Sora'] text-sm font-extrabold text-white shadow-xl shadow-[#FC5B24]/30 transition hover:scale-105"
+              >
+                Testar Estoque 3D Grátis <ArrowRight size={18} />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ══════════ 7. COMO FUNCIONA ══════════ */}
       <section id="como-funciona" className="scroll-mt-24 py-20 sm:py-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
@@ -846,13 +1290,13 @@ export default function Home() {
       <section id="planos" className="scroll-mt-24 pb-24">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
           <div className="mx-auto max-w-2xl text-center mb-14">
-            <span className="text-xs font-black uppercase tracking-widest text-[var(--cor-primaria)]">Planos</span>
+            <span className="text-xs font-black uppercase tracking-widest text-[var(--cor-primaria)]">Planos & Assinatura</span>
             <h2 className="mt-3 font-['Sora'] text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl dark:text-white">
-              Um valor justo, sem taxa por pedido
+              Sua loja no ar com 30 dias grátis — Sem pegadinha de cartão
             </h2>
             <p className="mt-4 text-base leading-relaxed text-gray-600 dark:text-slate-300">
-              Escolha a melhor opção para o seu momento. Todos os recursos liberados em ambos os planos,
-              sem fidelidade forçada: cancele quando quiser, direto no painel.
+              Cadastre sua loja em menos de 3 minutos, use 30 dias sem custos e escolha a melhor opção para a sua operação. 
+              Pagamentos via Pix têm 5% de desconto à vista e o plano anual pode ser parcelado no cartão em até 12x pelo Efí Bank.
             </p>
           </div>
 
@@ -875,7 +1319,7 @@ export default function Home() {
                   : 'text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
-              Anual (2 meses grátis)
+              Anual (Desconto Especial)
             </button>
           </div>
 
@@ -883,52 +1327,59 @@ export default function Home() {
             <div className="flex flex-col lg:flex-row rounded-3xl border border-orange-500/30 bg-[#0B1120] shadow-2xl overflow-hidden transition-all duration-500 hover:shadow-orange-500/10">
               
               {/* Esquerda: Preço e CTA */}
-              <div className="relative flex flex-col justify-between p-8 lg:w-[42%] lg:p-10 bg-gradient-to-br from-[#0B1120] via-[#0C1730] to-[#111a33] border-b border-white/10 lg:border-b-0 lg:border-r">
+              <div className="relative flex flex-col justify-between p-8 lg:w-[45%] lg:p-10 bg-gradient-to-br from-[#0B1120] via-[#0C1730] to-[#111a33] border-b border-white/10 lg:border-b-0 lg:border-r">
                 {planoAnual && (
                   <div className="absolute -left-10 -top-10 h-40 w-40 rounded-full bg-[#FC5B24]/20 blur-3xl pointer-events-none transition-opacity duration-500" />
                 )}
                 
                 <div>
-                  {planoAnual && (
-                    <div className="inline-flex rounded-full bg-gradient-to-r from-[#FC5B24] to-[#E34A1B] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg mb-6">
-                      Mais Popular
-                    </div>
-                  )}
-                  <h3 className="font-['Sora'] text-3xl font-extrabold text-white">Plano Único</h3>
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="inline-flex rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-300">
+                      ✨ 30 Dias Grátis Sem Cartão
+                    </span>
+                    {planoAnual && (
+                      <span className="inline-flex rounded-full bg-gradient-to-r from-[#FC5B24] to-[#E34A1B] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg">
+                        Mais Recomendado
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-['Sora'] text-3xl font-extrabold text-white">Plano Profissional</h3>
                   <p className="mt-2 text-sm leading-relaxed text-slate-300">
-                    {planoAnual ? 'A escolha inteligente: economia garantida e previsibilidade total para a sua operação.' : 'Flexibilidade absoluta: acesso total ao sistema e cancele a qualquer momento.'}
+                    {planoAnual ? 'A escolha inteligente: R$ 149,90/mês no plano anual. Parcele em até 12x no cartão ou ganhe 5% OFF à vista no Pix.' : 'Flexibilidade mensal: R$ 169,90/mês com acesso completo a todos os módulos, sem fidelidade forçada.'}
                   </p>
                 </div>
 
                 <div className="mt-8 flex flex-col">
                   {planoAnual ? (
                     <div className="flex items-center gap-3 mb-1">
-                      <span className="text-sm font-medium text-slate-500 line-through">De R$ 129,90</span>
-                      <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold tracking-wider text-emerald-400 uppercase">2 meses grátis</span>
+                      <span className="text-sm font-medium text-slate-500 line-through">R$ 169,90/mês</span>
+                      <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold tracking-wider text-emerald-400 uppercase">Economize R$ 240,00/ano</span>
                     </div>
                   ) : (
-                    <div className="h-5" /> 
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold text-emerald-400">Pix com 5% OFF: R$ 161,40/mês</span>
+                    </div>
                   )}
                   <div className="flex items-baseline gap-1">
                     <span className="text-5xl font-extrabold tracking-tight text-white transition-all">
-                      R$ {planoAnual ? '99,90' : '129,90'}
+                      R$ {planoAnual ? '149,90' : '169,90'}
                     </span>
                     <span className="text-base font-medium text-slate-400">/mês</span>
                   </div>
-                  <span className="mt-2 text-xs text-orange-300/80 font-medium h-4 transition-all">
-                    {planoAnual ? '*Faturado R$ 1.198,80 anualmente' : 'Sem fidelidade contratual'}
+                  <span className="mt-2 text-xs text-orange-300/90 font-medium transition-all">
+                    {planoAnual ? 'Parcele em 3x, 6x, 8x ou 12x de R$ 149,90 no cartão (ou R$ 1.708,86 à vista no Pix com 5% OFF)' : 'R$ 169,90 no cartão ou R$ 161,40 à vista no Pix (5% OFF)'}
                   </span>
                 </div>
 
-                <div className="mt-10">
+                <div className="mt-8">
                   <Link
                     to="/cadastre-se"
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#FC5B24] to-[#E34A1B] px-6 py-4 font-['Sora'] text-base font-bold text-white shadow-lg shadow-[#FC5B24]/30 transition hover:scale-105 hover:brightness-110"
                   >
-                    Começar Agora <ArrowRight size={18} />
+                    Testar 30 Dias Grátis <ArrowRight size={18} />
                   </Link>
-                  <p className="mt-4 text-center text-[11px] font-medium text-slate-500">
-                    <strong className="text-slate-300">Zero taxas de setup.</strong> Suporte e implantação VIP grátis.
+                  <p className="mt-4 text-center text-[11px] font-medium text-slate-400">
+                    <strong className="text-slate-200">Sem cartão no cadastro.</strong> Tolerância de 7 dias pós-vencimento.
                   </p>
                 </div>
               </div>

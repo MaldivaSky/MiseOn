@@ -24,6 +24,7 @@ const Contato         = lazy(() => import('./pages/legal/Contato'));
 const DescadastroEmail = lazy(() => import('./pages/legal/DescadastroEmail'));
 const Videos           = lazy(() => import('./pages/Videos'));
 const NicheLandingPage = lazy(() => import('./pages/landing/NicheLandingPage'));
+const EstoquePage      = lazy(() => import('./pages/landing/EstoquePage'));
 
 // ── Lazy: ADMIN_LAYOUT (único layout compartilhado — carrega rápido) ─────────
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
@@ -150,10 +151,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="/sistema-para-lanchonete"   element={<NicheLandingPage forcedSlug="sistema-para-lanchonete" />} />
               <Route path="/sistema-para-pizzaria"     element={<NicheLandingPage forcedSlug="sistema-para-pizzaria" />} />
               <Route path="/sistema-para-restaurantes" element={<NicheLandingPage forcedSlug="sistema-para-restaurantes" />} />
+              <Route path="/sistema-para-restaurante-por-quilo" element={<NicheLandingPage forcedSlug="sistema-para-restaurante-por-quilo" />} />
               <Route path="/integracao-ifood"          element={<NicheLandingPage forcedSlug="integracao-ifood" />} />
               <Route path="/cardapio-qr-code"          element={<NicheLandingPage forcedSlug="cardapio-qr-code" />} />
               <Route path="/api-whatsapp-restaurantes" element={<NicheLandingPage forcedSlug="api-whatsapp-restaurantes" />} />
               <Route path="/gestao-fiscal-nfe"         element={<NicheLandingPage forcedSlug="gestao-fiscal-nfe" />} />
+              <Route path="/gestao-de-estoque-3d"      element={<EstoquePage />} />
+              <Route path="/ajuda/estoque"             element={<EstoquePage />} />
 
               <Route path="/:slug/meus-pedidos" element={<MeusPedidos />} />
               <Route path="/:slug"         element={<Cardapio />} />
