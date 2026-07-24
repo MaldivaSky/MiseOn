@@ -12,6 +12,14 @@ export type EntregaModo = 'BAIRRO' | 'DISTANCIA' | 'HIBRIDO';
 export type EstacaoPreparo = 'COZINHA' | 'DIRETO';
 export type EstacaoAtual = 'BALCAO' | 'COZINHA';
 
+export interface EtapaKDS {
+  id: string;
+  nome: string;
+  cor: string;
+  ordem: number;
+  estacaoPreparo?: string;
+}
+
 export interface LeadCadastro {
   id: string;
   nome_responsavel: string;
@@ -85,6 +93,7 @@ export interface Loja {
   // Formas de pagamento aceitas
   aceita_online?: boolean | null;   // Pix/Crédito via Efí (pague agora)
   aceita_entrega?: boolean | null;  // Dinheiro/maquininha (pague na entrega)
+  kds_etapas?: EtapaKDS[] | null; // Configuração de etapas do KDS Kanban
 }
 
 export interface HorarioFuncionamento {
@@ -283,6 +292,8 @@ export interface Pedido {
   nfe_url?: string | null;
   nfe_erros?: any;
   chat_conversation_id?: string | null;
+  etapa_kds_atual?: string | null;
+  timestamps_etapas_kds?: Record<string, string> | null;
 }
 
 export interface Cliente {

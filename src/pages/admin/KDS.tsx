@@ -1,28 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { ChefHat, Bike, Store, Maximize, Check, Package, UtensilsCrossed, Trophy, Flame } from 'lucide-react';
+import {
+  ChefHat, Bike, Store, Maximize, Check, Package, UtensilsCrossed, Trophy, Flame,
+  SlidersHorizontal, Settings, Plus, Trash2, ArrowLeft, ArrowRight, RotateCcw, X,
+  Clock, BarChart2, AlertCircle
+} from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { type Pedido, type StatusPedido } from '../../types';
+import { type Pedido, type EtapaKDS } from '../../types';
 import { tocarSom } from '../../lib/som';
 import { traduzirErro, type ErroTraduzido } from '../../lib/erros';
 import { ErroAmigavel } from '../../components/ui/ErroAmigavel';
 import type { CtxLoja } from './AdminLayout';
 
-/* ─────────────────────────────────────────────────────────────
-   KDS — tela da COZINHA, e só da cozinha.
-   Fullscreen dark, letras grandes, zero burocracia:
-   Fila → Preparando → Pronto, um toque avança.
-   Fluxo passa-bastão (docs/PLANO-FLUXO-PEDIDOS.md): só entram aqui
-   pedidos com requer_cozinha=true que o BALCÃO já enviou (bastão em
-   COZINHA). "Aceitar" (NOVO→ACEITO) é ato do balcão, não da cozinha.
-   Itens de revenda direta do mesmo pedido aparecem apagados (contexto,
-   sem ação) — quem entrega são eles, não a cozinha.
-   ───────────────────────────────────────────────────────────── */
-
-const SELECT = 'id, numero, status, tipo_pedido, identificador_cliente, origem, mesa_numero, agendado_para, criado_em, estacao_atual, requer_cozinha, ' +
+const SELECT = 'id, numero, status, tipo_pedido, identificador_cliente, origem, mesa_numero, agendado_para, criado_em, estacao_atual, requer_cozinha, etapa_kds_atual, timestamps_etapas_kds, ' +
   'itens_pedido(id, nome_produto, quantidade, observacao, itens_pedido_opcoes(nome_opcao), produtos(estacao_preparo))';
 
-// minutos até o card mudar de cor (atenção / atraso)
 const LIMITE_ATENCAO_MIN = 10;
 const LIMITE_ATRASO_MIN = 20;
 
@@ -45,31 +37,62 @@ interface Metricas {
   pedidos_hoje: number | null;
 }
 
+const PALETA_CORES = [
+  '#FC5B24', '#0A5CC4', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#E11D48'
+];
+
+const ETAPAS_PADRAO: EtapaKDS[] = [
+  { id: 'etapa_fila', nome: 'Fila de Entrada', cor: '#FC5B24', ordem: 0 },
+  { id: 'etapa_preparo', nome: 'Em Preparo / Montagem', cor: '#0A5CC4', ordem: 1 },
+  { id: 'etapa_pronto', nome: 'Expedição / Pronto', cor: '#10B981', ordem: 2 },
+];
+
 export default function KDS() {
   const { lojaId } = useOutletContext<CtxLoja>();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [antecedenciaMin, setAntecedenciaMin] = useState<number | null>(null); // null = ainda não carregou a config da loja
-  const [, setTick] = useState(0); // re-render por minuto para os cronômetros
+  const [antecedenciaMin, setAntecedenciaMin] = useState<number | null>(null);
+  const [, setTick] = useState(0);
   const [operadores, setOperadores] = useState<Operador[]>([]);
   const [operadorAtivo, setOperadorAtivo] = useState<string | null>(() => localStorage.getItem(`miseon_kds_operador_${lojaId}`));
   const [metricas, setMetricas] = useState<Metricas | null>(null);
   const [celebrar, setCelebrar] = useState(false);
   const [erroAcao, setErroAcao] = useState<ErroTraduzido | null>(null);
 
+  // Etapas de processo configuráveis pelo restaurante
+  const [etapas, setEtapas] = useState<EtapaKDS[]>(() => {
+    const salvo = localStorage.getItem(`miseon_kds_etapas_${lojaId}`);
+    return salvo ? JSON.parse(salvo) : ETAPAS_PADRAO;
+  });
+
+  const [modalConfigAberto, setModalConfigAberto] = useState(false);
+  const [modalMetricasAberto, setModalMetricasAberto] = useState(false);
+  const [novaEtapaNome, setNovaEtapaNome] = useState('');
+
+  // Carregar etapas salvas no banco de dados da loja
   useEffect(() => {
-    supabase.from('lojas').select('agendamento_antecedencia_min').eq('id', lojaId).single()
-      .then(({ data }) => setAntecedenciaMin(data?.agendamento_antecedencia_min ?? 30));
+    supabase.from('lojas').select('agendamento_antecedencia_min, kds_etapas').eq('id', lojaId).single()
+      .then(({ data }) => {
+        setAntecedenciaMin(data?.agendamento_antecedencia_min ?? 30);
+        if (data?.kds_etapas && Array.isArray(data.kds_etapas) && data.kds_etapas.length >= 2) {
+          setEtapas(data.kds_etapas);
+          localStorage.setItem(`miseon_kds_etapas_${lojaId}`, JSON.stringify(data.kds_etapas));
+        }
+      });
     supabase.from('usuarios_loja').select('user_id, nome').eq('loja_id', lojaId).in('papel', ['admin', 'operador'])
       .then(({ data }) => setOperadores((data as Operador[]) ?? []));
   }, [lojaId]);
+
+  const salvarEtapas = async (novasEtapas: EtapaKDS[]) => {
+    setEtapas(novasEtapas);
+    localStorage.setItem(`miseon_kds_etapas_${lojaId}`, JSON.stringify(novasEtapas));
+    await supabase.from('lojas').update({ kds_etapas: novasEtapas }).eq('id', lojaId);
+  };
 
   const carregarMetricas = async () => {
     const { data, error } = await supabase.rpc('fn_metricas_cozinha', { p_loja_id: lojaId });
     if (error || !data) return;
     const m = data as Metricas;
     setMetricas((anterior) => {
-      // Celebra quando o dia vira "dentro da meta" pela primeira vez nesta sessão
-      // (não precisa de histórico de recorde — já é uma vitória real e não-bloqueante).
       if (anterior && m.pedidos_hoje && m.media_hoje_min != null
         && m.media_hoje_min <= m.meta_min && !(anterior.media_hoje_min != null && anterior.media_hoje_min <= anterior.meta_min)) {
         setCelebrar(true);
@@ -79,8 +102,6 @@ export default function KDS() {
     });
   };
 
-  // Pedidos agendados só entram na fila da cozinha perto da hora (antecedência da
-  // loja) — senão um agendamento pra amanhã apareceria hoje como se estivesse atrasado.
   const carregar = async () => {
     if (antecedenciaMin === null) return;
     const cutoffProducao = new Date(Date.now() + antecedenciaMin * 60000).toISOString();
@@ -90,12 +111,8 @@ export default function KDS() {
       .eq('loja_id', lojaId)
       .eq('requer_cozinha', true)
       .in('status', ['ACEITO', 'PREPARANDO', 'PRONTO'])
-      // só aparece quando o balcão já passou o bastão (ou, na coluna Pronto,
-      // como confirmação de quem acabou de sair da cozinha)
       .or('estacao_atual.eq.COZINHA,status.eq.PRONTO')
-      // relevante hoje: criado recentemente OU tem agendamento
       .or(`criado_em.gte.${cutoff24h},agendado_para.not.is.null`)
-      // só entra na fila quando está perto da hora de começar a preparar
       .or(`agendado_para.is.null,agendado_para.lte.${cutoffProducao}`)
       .order('criado_em', { ascending: true });
     setPedidos((data as unknown as Pedido[]) ?? []);
@@ -124,31 +141,87 @@ export default function KDS() {
     else localStorage.removeItem(`miseon_kds_operador_${lojaId}`);
   };
 
-  const avancar = async (p: Pedido) => {
-    const prox: StatusPedido = p.status === 'ACEITO' ? 'PREPARANDO' : 'PRONTO';
-    const { error } = await supabase.rpc('fn_avancar_status_pedido', {
-      p_pedido_id: p.id, p_novo_status: prox, p_operador_user_id: operadorAtivo,
-    });
-    // Antes isto quebrava em silêncio (promise rejeitada sem catch): a cozinha
-    // tocava no card e nada acontecia. Agora o motivo aparece em linguagem humana.
-    if (error) {
-      setErroAcao(traduzirErro(error));
-      return;
+  const avancar = async (p: Pedido, etapaIndexAtual: number) => {
+    const proxIndex = etapaIndexAtual + 1;
+    const proximaEtapa = etapas[proxIndex];
+
+    if (!proximaEtapa) return;
+
+    if (proxIndex >= etapas.length - 1) {
+      // Última etapa do Kanban (Pronto / Expedição)
+      const { error } = await supabase.rpc('fn_avancar_status_pedido', {
+        p_pedido_id: p.id, p_novo_status: 'PRONTO', p_operador_user_id: operadorAtivo,
+      });
+      if (error) {
+        setErroAcao(traduzirErro(error));
+        return;
+      }
+    } else {
+      // Etapa intermediária (Preparo / Chapa / Montagem / Forno)
+      const { error } = await supabase.rpc('fn_avancar_status_pedido', {
+        p_pedido_id: p.id, p_novo_status: 'PREPARANDO', p_operador_user_id: operadorAtivo,
+      });
+      if (error && p.status === 'ACEITO') {
+        setErroAcao(traduzirErro(error));
+        return;
+      }
     }
+
+    // Registrar o timestamp da nova etapa no banco de dados
+    await supabase.rpc('fn_registrar_etapa_kds', {
+      p_pedido_id: p.id,
+      p_etapa_id: proximaEtapa.id,
+    });
+
     setErroAcao(null);
     carregar();
     carregarMetricas();
   };
 
-  const fila = pedidos.filter((p) => p.status === 'ACEITO');
-  const preparando = pedidos.filter((p) => p.status === 'PREPARANDO');
-  const prontos = pedidos.filter((p) => p.status === 'PRONTO');
+  // Cálculo de Indicadores de Tempo Médio por Etapa (Gargalo de Produção)
+  const metricasPorEtapa = useMemo(() => {
+    const acumulado: Record<string, { totalMin: number; qtd: number }> = {};
+    for (const e of etapas) {
+      acumulado[e.id] = { totalMin: 0, qtd: 0 };
+    }
 
-  // "O que a cozinha precisa produzir agora" — itens agregados da fila + preparo,
-  // só os de preparo (revenda direta não entra na conta da cozinha).
+    for (const p of pedidos) {
+      const tsMap = p.timestamps_etapas_kds || {};
+      for (let i = 0; i < etapas.length; i++) {
+        const eAtual = etapas[i];
+        const eProx = etapas[i + 1];
+        const tsInicio = tsMap[eAtual.id] || (i === 0 ? p.enviado_cozinha_em || p.criado_em : null);
+        const tsFim = eProx ? tsMap[eProx.id] : null;
+
+        if (tsInicio) {
+          const min = (new Date(tsFim || Date.now()).getTime() - new Date(tsInicio).getTime()) / 60000;
+          acumulado[eAtual.id].totalMin += Math.max(0, min);
+          acumulado[eAtual.id].qtd += 1;
+        }
+      }
+    }
+
+    const resultado: Record<string, number> = {};
+    let maiorGargaloId = '';
+    let maiorTempo = 0;
+
+    for (const e of etapas) {
+      const datos = acumulado[e.id];
+      const media = datos && datos.qtd > 0 ? datos.totalMin / datos.qtd : 0;
+      resultado[e.id] = Math.round(media * 10) / 10;
+      if (media > maiorTempo) {
+        maiorTempo = media;
+        maiorGargaloId = e.id;
+      }
+    }
+
+    return { medias: resultado, gargaloId: maiorGargaloId, tempoGargalo: Math.round(maiorTempo * 10) / 10 };
+  }, [pedidos, etapas]);
+
+  // Agregado dos itens a produzir
   const agregado = useMemo(() => {
     const mapa = new Map<string, number>();
-    for (const p of [...fila, ...preparando]) {
+    for (const p of pedidos.filter(p => p.status !== 'PRONTO')) {
       for (const i of p.itens_pedido ?? []) {
         if ((i as any).produtos?.estacao_preparo === 'DIRETO') continue;
         mapa.set(i.nome_produto, (mapa.get(i.nome_produto) ?? 0) + i.quantidade);
@@ -162,34 +235,79 @@ export default function KDS() {
     else document.documentElement.requestFullscreen?.();
   };
 
-  const Card = ({ p, acao }: { p: Pedido; acao: string }) => {
-    // Pedido agendado: o cronômetro conta a partir da hora marcada, não da criação
-    // (senão um agendamento de ontem apareceria como "1440min atrasado").
+  const handleAdicionarEtapa = () => {
+    if (!novaEtapaNome.trim()) return;
+    const nova: EtapaKDS = {
+      id: `etapa_${Date.now()}`,
+      nome: novaEtapaNome.trim(),
+      cor: PALETA_CORES[etapas.length % PALETA_CORES.length],
+      ordem: etapas.length - 1,
+    };
+    const clone = [...etapas];
+    clone.splice(clone.length - 1, 0, nova);
+    // Reordenar
+    clone.forEach((e, idx) => (e.ordem = idx));
+    salvarEtapas(clone);
+    setNovaEtapaNome('');
+  };
+
+  const handleMoverEtapa = (index: number, direcao: 'esquerda' | 'direita') => {
+    if (direcao === 'esquerda' && index === 0) return;
+    if (direcao === 'direita' && index === etapas.length - 1) return;
+    const clone = [...etapas];
+    const targetIdx = direcao === 'esquerda' ? index - 1 : index + 1;
+    const temp = clone[index];
+    clone[index] = clone[targetIdx];
+    clone[targetIdx] = temp;
+    clone.forEach((e, idx) => (e.ordem = idx));
+    salvarEtapas(clone);
+  };
+
+  const handleRemoverEtapa = (id: string) => {
+    if (etapas.length <= 2) return;
+    salvarEtapas(etapas.filter(e => e.id !== id));
+  };
+
+  const Card = ({ p, acaoRotulo, etapaIndex, etapaAtualObj }: { p: Pedido; acaoRotulo: string; etapaIndex: number; etapaAtualObj: EtapaKDS }) => {
     const referencia = p.agendado_para && new Date(p.agendado_para) > new Date(p.criado_em) ? p.agendado_para : p.criado_em;
-    const min = minutosDesde(referencia);
-    const cor = corDoTempo(min);
-    const finalizadoCozinha = p.status === 'PRONTO'; // despacho/entrega é papel do Painel de Pedidos
+    const minTotal = minutosDesde(referencia);
+    
+    // Tempo na etapa atual
+    const tsEtapaInicio = p.timestamps_etapas_kds?.[etapaAtualObj.id] || (etapaIndex === 0 ? p.enviado_cozinha_em || p.criado_em : null);
+    const minNaEtapa = tsEtapaInicio ? minutosDesde(tsEtapaInicio) : minTotal;
+
+    const cor = corDoTempo(minTotal);
+    const finalizadoCozinha = p.status === 'PRONTO' || etapaIndex >= etapas.length - 1;
+
     return (
-      <button onClick={() => !finalizadoCozinha && avancar(p)} disabled={finalizadoCozinha}
+      <button
+        onClick={() => !finalizadoCozinha && avancar(p, etapaIndex)}
+        disabled={finalizadoCozinha}
         className="w-full rounded-2xl bg-[#0F172A] p-4 text-left transition active:scale-[0.98] disabled:active:scale-100"
-        style={{ border: `2px solid ${finalizadoCozinha ? 'rgba(16,185,129,0.4)' : cor.borda}`, animation: cor.pulso && !finalizadoCozinha ? 'pulse 1.6s infinite' : undefined }}>
+        style={{ border: `2px solid ${finalizadoCozinha ? 'rgba(16,185,129,0.4)' : cor.borda}`, animation: cor.pulso && !finalizadoCozinha ? 'pulse 1.6s infinite' : undefined }}
+      >
         <div className="flex items-center justify-between">
           <span className="font-['Sora'] text-2xl font-black text-white">#{p.numero}</span>
-          <span className="font-['JetBrains_Mono'] text-lg font-bold" style={{ color: cor.texto }}>
-            {min >= 0 ? `${Math.floor(min)}min` : `em ${Math.ceil(-min)}min`}
-          </span>
+          
+          <div className="text-right">
+            <span className="font-['JetBrains_Mono'] text-base font-bold block" style={{ color: cor.texto }}>
+              {minTotal >= 0 ? `${Math.floor(minTotal)}min` : `em ${Math.ceil(-minTotal)}min`}
+            </span>
+            {minNaEtapa > 0 && !finalizadoCozinha && (
+              <span className="text-[10px] text-slate-400 flex items-center justify-end gap-1 font-mono">
+                <Clock size={10} /> na etapa: {Math.floor(minNaEtapa)}m
+              </span>
+            )}
+          </div>
         </div>
+
         <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-[#6C7A96]">
           {p.tipo_pedido === 'SALAO'
             ? <UtensilsCrossed size={12} />
             : p.origem === 'balcao' ? <Store size={12} /> : p.tipo_pedido === 'DELIVERY' ? <Bike size={12} /> : <Package size={12} />}
           {p.tipo_pedido === 'SALAO' ? `MESA ${p.mesa_numero ?? '—'}` : p.origem === 'balcao' ? 'BALCÃO' : p.tipo_pedido === 'DELIVERY' ? 'DELIVERY' : 'RETIRADA'} · {p.identificador_cliente}
-          {p.agendado_para && (
-            <span className="ml-auto shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-400">
-              Agendado {new Date(p.agendado_para).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          )}
         </div>
+
         <div className="mt-3 space-y-2">
           {p.itens_pedido?.map((i) => {
             const revenda = (i as any).produtos?.estacao_preparo === 'DIRETO';
@@ -213,46 +331,50 @@ export default function KDS() {
             );
           })}
         </div>
+
         {finalizadoCozinha ? (
           <div className="mt-3 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500/10 py-2 text-center text-[12px] font-black uppercase tracking-wider text-emerald-400">
             <Check size={13} /> Devolvido ao balcão
           </div>
         ) : (
-          <div className="mt-3 rounded-xl bg-white/5 py-2 text-center text-[12px] font-black uppercase tracking-wider text-white/70">
-            Toque → {acao}
+          <div className="mt-3 rounded-xl bg-white/5 py-2 text-center text-[12px] font-black uppercase tracking-wider text-white/70 hover:bg-white/10 transition">
+            Toque → {acaoRotulo}
           </div>
         )}
       </button>
     );
   };
 
-  const Coluna = ({ titulo, cor, lista, acao, vazio }: { titulo: string; cor: string; lista: Pedido[]; acao: string; vazio: string }) => (
-    <div className="flex min-w-0 flex-1 flex-col">
-      <div className="mb-2 flex items-center justify-between px-1">
-        <span className="font-['JetBrains_Mono'] text-[12px] font-bold uppercase tracking-[0.2em]" style={{ color: cor }}>{titulo}</span>
-        <span className="rounded-full px-2.5 py-0.5 font-['Sora'] text-sm font-black text-white" style={{ background: cor }}>{lista.length}</span>
-      </div>
-      <div className="flex-1 space-y-3 overflow-y-auto pb-4 pr-1">
-        {lista.map((p) => <Card key={p.id} p={p} acao={acao} />)}
-        {lista.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-white/10 py-10 text-center text-[13px] text-[#3D4A63]">{vazio}</div>
-        )}
-      </div>
-    </div>
-  );
-
   const dentroDaMeta = metricas?.media_hoje_min != null && metricas.media_hoje_min <= metricas.meta_min;
   const corMeta = metricas?.media_hoje_min == null ? '#6C7A96' : dentroDaMeta ? '#34D399' : '#F87171';
 
+  // Filtra pedidos para cada coluna de etapa configurada
+  const getPedidosPorEtapa = (etapaIndex: number, etapa: EtapaKDS) => {
+    if (etapaIndex === 0) {
+      return pedidos.filter(p => p.status === 'ACEITO' || p.etapa_kds_atual === etapa.id);
+    }
+    if (etapaIndex === etapas.length - 1) {
+      return pedidos.filter(p => p.status === 'PRONTO' || p.etapa_kds_atual === etapa.id);
+    }
+    return pedidos.filter(p => p.status === 'PREPARANDO' && p.etapa_kds_atual === etapa.id);
+  };
+
+  const nomeGargalo = etapas.find(e => e.id === metricasPorEtapa.gargaloId)?.nome;
+
   return (
     <div className="flex h-[calc(100vh-64px)] flex-col bg-[#070C18] px-4 pt-3 lg:h-screen">
-      {/* ── Cabeçalho ── */}
+      
+      {/* ── Cabeçalho KDS Kanban ── */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <ChefHat size={22} className="text-orange-500" />
-          <h2 className="font-['Sora'] text-xl font-black text-white">Cozinha</h2>
+          <h2 className="font-['Sora'] text-xl font-black text-white">KDS Kanban Cozinha</h2>
           <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_8px_#22c55e]" />
+          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            {etapas.length} Colunas Trello
+          </span>
         </div>
+
         <div className="flex items-center gap-2">
           {metricas && (
             <div className="flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-1.5 text-xs font-bold" style={{ color: corMeta }}>
@@ -260,20 +382,36 @@ export default function KDS() {
               {metricas.media_hoje_min != null ? `${metricas.media_hoje_min}min hoje` : 'sem dados hoje'} · meta {metricas.meta_min}min
             </div>
           )}
+
+          {/* Botão de Indicadores & Métricas por Etapa */}
+          <button
+            onClick={() => setModalMetricasAberto(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs font-bold text-blue-400 transition hover:bg-blue-500/20"
+          >
+            <BarChart2 size={14} /> Indicadores por Etapa
+          </button>
+
+          {/* Botão de Personalizar Etapas (Trello Config) */}
+          <button
+            onClick={() => setModalConfigAberto(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-bold text-orange-400 transition hover:bg-orange-500/20"
+          >
+            <SlidersHorizontal size={14} /> Personalizar Etapas
+          </button>
+
           <button onClick={fullscreen} className="flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-1.5 text-xs font-bold text-white/60 transition hover:text-white">
             <Maximize size={13} /> Tela cheia
           </button>
         </div>
       </div>
 
-      {/* ── Erro de ação (ex.: pedido ainda não enviado pelo balcão) ── */}
       {erroAcao && (
         <div className="mb-3 max-w-2xl">
           <ErroAmigavel erro={erroAcao} onFechar={() => setErroAcao(null)} />
         </div>
       )}
 
-      {/* ── Seletor de operador (quem está na cozinha agora) ── */}
+      {/* ── Seletor de operador ── */}
       {operadores.length > 0 && (
         <div className="mb-3 flex items-center gap-2 overflow-x-auto pb-1">
           <span className="shrink-0 font-['JetBrains_Mono'] text-[10px] font-bold uppercase tracking-[0.2em] text-[#6C7A96]">Na cozinha:</span>
@@ -290,28 +428,245 @@ export default function KDS() {
         </div>
       )}
 
-      {/* ── Para produzir agora (agregado) ── */}
-      {agregado.length > 0 && (
-        <div className="mb-3 flex items-center gap-2 overflow-x-auto rounded-2xl border border-white/8 bg-white/[0.04] px-3 py-2">
-          <span className="shrink-0 font-['JetBrains_Mono'] text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Na fila:</span>
-          {agregado.map(([nome, qtd]) => (
-            <span key={nome} className="shrink-0 rounded-full bg-white/5 px-3 py-1 text-[12px] font-bold text-[#EAF1FB]">
-              <span className="text-orange-400">{qtd}×</span> {nome}
-            </span>
-          ))}
+      {/* ── Resumo de Gargalo & Fila ── */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        {agregado.length > 0 && (
+          <div className="flex items-center gap-2 overflow-x-auto rounded-2xl border border-white/8 bg-white/[0.04] px-3 py-2 flex-1">
+            <span className="shrink-0 font-['JetBrains_Mono'] text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Em produção:</span>
+            {agregado.map(([nome, qtd]) => (
+              <span key={nome} className="shrink-0 rounded-full bg-white/5 px-3 py-1 text-[12px] font-bold text-[#EAF1FB]">
+                <span className="text-orange-400">{qtd}×</span> {nome}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {nomeGargalo && metricasPorEtapa.tempoGargalo > 0 && (
+          <div className="flex items-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-300">
+            <AlertCircle size={14} className="text-amber-400 shrink-0" />
+            <span>Gargalo da Cozinha: <b>{nomeGargalo}</b> (média {metricasPorEtapa.tempoGargalo} min)</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── QUADRO KANBAN TRELLO (COLUNAS DINÂMICAS) ── */}
+      <div className="flex flex-1 gap-4 overflow-x-auto pb-4">
+        {etapas.map((etapa, idx) => {
+          const listaPedidos = getPedidosPorEtapa(idx, etapa);
+          const proximaEtapaNome = etapas[idx + 1]?.nome || 'Concluir';
+          const tempoMedioEtapa = metricasPorEtapa.medias[etapa.id] || 0;
+
+          return (
+            <div key={etapa.id} className="flex min-w-[290px] max-w-[340px] flex-1 flex-col rounded-2xl border border-white/10 bg-white/5 p-2 backdrop-blur-md">
+              <div className="mb-2.5 flex items-center justify-between px-2 pt-1 border-b border-white/5 pb-2">
+                <div className="flex items-center gap-2 truncate">
+                  <span className="h-3 w-3 rounded-full shrink-0" style={{ background: etapa.cor }} />
+                  <span className="font-['Sora'] text-sm font-extrabold uppercase tracking-wide text-white truncate">
+                    {etapa.nome}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {tempoMedioEtapa > 0 && (
+                    <span className="text-[10px] font-mono text-slate-400 bg-white/10 px-2 py-0.5 rounded-full">
+                      ~{tempoMedioEtapa}m
+                    </span>
+                  )}
+                  <span className="rounded-full px-2.5 py-0.5 font-['Sora'] text-xs font-black text-white" style={{ background: etapa.cor }}>
+                    {listaPedidos.length}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+                {listaPedidos.map((p) => (
+                  <Card key={p.id} p={p} acaoRotulo={proximaEtapaNome} etapaIndex={idx} etapaAtualObj={etapa} />
+                ))}
+                {listaPedidos.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-white/10 py-12 text-center text-[13px] text-[#3D4A63]">
+                    Sem pedidos nesta etapa 🎉
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── MODAL: INDICADORES E MÉTRICAS POR ETAPA ── */}
+      {modalMetricasAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-3xl border border-white/15 bg-[#0F172A] p-6 text-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-2">
+                <BarChart2 className="text-blue-400" size={22} />
+                <h3 className="font-['Sora'] text-lg font-bold">Métricas & Indicadores de Tempo por Etapa</h3>
+              </div>
+              <button onClick={() => setModalMetricasAberto(false)} className="rounded-lg p-1 text-slate-400 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+
+            <p className="mt-3 text-xs leading-relaxed text-slate-300">
+              Analise o tempo médio em minutos que os pedidos permanecem em cada processo da sua cozinha para identificar gargalos e otimizar a expedição.
+            </p>
+
+            <div className="mt-6 space-y-3">
+              {etapas.map((e) => {
+                const tempo = metricasPorEtapa.medias[e.id] || 0;
+                const ehGargalo = metricasPorEtapa.gargaloId === e.id && tempo > 0;
+
+                return (
+                  <div key={e.id} className={`rounded-2xl border p-4 transition-all ${ehGargalo ? 'border-amber-500/50 bg-amber-500/10' : 'border-white/10 bg-white/5'}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="h-3 w-3 rounded-full" style={{ background: e.cor }} />
+                        <span className="font-['Sora'] text-sm font-bold text-white">{e.nome}</span>
+                        {ehGargalo && (
+                          <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-black uppercase text-amber-300">
+                            Maior Gargalo
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-['JetBrains_Mono'] text-base font-bold text-white">
+                        {tempo > 0 ? `${tempo} min` : 'Sem dados'}
+                      </span>
+                    </div>
+
+                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.min(100, (tempo / (metricas?.meta_min || 20)) * 100)}%`,
+                          background: e.cor,
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 border-t border-white/10 pt-4 text-right">
+              <button
+                onClick={() => setModalMetricasAberto(false)}
+                className="rounded-xl bg-blue-600 px-6 py-2 text-sm font-bold text-white transition hover:bg-blue-700"
+              >
+                Fechar Indicadores
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* ── Colunas ── */}
-      <div className="flex flex-1 gap-4 overflow-hidden">
-        <Coluna titulo="Fila" cor="#FC5B24" lista={fila} acao="iniciar preparo" vazio="Fila limpa 🎉" />
-        <Coluna titulo="Preparando" cor="#0A5CC4" lista={preparando} acao="marcar pronto" vazio="Nada no fogo" />
-        <Coluna titulo="Pronto" cor="#10B981" lista={prontos} acao="—" vazio="Nada aguardando" />
-      </div>
+      {/* ── MODAL: CONFIGURAR ETAPAS TRELLO (CANBAN CONFIG) ── */}
+      {modalConfigAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-3xl border border-white/15 bg-[#0F172A] p-6 text-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-2">
+                <Settings className="text-orange-400" size={20} />
+                <h3 className="font-['Sora'] text-lg font-bold">Personalizar Etapas KDS (Estilo Trello)</h3>
+              </div>
+              <button onClick={() => setModalConfigAberto(false)} className="rounded-lg p-1 text-slate-400 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
 
-      {/* ── Celebração não-bloqueante ao entrar na meta ── */}
+            <p className="mt-3 text-xs leading-relaxed text-slate-300">
+              Crie, renomeie e organize as colunas do seu Kanban de cozinha conforme os processos do seu negócio (ex: <b>Entrada, Chapa, Grelha, Montagem, Forno, Expedição</b>).
+            </p>
+
+            <div className="mt-5 space-y-3 max-h-60 overflow-y-auto pr-1">
+              {etapas.map((e, index) => (
+                <div key={e.id} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      type="color"
+                      value={e.cor}
+                      onChange={(evt) => {
+                        const clone = [...etapas];
+                        clone[index].cor = evt.target.value;
+                        salvarEtapas(clone);
+                      }}
+                      className="h-7 w-7 rounded-lg border-0 cursor-pointer bg-transparent"
+                    />
+                    <input
+                      type="text"
+                      value={e.nome}
+                      onChange={(evt) => {
+                        const clone = [...etapas];
+                        clone[index].nome = evt.target.value;
+                        salvarEtapas(clone);
+                      }}
+                      className="flex-1 rounded-xl border border-white/10 bg-white/10 px-3 py-1.5 text-sm font-bold text-white focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleMoverEtapa(index, 'esquerda')}
+                      disabled={index === 0}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
+                    >
+                      <ArrowLeft size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleMoverEtapa(index, 'direita')}
+                      disabled={index === etapas.length - 1}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
+                    >
+                      <ArrowRight size={16} />
+                    </button>
+                    {etapas.length > 2 && (
+                      <button
+                        onClick={() => handleRemoverEtapa(e.id)}
+                        className="rounded-lg p-1.5 text-red-400 hover:bg-red-500/20"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <input
+                type="text"
+                placeholder="Nome da nova etapa (ex: Chapa, Forno, Embalagem)..."
+                value={novaEtapaNome}
+                onChange={(e) => setNovaEtapaNome(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAdicionarEtapa()}
+                className="flex-1 rounded-xl border border-white/15 bg-white/10 px-3.5 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-orange-500"
+              />
+              <button
+                onClick={handleAdicionarEtapa}
+                className="flex items-center gap-1.5 rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-orange-600"
+              >
+                <Plus size={16} /> Adicionar Coluna
+              </button>
+            </div>
+
+            <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-4">
+              <button
+                onClick={() => salvarEtapas(ETAPAS_PADRAO)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white"
+              >
+                <RotateCcw size={14} /> Restaurar Padrão
+              </button>
+              <button
+                onClick={() => setModalConfigAberto(false)}
+                className="rounded-xl bg-gradient-to-r from-[#FC5B24] to-[#E34A1B] px-6 py-2 text-sm font-bold text-white shadow-lg"
+              >
+                Salvar & Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {celebrar && (
-        <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-2xl border border-emerald-400/40 bg-emerald-500/15 px-4 py-3 text-emerald-300 shadow-2xl backdrop-blur-sm" style={{ animation: 'mo-screen-in .3s ease-out' }}>
+        <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-2xl border border-emerald-400/40 bg-emerald-500/15 px-4 py-3 text-emerald-300 shadow-2xl backdrop-blur-sm">
           <Trophy size={20} /> <span className="font-['Sora'] text-sm font-black">Dentro da meta hoje! 🔥</span>
         </div>
       )}
