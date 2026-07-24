@@ -273,7 +273,7 @@ export default function Home() {
   return (
     <div className="min-h-screen scroll-smooth bg-[#F4F7FA] font-sans text-gray-900 selection:bg-[#FC5B24] selection:text-white dark:bg-[#070C18] dark:text-[#EAF1FB]">
       <SEO
-        title="MiseOn | Sistema de Gestão para Restaurantes, Hamburguerias e Deliveries"
+        title="MiseOn | Sistema de Gestão para Restaurantes e Deliveries"
         description="O MiseOn veio para organizar e simplificar a gestão de restaurantes, hamburguerias, pizzarias e lanchonetes. Cardápio digital, KDS, iFood, WhatsApp IA e Pix."
         keywords="sistema para restaurante, sistema para hamburgueria, sistema para pizzaria, cardapio digital qr code, integracao ifood, whatsapp ia restaurante"
         canonicalUrl="https://miseon.app.br/"
